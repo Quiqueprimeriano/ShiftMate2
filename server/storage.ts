@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { 
   users, 
@@ -18,23 +18,30 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
-// Parse and reconstruct the connection string to handle special characters
-let encodedConnectionString = connectionString;
-try {
-  const url = new URL(connectionString);
-  // The URL constructor automatically encodes the password
-  encodedConnectionString = url.toString();
-} catch (error) {
-  // If URL parsing fails, try manual encoding
-  encodedConnectionString = connectionString.replace(/:[^:@]*@/, (match) => {
-    const password = match.slice(1, -1);
-    return ':' + encodeURIComponent(password) + '@';
-  });
+console.log('Connecting to database with PostgreSQL driver...');
+
+// Parse connection string manually to handle special characters
+const match = connectionString.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+if (!match) {
+  throw new Error('Invalid DATABASE_URL format');
 }
 
-console.log('Connecting to database...');
-const connection = neon(encodedConnectionString);
-const db = drizzle(connection);
+const [, username, password, host, port, database] = match;
+
+console.log('Parsed connection details for PostgreSQL');
+
+const pool = new Pool({
+  user: username,
+  password: password,
+  host: host,
+  port: parseInt(port),
+  database: database,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+const db = drizzle(pool);
 
 export interface IStorage {
   // User methods
