@@ -18,12 +18,21 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
-// URL encode the connection string to handle special characters in password
-const encodedConnectionString = connectionString.replace(/:[^:@]*@/, (match) => {
-  const password = match.slice(1, -1); // Remove : and @
-  return ':' + encodeURIComponent(password) + '@';
-});
+// Parse and reconstruct the connection string to handle special characters
+let encodedConnectionString = connectionString;
+try {
+  const url = new URL(connectionString);
+  // The URL constructor automatically encodes the password
+  encodedConnectionString = url.toString();
+} catch (error) {
+  // If URL parsing fails, try manual encoding
+  encodedConnectionString = connectionString.replace(/:[^:@]*@/, (match) => {
+    const password = match.slice(1, -1);
+    return ':' + encodeURIComponent(password) + '@';
+  });
+}
 
+console.log('Connecting to database...');
 const connection = neon(encodedConnectionString);
 const db = drizzle(connection);
 
@@ -59,13 +68,27 @@ export class DbStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    return result[0];
+    try {
+      console.log('Searching for user with email:', email);
+      const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      console.log('getUserByEmail result:', result);
+      return result[0];
+    } catch (error) {
+      console.error('Error in getUserByEmail:', error);
+      throw error;
+    }
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(user).returning();
-    return result[0];
+    try {
+      console.log('Creating user:', user);
+      const result = await db.insert(users).values(user).returning();
+      console.log('createUser result:', result);
+      return result[0];
+    } catch (error) {
+      console.error('Error in createUser:', error);
+      throw error;
+    }
   }
 
   // Shift methods

@@ -16,17 +16,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, name } = req.body;
       
+      console.log('Login attempt:', { email, name });
+      
       let user = await storage.getUserByEmail(email);
       if (!user) {
+        console.log('Creating new user:', { email, name });
         user = await storage.createUser({ email, name });
       }
       
       // Set user session
       (req.session as any).userId = user.id;
       
+      console.log('Login successful for user:', user.id);
       res.json({ user });
     } catch (error) {
-      res.status(500).json({ message: "Login failed" });
+      console.error('Login error:', error);
+      res.status(500).json({ message: "Login failed", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
