@@ -1,0 +1,167 @@
+PRODUCT OVERVIEW
+Product Name: ShiftMate
+Purpose: A web and mobile app that allows users to easily log and manage their work shifts.
+It includes calendar visualization, recurring shifts, smart dashboards, exportable reports, and push notifications.
+
+Target Audience:
+
+Support workers
+
+ABN/Freelance contractors
+
+Shift-based professionals
+
+🚀 CORE FEATURES (MVP)
+Shift logging by date, start and end time (15-min intervals)
+
+Recurring shifts: daily, weekly, custom patterns
+
+Calendar view: monthly layout with color-coded shifts
+
+Dashboard with:
+
+Total hours for current and previous week
+
+Daily averages
+
+Days without entries
+
+Smart notification system:
+
+Push alert if no shift is logged for 3+ days
+
+Exportable reports:
+
+PDF and CSV
+
+Filters by custom date ranges
+
+Totals by day, shift, and range
+
+User-based data isolation:
+
+Each user accesses only their data
+
+Authentication via Email or Google
+
+🧱 ARCHITECTURE (Clean Architecture + SOLID Principles)
+Modular codebase using Clean Architecture with separation of concerns.
+
+Frontend:
+
+React.js for web
+
+React Native (with Expo) for mobile
+
+TailwindCSS + shadcn/ui for reusable UI components
+
+Backend:
+
+Node.js + Express (or Next.js API Routes)
+
+Service/repository/controller pattern
+
+Database:
+
+Supabase with PostgreSQL and built-in Auth
+
+Structured, normalized schema
+
+Validation:
+
+Frontend: Zod/Yup
+
+Backend: Joi or middleware validators
+
+⚙️ SYSTEM DESIGN
+Components Overview:
+csharp
+Copiar
+Editar
+[Frontend (React / React Native)]
+            ↓
+       [REST API / Edge Functions]
+            ↓
+     [PostgreSQL DB (Supabase)]
+            ↓
+ [Push Notifications (OneSignal / Expo)]
+            ↓
+ [PDF/CSV Exporter (Client-Side)]
+Highlights:
+Stateless API design
+
+Edge Function or Cron Job to trigger alerts (e.g. inactivity notification)
+
+Export handled in frontend (lightweight, no server load)
+
+Potential CDN usage for frontend assets (Vercel)
+
+Future-ready architecture for integrations (e.g., Xero, NDIS tools)
+
+🔐 SECURITY FRAMEWORK
+Authentication:
+
+Supabase Auth (Google or Email/Password)
+
+Authorization:
+
+Row-level security to restrict DB access per user
+
+Input validation:
+
+All user inputs validated both client- and server-side
+
+Encryption:
+
+HTTPS enforced for all traffic
+
+Encrypted at rest (Supabase default)
+
+Attack protection:
+
+Rate limiting for critical endpoints
+
+XSS & CSRF protection
+
+SQL injection prevention via ORM/query builders
+
+User consent for data handling and export
+
+📈 OBSERVABILITY & METRICS
+Logging:
+
+Structured logs via Winston (Node) or Supabase Logs
+
+Monitoring Tools:
+
+Sentry: Frontend and Backend error tracking
+
+LogRocket: Session replay for frontend usage analysis
+
+Metrics to track:
+
+Uptime
+
+API latency
+
+Error rates (4xx/5xx)
+
+Session duration
+
+Weekly retention
+
+Alerting:
+
+Auto-alerts on login failures, export issues, cron failures
+
+🛠️ TECH STACK SUMMARY
+Layer	Technology
+Frontend (web)	React.js + TailwindCSS + shadcn/ui
+Frontend (mobile)	React Native + Expo
+Backend API	Node.js + Express / Next.js
+Database	Supabase (PostgreSQL + Auth)
+Exporting	html2pdf.js + papaparse (CSV)
+Notifications	OneSignal / Expo Notifications
+Hosting	Vercel (frontend) + Supabase
+DevOps	GitHub Actions + Supabase Deploy
+Monitoring	Sentry + Supabase Logs + LogRocket
