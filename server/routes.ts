@@ -1,8 +1,14 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertShiftSchema, insertNotificationSchema } from "@shared/schema";
 import { z } from "zod";
+
+// Extend the Request interface to include session
+interface AuthenticatedRequest extends Request {
+  session: any;
+  userId?: number;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes

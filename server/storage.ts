@@ -18,7 +18,13 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
-const connection = neon(connectionString);
+// URL encode the connection string to handle special characters in password
+const encodedConnectionString = connectionString.replace(/:[^:@]*@/, (match) => {
+  const password = match.slice(1, -1); // Remove : and @
+  return ':' + encodeURIComponent(password) + '@';
+});
+
+const connection = neon(encodedConnectionString);
 const db = drizzle(connection);
 
 export interface IStorage {
