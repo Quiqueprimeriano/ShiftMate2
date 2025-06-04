@@ -2,14 +2,14 @@ import { pgTable, text, serial, integer, boolean, timestamp, date, time } from "
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
+export const users = pgTable("shiftmate_users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const shifts = pgTable("shifts", {
+export const shifts = pgTable("shiftmate_shifts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   date: date("date").notNull(),
@@ -23,7 +23,7 @@ export const shifts = pgTable("shifts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const notifications = pgTable("notifications", {
+export const notifications = pgTable("shiftmate_notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   type: text("type").notNull(), // missing_entries, long_shift
