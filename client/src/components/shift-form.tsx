@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -60,6 +60,38 @@ export function ShiftForm({ onSuccess }: { onSuccess?: () => void }) {
   });
 
   const [recurringType, setRecurringType] = useState("none");
+  
+  // Watch start time to filter end time options
+  const startTime = form.watch("startTime");
+  
+  // Generate filtered end time options based on start time
+  const endTimeOptions = useMemo(() => {
+    if (!startTime) {
+      return timeOptions;
+    }
+    
+    // Find the index of the selected start time
+    const startIndex = timeOptions.findIndex(option => option.value === startTime);
+    
+    if (startIndex === -1) {
+      return timeOptions;
+    }
+    
+    // Return all times after the start time, plus times from the next day for overnight shifts
+    const afterStartTime = timeOptions.slice(startIndex + 1);
+    const nextDayTimes = timeOptions.slice(0, startIndex + 1).map(option => ({
+      ...option,
+      label: `${option.label} (+1 day)`
+    }));
+    
+    return [...afterStartTime, ...nextDayTimes];
+  }, [startTime, timeOptions]);
+  
+  // Reset end time when start time changes
+  const handleStartTimeChange = (value: string) => {
+    form.setValue("startTime", value);
+    form.setValue("endTime", ""); // Clear end time when start time changes
+  };
 
   const onSubmit = async (data: ShiftFormData) => {
     try {
@@ -146,7 +178,7 @@ export function ShiftForm({ onSuccess }: { onSuccess?: () => void }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Start Time</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={handleStartTimeChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select start time" />
@@ -174,11 +206,11 @@ export function ShiftForm({ onSuccess }: { onSuccess?: () => void }) {
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select end time" />
+                        <SelectValue placeholder={startTime ? "Select end time" : "Select start time first"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="max-h-60">
-                      {timeOptions.map((time) => (
+                      {endTimeOptions.map((time) => (
                         <SelectItem key={time.value} value={time.value}>
                           {time.label}
                         </SelectItem>
