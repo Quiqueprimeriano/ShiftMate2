@@ -40,17 +40,34 @@ export default function Dashboard() {
   const alerts = useMemo(() => {
     const alertList = [];
     
-    if (missingEntries && missingEntries.length > 0) {
-      alertList.push({
-        type: 'error',
-        icon: AlertTriangle,
-        title: 'Missing Entries',
-        description: `No shifts logged for ${missingEntries.length} days`,
-        bgColor: 'bg-red-50',
-        borderColor: 'border-red-200',
-        textColor: 'text-red-900',
-        descColor: 'text-red-700'
-      });
+    // Find next upcoming shift
+    if (recentShifts && recentShifts.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const upcomingShifts = recentShifts
+        .filter(shift => shift.date >= today)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      if (upcomingShifts.length > 0) {
+        const nextShift = upcomingShifts[0];
+        const shiftDate = new Date(nextShift.date);
+        const isToday = nextShift.date === today;
+        const isTomorrow = new Date(nextShift.date).getTime() === new Date(today).getTime() + 24 * 60 * 60 * 1000;
+        
+        let dateText = shiftDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        if (isToday) dateText = 'Today';
+        if (isTomorrow) dateText = 'Tomorrow';
+        
+        alertList.push({
+          type: 'info',
+          icon: Clock,
+          title: 'Next Shift',
+          description: `${dateText} • ${formatTime(nextShift.startTime)} - ${formatTime(nextShift.endTime)} (${nextShift.shiftType})`,
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-200',
+          textColor: 'text-blue-900',
+          descColor: 'text-blue-700'
+        });
+      }
     }
 
     // Check for long shifts (12+ hours)
@@ -74,10 +91,20 @@ export default function Dashboard() {
     }
 
     return alertList;
-  }, [missingEntries, recentShifts]);
+  }, [recentShifts]);
 
   return (
     <div className="p-4 lg:p-8">
+      {/* Add Today's Shift - Featured Button */}
+      <div className="mb-8">
+        <Link href="/add-shift">
+          <Button size="lg" className="w-full md:w-auto text-lg px-8 py-4 h-auto">
+            <Plus className="h-6 w-6 mr-3" />
+            Add Today's Shift
+          </Button>
+        </Link>
+      </div>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
@@ -257,22 +284,8 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Quick Actions & Alerts */}
+        {/* Alerts */}
         <div className="space-y-6">
-          {/* Quick Add Shift */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Add</h3>
-              <Link href="/add-shift">
-                <Button className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Today's Shift
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Alerts */}
           <Card>
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Alerts</h3>
