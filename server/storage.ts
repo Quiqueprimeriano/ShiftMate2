@@ -104,7 +104,8 @@ export class DbStorage implements IStorage {
   }
 
   async getShiftsByUserAndDateRange(userId: number, startDate: string, endDate: string): Promise<Shift[]> {
-    return await db.select().from(shifts)
+    console.log(`Querying shifts for user ${userId} between ${startDate} and ${endDate}`);
+    const result = await db.select().from(shifts)
       .where(
         and(
           eq(shifts.userId, userId),
@@ -113,6 +114,8 @@ export class DbStorage implements IStorage {
         )
       )
       .orderBy(shifts.date);
+    console.log(`Query returned ${result.length} shifts:`, result);
+    return result;
   }
 
   async createShift(shift: InsertShift): Promise<Shift> {
@@ -132,7 +135,9 @@ export class DbStorage implements IStorage {
 
   // Analytics methods
   async getWeeklyHours(userId: number, startDate: string, endDate: string): Promise<number> {
+    console.log(`Getting weekly hours for user ${userId} from ${startDate} to ${endDate}`);
     const shiftsInRange = await this.getShiftsByUserAndDateRange(userId, startDate, endDate);
+    console.log(`Found ${shiftsInRange.length} shifts in range:`, shiftsInRange);
     
     let totalMinutes = 0;
     for (const shift of shiftsInRange) {
@@ -144,10 +149,14 @@ export class DbStorage implements IStorage {
         end.setDate(end.getDate() + 1);
       }
       
-      totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
+      const shiftMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+      console.log(`Shift ${shift.id}: ${shift.startTime} to ${shift.endTime} = ${shiftMinutes} minutes`);
+      totalMinutes += shiftMinutes;
     }
     
-    return totalMinutes / 60; // Convert to hours
+    const totalHours = totalMinutes / 60;
+    console.log(`Total hours calculated: ${totalHours}`);
+    return totalHours;
   }
 
   async getDailyAverage(userId: number, startDate: string, endDate: string): Promise<number> {
