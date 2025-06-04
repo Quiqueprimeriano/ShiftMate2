@@ -1,5 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 import { insertUserSchema, insertShiftSchema, insertNotificationSchema } from "@shared/schema";
 import { z } from "zod";
@@ -10,28 +12,121 @@ interface AuthenticatedRequest extends Request {
   userId?: number;
 }
 
+// Configure Google OAuth Strategy
+function setupGoogleAuth() {
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/auth/google/callback"
+    }, async (accessToken, refreshToken, profile, done) => {
+      try {
+        const email = profile.emails?.[0]?.value;
+        const name = profile.displayName;
+        
+        if (!email || !name) {
+          return done(new Error('Email or name not provided by Google'));
+        }
+
+        // Check if user exists
+        let user = await storage.getUserByEmail(email);
+        
+        if (!user) {
+          // Create new user
+          user = await storage.createUser({ email, name });
+        }
+        
+        return done(null, user);
+      } catch (error) {
+        return done(error);
+      }
+    }));
+
+    passport.serializeUser((user: any, done) => {
+      done(null, user.id);
+    });
+
+    passport.deserializeUser(async (id: number, done) => {
+      try {
+        const user = await storage.getUser(id);
+        done(null, user);
+      } catch (error) {
+        done(error);
+      }
+    });
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth routes
+  // Initialize passport
+  app.use(passport.initialize());
+  app.use(passport.session());
+  
+  // Setup Google OAuth
+  setupGoogleAuth();
+
+  // Google OAuth routes
+  app.get("/api/auth/google", (req, res, next) => {
+    // Store the intent (login or signup) in session
+    (req.session as any).authIntent = req.query.intent || 'login';
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+  });
+
+  app.get("/api/auth/google/callback", 
+    passport.authenticate('google', { failureRedirect: '/login?error=auth_failed' }),
+    (req, res) => {
+      // Successful authentication, redirect to dashboard
+      res.redirect('/');
+    }
+  );
+
+  // Email/Password Auth routes
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, name } = req.body;
       
       console.log('Login attempt:', { email, name });
       
-      let user = await storage.getUserByEmail(email);
-      if (!user) {
-        console.log('Creating new user:', { email, name });
-        user = await storage.createUser({ email, name });
+      // Check if user exists
+      const existingUser = await storage.getUserByEmail(email);
+      
+      if (existingUser) {
+        // User exists, log them in
+        (req.session as any).userId = existingUser.id;
+        console.log('Login successful for user:', existingUser.id);
+        res.json({ user: existingUser });
+      } else {
+        // User doesn't exist for login
+        res.status(401).json({ message: "User not found. Please sign up first." });
       }
-      
-      // Set user session
-      (req.session as any).userId = user.id;
-      
-      console.log('Login successful for user:', user.id);
-      res.json({ user });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: "Login failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { email, name } = req.body;
+      
+      console.log('Signup attempt:', { email, name });
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      
+      if (existingUser) {
+        res.status(409).json({ message: "User already exists. Please log in instead." });
+      } else {
+        // Create new user
+        console.log('Creating new user:', { email, name });
+        const newUser = await storage.createUser({ email, name });
+        (req.session as any).userId = newUser.id;
+        console.log('Signup successful for user:', newUser.id);
+        res.json({ user: newUser });
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      res.status(500).json({ message: "Signup failed", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
