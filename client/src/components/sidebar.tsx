@@ -41,8 +41,8 @@ export function Sidebar() {
             return (
               <li key={item.path}>
                 <Link href={item.path}>
-                  <a
-                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  <button
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
                       isActive
                         ? "bg-primary/10 text-primary border border-primary/20"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -50,7 +50,7 @@ export function Sidebar() {
                   >
                     <Icon className="w-4 h-4" />
                     <span>{item.label}</span>
-                  </a>
+                  </button>
                 </Link>
               </li>
             );

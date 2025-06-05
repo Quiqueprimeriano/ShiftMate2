@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, History, TrendingUp, AlertTriangle, Plus } from "lucide-react";
-import { useShifts, useWeeklyHours, useDailyAverage, useMissingEntries } from "@/hooks/use-shifts";
+import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit } from "lucide-react";
+import { useShifts, useWeeklyHours } from "@/hooks/use-shifts";
 import { getWeekDates, formatTime, calculateDuration } from "@/lib/time-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -19,15 +19,69 @@ export default function Dashboard() {
     end: previousWeekEnd.toISOString().split('T')[0]
   };
 
+  const [isShiftActive, setIsShiftActive] = useState(false);
+  const [shiftStartTime, setShiftStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+
   const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
   const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(currentWeek.start, currentWeek.end);
   const { data: lastWeekHours, isLoading: lastWeekLoading } = useWeeklyHours(previousWeek.start, previousWeek.end);
-  const { data: dailyAverage, isLoading: avgLoading } = useDailyAverage(currentWeek.start, currentWeek.end);
-  const { data: missingEntries, isLoading: missingLoading } = useMissingEntries(currentWeek.start, currentWeek.end);
+
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isShiftActive && shiftStartTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Date.now() - shiftStartTime.getTime());
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isShiftActive, shiftStartTime]);
 
   const recentShiftsToShow = useMemo(() => {
     return recentShifts?.slice(0, 3) || [];
   }, [recentShifts]);
+
+  const formatElapsedTime = (milliseconds: number): string => {
+    const totalMinutes = Math.floor(milliseconds / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  const roundToNearestQuarter = (minutes: number): number => {
+    return Math.round(minutes / 15) * 15;
+  };
+
+  const handleStartShift = () => {
+    setShiftStartTime(new Date());
+    setIsShiftActive(true);
+    setElapsedTime(0);
+  };
+
+  const handleEndShift = () => {
+    if (!shiftStartTime) return;
+    
+    const endTime = new Date();
+    const totalMinutes = Math.floor((endTime.getTime() - shiftStartTime.getTime()) / 60000);
+    const roundedMinutes = roundToNearestQuarter(totalMinutes);
+    
+    // Calculate start and end times
+    const startHour = shiftStartTime.getHours();
+    const startMinute = shiftStartTime.getMinutes();
+    const endHour = Math.floor((startMinute + roundedMinutes) / 60) + startHour;
+    const endMinute = (startMinute + roundedMinutes) % 60;
+    
+    const startTimeStr = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
+    const endTimeStr = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+    
+    // Navigate to add shift page with pre-filled data
+    window.location.href = `/add-shift?date=${new Date().toISOString().split('T')[0]}&startTime=${startTimeStr}&endTime=${endTimeStr}&fromTimer=true`;
+    
+    setIsShiftActive(false);
+    setShiftStartTime(null);
+    setElapsedTime(0);
+  };
 
   const shiftTypeColors = {
     morning: 'bg-emerald-500',
@@ -169,21 +223,28 @@ export default function Dashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Daily Average</p>
-                {avgLoading ? (
-                  <Skeleton className="h-8 w-16 mt-1" />
+                <p className="text-sm font-medium text-slate-600">Shift Timer</p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {isShiftActive ? formatElapsedTime(elapsedTime) : "00:00"}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                {isShiftActive ? (
+                  <Square className="h-6 w-6 text-green-600" />
                 ) : (
-                  <p className="text-3xl font-bold text-slate-900">
-                    {dailyAverage?.toFixed(1) || "0"}h
-                  </p>
+                  <Play className="h-6 w-6 text-green-600" />
                 )}
               </div>
-              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-amber-600" />
-              </div>
             </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-slate-600">Per working day</span>
+            <div className="mt-4">
+              <Button 
+                onClick={isShiftActive ? handleEndShift : handleStartShift}
+                variant={isShiftActive ? "destructive" : "default"}
+                size="sm"
+                className="w-full"
+              >
+                {isShiftActive ? "End Shift" : "Start Shift"}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -192,23 +253,17 @@ export default function Dashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Missing Entries</p>
-                {missingLoading ? (
-                  <Skeleton className="h-8 w-8 mt-1" />
-                ) : (
-                  <p className="text-3xl font-bold text-red-600">
-                    {missingEntries?.length || 0}
-                  </p>
-                )}
+                <p className="text-sm font-medium text-slate-600">Total Shifts</p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {recentShifts?.length || 0}
+                </p>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <History className="h-6 w-6 text-purple-600" />
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-red-600 font-medium">
-                {missingEntries && missingEntries.length > 0 ? "Needs attention" : "Up to date"}
-              </span>
+              <span className="text-slate-600">All time</span>
             </div>
           </CardContent>
         </Card>
@@ -265,13 +320,20 @@ export default function Dashboard() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-slate-900">
-                        {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {calculateDuration(shift.startTime, shift.endTime).toFixed(1)} hours
-                      </p>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="font-medium text-slate-900">
+                          {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          {calculateDuration(shift.startTime, shift.endTime).toFixed(1)} hours
+                        </p>
+                      </div>
+                      <Link href={`/add-shift?edit=${shift.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 ))
