@@ -82,10 +82,15 @@ export default function Dashboard() {
   };
 
   const handleEndShift = async () => {
-    if (!shiftStartTime) return;
+    if (!shiftStartTime) {
+      console.error('No shift start time found');
+      return;
+    }
     
     const endTime = new Date();
     const totalMinutes = Math.floor((endTime.getTime() - shiftStartTime.getTime()) / 60000);
+    
+    console.log('Shift duration:', totalMinutes, 'minutes');
     
     // Validate minimum shift duration (15 minutes)
     if (totalMinutes < 15) {
@@ -114,14 +119,19 @@ export default function Dashboard() {
     const shiftType = determineShiftType(shiftStartTime);
     const shiftDate = shiftStartTime.toISOString().split('T')[0];
     
+    const shiftData = {
+      date: shiftDate,
+      startTime: startTimeStr,
+      endTime: endTimeStr,
+      shiftType: shiftType,
+      notes: ''
+    };
+    
+    console.log('Creating shift with data:', shiftData);
+    
     try {
-      await createShiftMutation.mutateAsync({
-        date: shiftDate,
-        startTime: startTimeStr,
-        endTime: endTimeStr,
-        shiftType: shiftType,
-        notes: ''
-      });
+      const result = await createShiftMutation.mutateAsync(shiftData);
+      console.log('Shift created successfully:', result);
       
       toast({
         title: "Shift recorded",
@@ -132,9 +142,10 @@ export default function Dashboard() {
       setShiftStartTime(null);
       setElapsedTime(0);
     } catch (error) {
+      console.error('Failed to create shift:', error);
       toast({
         title: "Error",
-        description: "Failed to create shift. Please try again.",
+        description: `Failed to create shift: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
