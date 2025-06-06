@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit } from "lucide-react";
-import { useShifts, useWeeklyHours } from "@/hooks/use-shifts";
+import { useShifts, useWeeklyHours, useCreateShift } from "@/hooks/use-shifts";
 import { getWeekDates, formatTime, calculateDuration } from "@/lib/time-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const currentWeek = getWeekDates(new Date());
@@ -26,6 +27,8 @@ export default function Dashboard() {
   const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
   const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(currentWeek.start, currentWeek.end);
   const { data: lastWeekHours, isLoading: lastWeekLoading } = useWeeklyHours(previousWeek.start, previousWeek.end);
+  const createShiftMutation = useCreateShift();
+  const { toast } = useToast();
 
   // Timer effect
   useEffect(() => {
@@ -53,34 +56,88 @@ export default function Dashboard() {
     return Math.round(minutes / 15) * 15;
   };
 
+  const determineShiftType = (startTime: Date): string => {
+    const hour = startTime.getHours();
+    const minute = startTime.getMinutes();
+    const totalMinutes = hour * 60 + minute;
+    
+    // 5:00 AM - 11:00 AM: Morning shift
+    if (totalMinutes >= 300 && totalMinutes <= 660) {
+      return 'morning';
+    }
+    // 11:01 AM - 4:00 PM: Evening shift  
+    else if (totalMinutes >= 661 && totalMinutes <= 960) {
+      return 'evening';
+    }
+    // 4:01 PM - 4:59 AM: Night shift
+    else {
+      return 'night';
+    }
+  };
+
   const handleStartShift = () => {
     setShiftStartTime(new Date());
     setIsShiftActive(true);
     setElapsedTime(0);
   };
 
-  const handleEndShift = () => {
+  const handleEndShift = async () => {
     if (!shiftStartTime) return;
     
     const endTime = new Date();
     const totalMinutes = Math.floor((endTime.getTime() - shiftStartTime.getTime()) / 60000);
+    
+    // Validate minimum shift duration (15 minutes)
+    if (totalMinutes < 15) {
+      toast({
+        title: "Shift too short",
+        description: "Minimum shift duration is 15 minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const roundedMinutes = roundToNearestQuarter(totalMinutes);
     
     // Calculate start and end times
     const startHour = shiftStartTime.getHours();
     const startMinute = shiftStartTime.getMinutes();
-    const endHour = Math.floor((startMinute + roundedMinutes) / 60) + startHour;
-    const endMinute = (startMinute + roundedMinutes) % 60;
+    
+    // Calculate end time based on rounded duration
+    const endTotalMinutes = startHour * 60 + startMinute + roundedMinutes;
+    const endHour = Math.floor(endTotalMinutes / 60) % 24;
+    const endMinuteCalc = endTotalMinutes % 60;
     
     const startTimeStr = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
-    const endTimeStr = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+    const endTimeStr = `${endHour.toString().padStart(2, '0')}:${endMinuteCalc.toString().padStart(2, '0')}`;
     
-    // Navigate to add shift page with pre-filled data
-    window.location.href = `/add-shift?date=${new Date().toISOString().split('T')[0]}&startTime=${startTimeStr}&endTime=${endTimeStr}&fromTimer=true`;
+    const shiftType = determineShiftType(shiftStartTime);
+    const shiftDate = shiftStartTime.toISOString().split('T')[0];
     
-    setIsShiftActive(false);
-    setShiftStartTime(null);
-    setElapsedTime(0);
+    try {
+      await createShiftMutation.mutateAsync({
+        date: shiftDate,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        shiftType: shiftType,
+        notes: ''
+      });
+      
+      toast({
+        title: "Shift recorded",
+        description: `${shiftType} shift automatically created (${(roundedMinutes / 60).toFixed(1)} hours)`,
+      });
+      
+      setIsShiftActive(false);
+      setShiftStartTime(null);
+      setElapsedTime(0);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create shift. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const shiftTypeColors = {
@@ -223,14 +280,18 @@ export default function Dashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Shift Timer</p>
-                <p className="text-3xl font-bold text-slate-900">
+                <p className="text-sm font-medium text-slate-600">
+                  Shift Timer {isShiftActive && <span className="text-green-600">• Running</span>}
+                </p>
+                <p className={`text-3xl font-bold ${isShiftActive ? 'text-green-600' : 'text-slate-900'}`}>
                   {isShiftActive ? formatElapsedTime(elapsedTime) : "00:00"}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                isShiftActive ? 'bg-red-100' : 'bg-green-100'
+              }`}>
                 {isShiftActive ? (
-                  <Square className="h-6 w-6 text-green-600" />
+                  <Square className="h-6 w-6 text-red-600" />
                 ) : (
                   <Play className="h-6 w-6 text-green-600" />
                 )}
@@ -242,10 +303,24 @@ export default function Dashboard() {
                 variant={isShiftActive ? "destructive" : "default"}
                 size="sm"
                 className="w-full"
+                disabled={createShiftMutation.isPending}
               >
-                {isShiftActive ? "End Shift" : "Start Shift"}
+                {createShiftMutation.isPending 
+                  ? "Creating shift..." 
+                  : isShiftActive 
+                    ? "End Shift" 
+                    : "Start Shift"
+                }
               </Button>
             </div>
+            {isShiftActive && shiftStartTime && (
+              <div className="mt-2 text-xs text-slate-500 text-center">
+                Started at {shiftStartTime.toLocaleTimeString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
