@@ -7,6 +7,7 @@ import { getWeekDates, formatTime, calculateDuration } from "@/lib/time-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Dashboard() {
   const currentWeek = getWeekDates(new Date());
@@ -84,6 +85,11 @@ export default function Dashboard() {
   const handleEndShift = async () => {
     if (!shiftStartTime) {
       console.error('No shift start time found');
+      toast({
+        title: "Error",
+        description: "No active shift found to end.",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -91,6 +97,8 @@ export default function Dashboard() {
     const totalMinutes = Math.floor((endTime.getTime() - shiftStartTime.getTime()) / 60000);
     
     console.log('Shift duration:', totalMinutes, 'minutes');
+    console.log('Shift start time:', shiftStartTime);
+    console.log('Shift end time:', endTime);
     
     // Validate minimum shift duration (15 minutes)
     if (totalMinutes < 15) {
@@ -130,24 +138,34 @@ export default function Dashboard() {
     console.log('Creating shift with data:', shiftData);
     
     try {
-      const result = await createShiftMutation.mutateAsync(shiftData);
-      console.log('Shift created successfully:', result);
+      await createShiftMutation.mutateAsync(shiftData);
+      console.log('Shift created successfully');
       
       toast({
         title: "Shift recorded",
-        description: `${shiftType} shift automatically created (${(roundedMinutes / 60).toFixed(1)} hours)`,
+        description: `${shiftType.charAt(0).toUpperCase() + shiftType.slice(1)} shift created - ${(roundedMinutes / 60).toFixed(1)} hours`,
       });
       
+      // Reset timer state
       setIsShiftActive(false);
       setShiftStartTime(null);
       setElapsedTime(0);
+      
     } catch (error) {
       console.error('Failed to create shift:', error);
+      
+      let errorMessage = 'Failed to save shift';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: `Failed to create shift: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      // Keep timer active on error so user can try again
     }
   };
 
