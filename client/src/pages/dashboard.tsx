@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useTimer } from "@/hooks/use-timer";
 
 export default function Dashboard() {
   const currentWeek = getWeekDates(new Date());
@@ -21,9 +22,8 @@ export default function Dashboard() {
     end: previousWeekEnd.toISOString().split('T')[0]
   };
 
-  const [isShiftActive, setIsShiftActive] = useState(false);
-  const [shiftStartTime, setShiftStartTime] = useState<Date | null>(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  // Use global timer hook
+  const { isActive: isShiftActive, startTime: shiftStartTime, elapsedTime, startTimer, stopTimer } = useTimer();
 
   const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
   const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(currentWeek.start, currentWeek.end);
@@ -32,15 +32,7 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   // Timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isShiftActive && shiftStartTime) {
-      interval = setInterval(() => {
-        setElapsedTime(Date.now() - shiftStartTime.getTime());
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isShiftActive, shiftStartTime]);
+
 
   const recentShiftsToShow = useMemo(() => {
     return recentShifts?.slice(0, 3) || [];
@@ -77,9 +69,7 @@ export default function Dashboard() {
   };
 
   const handleStartShift = () => {
-    setShiftStartTime(new Date());
-    setIsShiftActive(true);
-    setElapsedTime(0);
+    startTimer();
   };
 
   const handleEndShift = async () => {
@@ -150,6 +140,9 @@ export default function Dashboard() {
       setIsShiftActive(false);
       setShiftStartTime(null);
       setElapsedTime(0);
+      
+      // Clear timer state from localStorage
+      localStorage.removeItem('shiftTimer');
       
     } catch (error) {
       console.error('Failed to create shift:', error);
