@@ -1,9 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2 } from "lucide-react";
 import { useShifts, useWeeklyHours, useCreateShift } from "@/hooks/use-shifts";
-import { getWeekDates, formatTime, calculateDuration } from "@/lib/time-utils";
+import { getWeekDates, formatTime, calculateDuration, generateTimeOptions } from "@/lib/time-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +29,11 @@ export default function Dashboard() {
 
   // Use global timer hook
   const { isActive: isShiftActive, startTime: shiftStartTime, elapsedTime, startTimer, stopTimer } = useTimer();
+  
+  // Post-shift confirmation dialog state
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingShiftData, setPendingShiftData] = useState<any>(null);
+  const [editableShift, setEditableShift] = useState<any>(null);
 
   const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
   const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(currentWeek.start, currentWeek.end);
@@ -120,40 +130,70 @@ export default function Dashboard() {
       startTime: startTimeStr,
       endTime: endTimeStr,
       shiftType: shiftType,
-      notes: ''
+      notes: '',
+      duration: (roundedMinutes / 60).toFixed(1)
     };
     
-    console.log('Creating shift with data:', shiftData);
+    console.log('Preparing shift confirmation with data:', shiftData);
+    
+    // Show confirmation dialog instead of immediately creating shift
+    setPendingShiftData(shiftData);
+    setEditableShift({ ...shiftData });
+    setShowConfirmDialog(true);
+    
+    // Stop the timer since shift is being processed
+    stopTimer();
+  };
+
+  const handleConfirmShift = async () => {
+    if (!editableShift) return;
     
     try {
-      await createShiftMutation.mutateAsync(shiftData);
-      console.log('Shift created successfully');
+      const { duration, ...shiftToCreate } = editableShift;
+      await createShiftMutation.mutateAsync(shiftToCreate);
       
       toast({
         title: "Shift recorded",
-        description: `${shiftType.charAt(0).toUpperCase() + shiftType.slice(1)} shift created - ${(roundedMinutes / 60).toFixed(1)} hours`,
+        description: `${editableShift.shiftType.charAt(0).toUpperCase() + editableShift.shiftType.slice(1)} shift created - ${duration} hours`,
       });
       
-      // Reset timer state
-      stopTimer();
+      setShowConfirmDialog(false);
+      setPendingShiftData(null);
+      setEditableShift(null);
       
     } catch (error) {
       console.error('Failed to create shift:', error);
-      
-      let errorMessage = 'Failed to save shift';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
       toast({
         title: "Error",
-        description: errorMessage,
+        description: "Failed to save shift",
         variant: "destructive",
       });
-      
-      // Keep timer active on error so user can try again
     }
   };
+
+  const handleCancelShift = () => {
+    setShowConfirmDialog(false);
+    setPendingShiftData(null);
+    setEditableShift(null);
+    
+    toast({
+      title: "Shift cancelled",
+      description: "Timer reset to 00:00:00",
+    });
+  };
+
+  const handleDeleteShift = () => {
+    setShowConfirmDialog(false);
+    setPendingShiftData(null);
+    setEditableShift(null);
+    
+    toast({
+      title: "Shift deleted",
+      description: "Timer reset to 00:00:00",
+    });
+  };
+
+  const timeOptions = generateTimeOptions();
 
   const shiftTypeColors = {
     morning: 'bg-emerald-500',
@@ -419,6 +459,131 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Shift Confirmation Dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Shift Details</DialogTitle>
+          </DialogHeader>
+          
+          {editableShift && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="shift-date">Date</Label>
+                  <Input
+                    id="shift-date"
+                    type="date"
+                    value={editableShift.date}
+                    onChange={(e) => setEditableShift({...editableShift, date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="shift-type">Shift Type</Label>
+                  <Select
+                    value={editableShift.shiftType}
+                    onValueChange={(value) => setEditableShift({...editableShift, shiftType: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="morning">Morning</SelectItem>
+                      <SelectItem value="evening">Evening</SelectItem>
+                      <SelectItem value="night">Night</SelectItem>
+                      <SelectItem value="double">Double</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start-time">Start Time</Label>
+                  <Select
+                    value={editableShift.startTime}
+                    onValueChange={(value) => setEditableShift({...editableShift, startTime: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="end-time">End Time</Label>
+                  <Select
+                    value={editableShift.endTime}
+                    onValueChange={(value) => setEditableShift({...editableShift, endTime: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="shift-notes">Notes (Optional)</Label>
+                <Textarea
+                  id="shift-notes"
+                  placeholder="Add notes about this shift..."
+                  value={editableShift.notes}
+                  onChange={(e) => setEditableShift({...editableShift, notes: e.target.value})}
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="text-sm text-slate-600">Duration: <span className="font-semibold">{editableShift.duration} hours</span></div>
+                <div className="text-sm text-slate-600">Type: <span className="font-semibold capitalize">{editableShift.shiftType}</span></div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDeleteShift}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleCancelShift}
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmShift}
+              disabled={createShiftMutation.isPending}
+              className="flex items-center gap-2"
+            >
+              <Check className="h-4 w-4" />
+              {createShiftMutation.isPending ? "Saving..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
