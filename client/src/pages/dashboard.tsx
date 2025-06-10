@@ -217,72 +217,37 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 lg:p-8">
-      {/* Add Today's Shift - Featured Button */}
+      {/* Add Manual Shift - Featured Button */}
       <div className="mb-8">
         <Link href="/add-shift">
-          <Button size="lg" className="w-full md:w-auto text-lg px-8 py-4 h-auto">
+          <Button size="lg" className="w-full text-lg px-8 py-4 h-auto touch-target">
             <Plus className="h-6 w-6 mr-3" />
-            Add Today's Shift
+            + Add Manual Shift
           </Button>
         </Link>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">This Week</p>
+                <p className="text-sm font-medium text-slate-600">This Week Hours</p>
                 {thisWeekLoading ? (
                   <Skeleton className="h-8 w-16 mt-1" />
                 ) : (
-                  <p className="text-3xl font-bold text-slate-900">
+                  <p className="text-4xl font-bold text-blue-600">
                     {thisWeekHours?.toFixed(1) || "0"}h
                   </p>
                 )}
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Clock className="h-6 w-6 text-blue-600" />
+              <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Clock className="h-8 w-8 text-blue-600" />
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              {thisWeekLoading || lastWeekLoading ? (
-                <Skeleton className="h-4 w-24" />
-              ) : (
-                <>
-                  <span className="text-emerald-600 font-medium">
-                    {thisWeekHours && lastWeekHours 
-                      ? `${thisWeekHours > lastWeekHours ? '+' : ''}${(thisWeekHours - lastWeekHours).toFixed(1)}h`
-                      : '--'
-                    }
-                  </span>
-                  <span className="text-slate-500 ml-1">from last week</span>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Last Week</p>
-                {lastWeekLoading ? (
-                  <Skeleton className="h-8 w-16 mt-1" />
-                ) : (
-                  <p className="text-3xl font-bold text-slate-900">
-                    {lastWeekHours?.toFixed(1) || "0"}h
-                  </p>
-                )}
-              </div>
-              <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-                <History className="h-6 w-6 text-slate-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-slate-600">Previous period</span>
+              <span className="text-slate-600">Current week total</span>
             </div>
           </CardContent>
         </Card>
@@ -335,29 +300,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Total Shifts</p>
-                <p className="text-3xl font-bold text-slate-900">
-                  {recentShifts?.length || 0}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <History className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-slate-600">All time</span>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="space-y-8">
         {/* Recent Shifts */}
-        <div className="lg:col-span-2">
+        <div>
           <Card>
             <div className="p-6 border-b border-slate-200">
               <div className="flex items-center justify-between">
@@ -416,8 +363,8 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <Link href={`/add-shift?edit=${shift.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
+                        <Button variant="ghost" size="sm" className="touch-target">
+                          <Edit className="h-5 w-5" />
                         </Button>
                       </Link>
                     </div>
