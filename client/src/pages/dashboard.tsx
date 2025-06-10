@@ -40,11 +40,7 @@ export default function Dashboard() {
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    } else {
-      return `${minutes}:${secs.toString().padStart(2, '0')}`;
-    }
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const roundToNearestQuarter = (minutes: number): number => {
@@ -268,7 +264,7 @@ export default function Dashboard() {
                   Shift Timer {isShiftActive && <span className="text-green-600 animate-pulse">• Running</span>}
                 </p>
                 <p className={`text-4xl font-bold tabular-nums ${isShiftActive ? 'text-green-600' : 'text-slate-900'}`}>
-                  {isShiftActive ? formatElapsedTime(elapsedTime) : "00:00"}
+                  {isShiftActive ? formatElapsedTime(elapsedTime) : "00:00:00"}
                 </p>
               </div>
               <div className={`w-16 h-16 rounded-full flex items-center justify-center touch-target ${
