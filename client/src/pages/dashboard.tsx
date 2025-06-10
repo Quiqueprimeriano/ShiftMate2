@@ -88,11 +88,11 @@ export default function Dashboard() {
     console.log('Shift start time:', shiftStartTime);
     console.log('Shift end time:', endTime);
     
-    // Validate minimum shift duration (15 minutes)
-    if (totalMinutes < 15) {
+    // Validate minimum shift duration (1 minute)
+    if (totalMinutes < 1) {
       toast({
         title: "Shift too short",
-        description: "Minimum shift duration is 15 minutes.",
+        description: "Minimum shift duration is 1 minute.",
         variant: "destructive",
       });
       return;
