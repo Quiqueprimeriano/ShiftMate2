@@ -110,17 +110,9 @@ export default function Dashboard() {
     
     const roundedMinutes = roundToNearestQuarter(totalMinutes);
     
-    // Calculate start and end times
-    const startHour = shiftStartTime.getHours();
-    const startMinute = shiftStartTime.getMinutes();
-    
-    // Calculate end time based on rounded duration
-    const endTotalMinutes = startHour * 60 + startMinute + roundedMinutes;
-    const endHour = Math.floor(endTotalMinutes / 60) % 24;
-    const endMinuteCalc = endTotalMinutes % 60;
-    
-    const startTimeStr = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
-    const endTimeStr = `${endHour.toString().padStart(2, '0')}:${endMinuteCalc.toString().padStart(2, '0')}`;
+    // Use actual start and end times from the timer
+    const startTimeStr = `${shiftStartTime.getHours().toString().padStart(2, '0')}:${shiftStartTime.getMinutes().toString().padStart(2, '0')}`;
+    const endTimeStr = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
     
     const shiftType = determineShiftType(shiftStartTime);
     const shiftDate = shiftStartTime.toISOString().split('T')[0];
