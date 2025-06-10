@@ -110,9 +110,19 @@ export default function Dashboard() {
     
     const roundedMinutes = roundToNearestQuarter(totalMinutes);
     
-    // Use actual start and end times from the timer
-    const startTimeStr = `${shiftStartTime.getHours().toString().padStart(2, '0')}:${shiftStartTime.getMinutes().toString().padStart(2, '0')}`;
-    const endTimeStr = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+    // Use actual start and end times from the timer (local timezone)
+    const startTimeStr = shiftStartTime.toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
+    const endTimeStr = endTime.toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
     
     const shiftType = determineShiftType(shiftStartTime);
     const shiftDate = shiftStartTime.toISOString().split('T')[0];
