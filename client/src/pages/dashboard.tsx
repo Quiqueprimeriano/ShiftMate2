@@ -292,28 +292,28 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600">
-                  Shift Timer {isShiftActive && <span className="text-green-600">• Running</span>}
+                  Shift Timer {isShiftActive && <span className="text-green-600 animate-pulse">• Running</span>}
                 </p>
-                <p className={`text-3xl font-bold ${isShiftActive ? 'text-green-600' : 'text-slate-900'}`}>
+                <p className={`text-4xl font-bold tabular-nums ${isShiftActive ? 'text-green-600' : 'text-slate-900'}`}>
                   {isShiftActive ? formatElapsedTime(elapsedTime) : "00:00"}
                 </p>
               </div>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                isShiftActive ? 'bg-red-100' : 'bg-green-100'
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center touch-target ${
+                isShiftActive ? 'bg-red-100 animate-pulse' : 'bg-green-100'
               }`}>
                 {isShiftActive ? (
-                  <Square className="h-6 w-6 text-red-600" />
+                  <Square className="h-8 w-8 text-red-600" />
                 ) : (
-                  <Play className="h-6 w-6 text-green-600" />
+                  <Play className="h-8 w-8 text-green-600" />
                 )}
               </div>
             </div>
-            <div className="mt-4">
+            <div className="mt-6">
               <Button 
                 onClick={isShiftActive ? handleEndShift : handleStartShift}
                 variant={isShiftActive ? "destructive" : "default"}
-                size="sm"
-                className="w-full"
+                size="lg"
+                className="w-full h-14 text-lg touch-target no-callout"
                 disabled={createShiftMutation.isPending}
               >
                 {createShiftMutation.isPending 
@@ -325,7 +325,7 @@ export default function Dashboard() {
               </Button>
             </div>
             {isShiftActive && shiftStartTime && (
-              <div className="mt-2 text-xs text-slate-500 text-center">
+              <div className="mt-3 p-2 bg-green-50 rounded-lg text-sm text-green-700 text-center">
                 Started at {shiftStartTime.toLocaleTimeString('en-US', { 
                   hour: '2-digit', 
                   minute: '2-digit' 

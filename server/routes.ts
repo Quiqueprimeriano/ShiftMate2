@@ -5,6 +5,8 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 import { insertUserSchema, insertShiftSchema, insertNotificationSchema } from "@shared/schema";
 import { z } from "zod";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
 
 // Extend the Request interface to include session
 interface AuthenticatedRequest extends Request {
@@ -58,6 +60,29 @@ function setupGoogleAuth() {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure session middleware for mobile app persistence
+  const sessionTtl = 365 * 24 * 60 * 60 * 1000; // 1 year for mobile app
+  const pgStore = connectPg(session);
+  const sessionStore = new pgStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: false,
+    ttl: sessionTtl,
+    tableName: "sessions",
+  });
+
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: sessionTtl, // 1 year for mobile persistence
+      sameSite: 'strict'
+    }
+  }));
+
   // Initialize passport
   app.use(passport.initialize());
   app.use(passport.session());
@@ -131,7 +156,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ message: "Failed to logout" });
+      }
+      res.clearCookie('connect.sid');
       res.json({ message: "Logged out successfully" });
     });
   });

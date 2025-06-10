@@ -42,13 +42,13 @@ export function Sidebar() {
               <li key={item.path}>
                 <Link href={item.path}>
                   <button
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
+                    className={`w-full flex items-center space-x-3 px-4 py-4 rounded-lg text-base font-medium transition-colors text-left touch-target ${
                       isActive
                         ? "bg-primary/10 text-primary border border-primary/20"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100"
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-5 h-5" />
                     <span>{item.label}</span>
                   </button>
                 </Link>

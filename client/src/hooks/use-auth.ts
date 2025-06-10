@@ -7,6 +7,8 @@ export function useAuth() {
     queryKey: ["/api/auth/me"],
     queryFn: getCurrentUser,
     retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes - longer cache for mobile
+    gcTime: 1000 * 60 * 30, // 30 minutes - extend garbage collection
   });
 
   const loginMutation = useMutation({
@@ -19,8 +21,11 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: () => {
+      // Clear all data on logout for mobile security
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
+      // Force page reload to clear any cached state
+      window.location.href = '/login';
     },
   });
 
