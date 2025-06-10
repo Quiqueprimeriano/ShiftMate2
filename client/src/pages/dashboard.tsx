@@ -31,18 +31,20 @@ export default function Dashboard() {
   const createShiftMutation = useCreateShift();
   const { toast } = useToast();
 
-  // Timer effect
-
-
   const recentShiftsToShow = useMemo(() => {
     return recentShifts?.slice(0, 3) || [];
   }, [recentShifts]);
 
-  const formatElapsedTime = (milliseconds: number): string => {
-    const totalMinutes = Math.floor(milliseconds / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
   };
 
   const roundToNearestQuarter = (minutes: number): number => {
@@ -137,12 +139,7 @@ export default function Dashboard() {
       });
       
       // Reset timer state
-      setIsShiftActive(false);
-      setShiftStartTime(null);
-      setElapsedTime(0);
-      
-      // Clear timer state from localStorage
-      localStorage.removeItem('shiftTimer');
+      stopTimer();
       
     } catch (error) {
       console.error('Failed to create shift:', error);
