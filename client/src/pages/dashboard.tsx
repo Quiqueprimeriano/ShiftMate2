@@ -57,10 +57,20 @@ export default function Dashboard() {
     return Math.round(minutes / 15) * 15;
   };
 
-  const roundTimeToQuarter = (date: Date): string => {
+  const roundStartTimeToQuarter = (date: Date): string => {
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    const roundedMinutes = Math.round(minutes / 15) * 15;
+    // Round DOWN to nearest quarter for start time
+    const roundedMinutes = Math.floor(minutes / 15) * 15;
+    
+    return `${hours.toString().padStart(2, '0')}:${roundedMinutes.toString().padStart(2, '0')}`;
+  };
+
+  const roundEndTimeToQuarter = (date: Date): string => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    // Round UP to nearest quarter for end time
+    const roundedMinutes = Math.ceil(minutes / 15) * 15;
     
     let finalHours = hours;
     let finalMinutes = roundedMinutes;
@@ -131,8 +141,8 @@ export default function Dashboard() {
     const roundedMinutes = roundToNearestQuarter(totalMinutes);
     
     // Use actual start and end times from the timer with quarter-hour rounding
-    const startTimeStr = roundTimeToQuarter(shiftStartTime);
-    const endTimeStr = roundTimeToQuarter(endTime);
+    const startTimeStr = roundStartTimeToQuarter(shiftStartTime);
+    const endTimeStr = roundEndTimeToQuarter(endTime);
     
     const shiftType = determineShiftType(shiftStartTime);
     const shiftDate = shiftStartTime.toISOString().split('T')[0];
