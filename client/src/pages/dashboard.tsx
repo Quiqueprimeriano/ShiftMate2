@@ -170,7 +170,7 @@ export default function Dashboard() {
       endTime: endTimeStr,
       shiftType: shiftType,
       notes: '',
-      duration: (roundedMinutes / 60).toFixed(1)
+      duration: (roundedMinutes / 60).toFixed(2)
     };
     
     console.log('Preparing shift confirmation with data:', shiftData);
@@ -305,7 +305,7 @@ export default function Dashboard() {
         <Link href="/add-shift">
           <Button size="lg" className="w-full text-lg px-8 py-4 h-auto touch-target">
             <Plus className="h-6 w-6 mr-3" />
-            + Add Manual Shift
+            Add Manual Shift
           </Button>
         </Link>
       </div>
@@ -356,7 +356,7 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            <div className="mt-6">
+            <div className="mt-6 space-y-3">
               <Button 
                 onClick={isShiftActive ? handleEndShift : handleStartShift}
                 variant={isShiftActive ? "destructive" : "default"}
@@ -371,6 +371,16 @@ export default function Dashboard() {
                     : "Start Shift"
                 }
               </Button>
+              {isShiftActive && (
+                <Button 
+                  onClick={stopTimer}
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-12 text-base touch-target"
+                >
+                  Cancel Shift
+                </Button>
+              )}
             </div>
             {isShiftActive && shiftStartTime && (
               <div className="mt-3 p-2 bg-green-50 rounded-lg text-sm text-green-700 text-center">
@@ -442,7 +452,7 @@ export default function Dashboard() {
                           {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
                         </p>
                         <p className="text-sm text-slate-500">
-                          {calculateDuration(shift.startTime, shift.endTime).toFixed(1)} hours
+                          {calculateDuration(shift.startTime, shift.endTime).toFixed(2)} hours
                         </p>
                       </div>
                       <Link href={`/add-shift?edit=${shift.id}`}>
@@ -603,14 +613,6 @@ export default function Dashboard() {
             >
               <Trash2 className="h-4 w-4" />
               Delete
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleCancelShift}
-              className="flex items-center gap-2"
-            >
-              <X className="h-4 w-4" />
-              Cancel
             </Button>
             <Button
               onClick={handleConfirmShift}
