@@ -57,6 +57,26 @@ export default function Dashboard() {
     return Math.round(minutes / 15) * 15;
   };
 
+  const roundTimeToQuarter = (date: Date): string => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const roundedMinutes = Math.round(minutes / 15) * 15;
+    
+    let finalHours = hours;
+    let finalMinutes = roundedMinutes;
+    
+    if (finalMinutes >= 60) {
+      finalHours += 1;
+      finalMinutes = 0;
+    }
+    
+    if (finalHours >= 24) {
+      finalHours = 0;
+    }
+    
+    return `${finalHours.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}`;
+  };
+
   const determineShiftType = (startTime: Date): string => {
     const hour = startTime.getHours();
     const minute = startTime.getMinutes();
@@ -110,19 +130,9 @@ export default function Dashboard() {
     
     const roundedMinutes = roundToNearestQuarter(totalMinutes);
     
-    // Use actual start and end times from the timer (local timezone)
-    const startTimeStr = shiftStartTime.toLocaleTimeString('en-US', { 
-      hour12: false, 
-      hour: '2-digit', 
-      minute: '2-digit',
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    });
-    const endTimeStr = endTime.toLocaleTimeString('en-US', { 
-      hour12: false, 
-      hour: '2-digit', 
-      minute: '2-digit',
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    });
+    // Use actual start and end times from the timer with quarter-hour rounding
+    const startTimeStr = roundTimeToQuarter(shiftStartTime);
+    const endTimeStr = roundTimeToQuarter(endTime);
     
     const shiftType = determineShiftType(shiftStartTime);
     const shiftDate = shiftStartTime.toISOString().split('T')[0];
