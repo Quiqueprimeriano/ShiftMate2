@@ -69,15 +69,32 @@ export default function Dashboard() {
   const roundEndTimeToQuarter = (date: Date): string => {
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    // Round UP to nearest quarter for end time
-    const roundedMinutes = Math.ceil(minutes / 15) * 15;
+    
+    // End time rounding logic:
+    // Minutes 0-7 → rounds to 0
+    // Minutes 8-22 → rounds to 15
+    // Minutes 23-37 → rounds to 30
+    // Minutes 38-52 → rounds to 45
+    // Minutes 53-59 → rounds to 0 (next hour)
+    let roundedMinutes;
+    if (minutes <= 7) {
+      roundedMinutes = 0;
+    } else if (minutes <= 22) {
+      roundedMinutes = 15;
+    } else if (minutes <= 37) {
+      roundedMinutes = 30;
+    } else if (minutes <= 52) {
+      roundedMinutes = 45;
+    } else {
+      roundedMinutes = 0;
+    }
     
     let finalHours = hours;
     let finalMinutes = roundedMinutes;
     
-    if (finalMinutes >= 60) {
+    // If rounded to 0 and original minutes were 53-59, move to next hour
+    if (minutes >= 53 && roundedMinutes === 0) {
       finalHours += 1;
-      finalMinutes = 0;
     }
     
     if (finalHours >= 24) {
