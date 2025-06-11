@@ -27,10 +27,18 @@ export function useCreateShift() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/weekly-hours"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily-average"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/missing-entries"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/weekly-hours" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/daily-average" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/missing-entries" 
+      });
     },
   });
 }
@@ -42,10 +50,18 @@ export function useUpdateShift() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/weekly-hours"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily-average"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/missing-entries"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/weekly-hours" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/daily-average" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/missing-entries" 
+      });
     },
   });
 }
@@ -57,10 +73,18 @@ export function useDeleteShift() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/weekly-hours"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily-average"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/missing-entries"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/weekly-hours" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/daily-average" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/analytics/missing-entries" 
+      });
     },
   });
 }

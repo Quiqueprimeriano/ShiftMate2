@@ -53,15 +53,19 @@ export function CalendarGrid({ currentDate, onDateChange, shifts, onDayClick }: 
     onDateChange(newDate);
   };
 
-  const renderCalendarDay = (day: number, isCurrentMonth: boolean = true) => {
-    const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  const renderCalendarDay = (day: number, isCurrentMonth: boolean = true, monthOffset: number = 0) => {
+    const actualMonth = month + monthOffset;
+    const actualYear = actualMonth < 0 ? year - 1 : actualMonth > 11 ? year + 1 : year;
+    const normalizedMonth = actualMonth < 0 ? 11 : actualMonth > 11 ? 0 : actualMonth;
+    
+    const dateString = `${actualYear}-${(normalizedMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
     const dayShifts = shiftsByDate.get(dateString) || [];
     const isToday = dateString === today;
     const hasMissingEntry = isCurrentMonth && dayShifts.length === 0;
 
     return (
       <div
-        key={`${month}-${day}`}
+        key={`${actualYear}-${normalizedMonth}-${day}`}
         className={`h-20 p-2 relative cursor-pointer transition-colors ${
           isCurrentMonth ? 'bg-white hover:bg-slate-50' : 'bg-slate-50'
         } ${isToday ? 'bg-blue-50 border-2 border-blue-300' : ''} ${
@@ -114,18 +118,18 @@ export function CalendarGrid({ currentDate, onDateChange, shifts, onDayClick }: 
     const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
     
     for (let i = firstDayOfMonth - 1; i >= 0; i--) {
-      days.push(renderCalendarDay(daysInPrevMonth - i, false));
+      days.push(renderCalendarDay(daysInPrevMonth - i, false, -1));
     }
     
     // Current month's days
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push(renderCalendarDay(day, true));
+      days.push(renderCalendarDay(day, true, 0));
     }
     
     // Next month's leading days
     const remainingDays = 42 - days.length; // 6 rows × 7 days
     for (let day = 1; day <= remainingDays; day++) {
-      days.push(renderCalendarDay(day, false));
+      days.push(renderCalendarDay(day, false, 1));
     }
     
     return days;
