@@ -28,6 +28,9 @@ export function useCreateShift() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/weekly-hours"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily-average"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/missing-entries"] });
     },
   });
 }
@@ -40,6 +43,9 @@ export function useUpdateShift() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/weekly-hours"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily-average"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/missing-entries"] });
     },
   });
 }
@@ -52,6 +58,9 @@ export function useDeleteShift() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/weekly-hours"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily-average"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/missing-entries"] });
     },
   });
 }
