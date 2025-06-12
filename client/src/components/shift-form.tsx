@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useCreateShift } from "@/hooks/use-shifts";
+import { useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
+import type { Shift } from "@shared/schema";
 import { generateTimeOptions } from "@/lib/time-utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,21 +42,29 @@ const recurringOptions = [
   { value: "custom", label: "Custom pattern" },
 ];
 
-export function ShiftForm({ onSuccess }: { onSuccess?: () => void }) {
+interface ShiftFormProps {
+  onSuccess?: () => void;
+  editingShift?: Shift;
+  isEditing?: boolean;
+}
+
+export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps) {
   const { toast } = useToast();
   const createShift = useCreateShift();
+  const updateShift = useUpdateShift();
+  const deleteShift = useDeleteShift();
   const timeOptions = generateTimeOptions();
   
   const form = useForm<ShiftFormData>({
     resolver: zodResolver(shiftFormSchema),
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
-      shiftType: "",
-      startTime: "",
-      endTime: "",
-      notes: "",
-      isRecurring: false,
-      recurringPattern: "none",
+      date: editingShift?.date || new Date().toISOString().split('T')[0],
+      shiftType: editingShift?.shiftType || "",
+      startTime: editingShift?.startTime || "",
+      endTime: editingShift?.endTime || "",
+      notes: editingShift?.notes || "",
+      isRecurring: editingShift?.isRecurring || false,
+      recurringPattern: editingShift?.recurringPattern || "none",
     },
   });
 
@@ -106,19 +115,45 @@ export function ShiftForm({ onSuccess }: { onSuccess?: () => void }) {
         recurringEndDate: data.recurringEndDate || null,
       };
 
-      await createShift.mutateAsync(shiftData);
-      
-      toast({
-        title: "Success",
-        description: "Shift added successfully!",
-      });
+      if (isEditing && editingShift) {
+        await updateShift.mutateAsync({ id: editingShift.id, ...shiftData });
+        toast({
+          title: "Success",
+          description: "Shift updated successfully!",
+        });
+      } else {
+        await createShift.mutateAsync(shiftData);
+        toast({
+          title: "Success",
+          description: "Shift added successfully!",
+        });
+      }
       
       form.reset();
       onSuccess?.();
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to add shift. Please try again.",
+        description: `Failed to ${isEditing ? 'update' : 'add'} shift. Please try again.`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingShift) return;
+    
+    try {
+      await deleteShift.mutateAsync(editingShift.id);
+      toast({
+        title: "Success",
+        description: "Shift deleted successfully!",
+      });
+      onSuccess?.();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete shift. Please try again.",
         variant: "destructive",
       });
     }
@@ -126,7 +161,22 @@ export function ShiftForm({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h3 className="text-lg font-semibold text-slate-900 mb-6">Add New Shift</h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-slate-900">
+          {isEditing ? 'Edit Shift' : 'Add New Shift'}
+        </h3>
+        {isEditing && (
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={deleteShift.isPending}
+            className="flex items-center gap-2"
+          >
+            {deleteShift.isPending ? 'Deleting...' : 'Delete Shift'}
+          </Button>
+        )}
+      </div>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
