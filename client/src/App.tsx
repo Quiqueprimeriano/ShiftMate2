@@ -16,6 +16,7 @@ import Calendar from "@/pages/calendar";
 import AddShift from "@/pages/add-shift";
 import Reports from "@/pages/reports";
 import Login from "@/pages/login";
+import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
 const PAGE_TITLES = {
