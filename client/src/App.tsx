@@ -16,7 +16,6 @@ import Calendar from "@/pages/calendar";
 import AddShift from "@/pages/add-shift";
 import Reports from "@/pages/reports";
 import Login from "@/pages/login";
-import SignUp from "@/pages/signup";
 import NotFound from "@/pages/not-found";
 
 const PAGE_TITLES = {
@@ -204,7 +203,6 @@ function Router() {
   if (!isAuthenticated) {
     return (
       <Switch>
-        <Route path="/signup" component={SignUp} />
         <Route path="/login" component={Login} />
         <Route component={Login} />
       </Switch>

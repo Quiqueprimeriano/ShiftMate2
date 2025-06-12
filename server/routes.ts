@@ -105,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Email/Password Auth routes
+  // Email/Name Auth routes - Auto-creates user if doesn't exist
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, name } = req.body;
@@ -113,16 +113,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Login attempt:', { email, name });
       
       // Check if user exists
-      const existingUser = await storage.getUserByEmail(email);
+      let user = await storage.getUserByEmail(email);
       
-      if (existingUser) {
+      if (user) {
         // User exists, log them in
-        (req.session as any).userId = existingUser.id;
-        console.log('Login successful for user:', existingUser.id);
-        res.json({ user: existingUser });
+        (req.session as any).userId = user.id;
+        console.log('Login successful for existing user:', user.id);
+        res.json({ user });
       } else {
-        // User doesn't exist for login
-        res.status(401).json({ message: "User not found. Please sign up first." });
+        // User doesn't exist, create them automatically
+        console.log('Creating new user during login:', { email, name });
+        user = await storage.createUser({ email, name });
+        (req.session as any).userId = user.id;
+        console.log('Auto-signup successful for new user:', user.id);
+        res.json({ user });
       }
     } catch (error) {
       console.error('Login error:', error);
