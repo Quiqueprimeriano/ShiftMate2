@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
-import { useShifts, useWeeklyHours, useCreateShift } from "@/hooks/use-shifts";
+import { useShifts, useWeeklyHours, useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
 import { getWeekDates, formatTime, calculateDuration, generateTimeOptions } from "@/lib/time-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -35,11 +35,17 @@ export default function Dashboard() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingShiftData, setPendingShiftData] = useState<any>(null);
   const [editableShift, setEditableShift] = useState<any>(null);
+  
+  // Edit shift modal state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [shiftToEdit, setShiftToEdit] = useState<any>(null);
 
   const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
   const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(currentWeek.start, currentWeek.end);
   const { data: lastWeekHours, isLoading: lastWeekLoading } = useWeeklyHours(previousWeek.start, previousWeek.end);
   const createShiftMutation = useCreateShift();
+  const updateShiftMutation = useUpdateShift();
+  const deleteShiftMutation = useDeleteShift();
   const { toast } = useToast();
 
   const recentShiftsToShow = useMemo(() => {
@@ -302,7 +308,7 @@ export default function Dashboard() {
     });
   };
 
-  const handleDeleteShift = () => {
+  const handleDeletePendingShift = () => {
     setShowConfirmDialog(false);
     setPendingShiftData(null);
     setEditableShift(null);
@@ -314,6 +320,54 @@ export default function Dashboard() {
   };
 
   const timeOptions = generateTimeOptions();
+
+  // Handle opening edit modal
+  const handleEditShift = (shift: any) => {
+    setShiftToEdit(shift);
+    setShowEditDialog(true);
+  };
+
+  // Handle updating shift
+  const handleUpdateShift = async (updatedData: any) => {
+    if (!shiftToEdit) return;
+    
+    try {
+      await updateShiftMutation.mutateAsync({ id: shiftToEdit.id, ...updatedData });
+      toast({
+        title: "Success",
+        description: "Shift updated successfully!",
+      });
+      setShowEditDialog(false);
+      setShiftToEdit(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update shift. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle deleting existing shift from edit modal
+  const handleDeleteExistingShift = async () => {
+    if (!shiftToEdit) return;
+    
+    try {
+      await deleteShiftMutation.mutateAsync(shiftToEdit.id);
+      toast({
+        title: "Success",
+        description: "Shift deleted successfully!",
+      });
+      setShowEditDialog(false);
+      setShiftToEdit(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete shift. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const shiftTypeColors = {
     morning: 'bg-emerald-500',
