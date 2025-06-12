@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2 } from "lucide-react";
+import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useShifts, useWeeklyHours, useCreateShift } from "@/hooks/use-shifts";
 import { getWeekDates, formatTime, calculateDuration, generateTimeOptions } from "@/lib/time-utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +45,86 @@ export default function Dashboard() {
   const recentShiftsToShow = useMemo(() => {
     return recentShifts?.slice(0, 3) || [];
   }, [recentShifts]);
+
+  // Prepare weekly chart data
+  const weeklyChartData = useMemo(() => {
+    if (!recentShifts) return [];
+
+    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const weekStart = new Date(currentWeek.start);
+    
+    return daysOfWeek.map((day, index) => {
+      const currentDate = new Date(weekStart);
+      currentDate.setDate(weekStart.getDate() + index);
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      // Filter shifts for this specific day
+      const dayShifts = recentShifts.filter(shift => shift.date === dateString);
+      
+      // Calculate total hours and create shift data for stacking
+      const totalHours = dayShifts.reduce((sum, shift) => 
+        sum + calculateDuration(shift.startTime, shift.endTime), 0);
+      
+      // Group shifts by type and calculate hours for each type
+      const shiftTypeHours = {
+        morningHours: 0,
+        eveningHours: 0,
+        nightHours: 0,
+        doubleHours: 0,
+        customHours: 0
+      };
+      
+      dayShifts.forEach((shift) => {
+        const duration = Number(calculateDuration(shift.startTime, shift.endTime).toFixed(2));
+        switch (shift.shiftType) {
+          case 'morning':
+            shiftTypeHours.morningHours += duration;
+            break;
+          case 'evening':
+            shiftTypeHours.eveningHours += duration;
+            break;
+          case 'night':
+            shiftTypeHours.nightHours += duration;
+            break;
+          case 'double':
+            shiftTypeHours.doubleHours += duration;
+            break;
+          case 'custom':
+            shiftTypeHours.customHours += duration;
+            break;
+        }
+      });
+      
+      // Round all shift type hours to 2 decimal places
+      Object.keys(shiftTypeHours).forEach(key => {
+        shiftTypeHours[key as keyof typeof shiftTypeHours] = Number(
+          shiftTypeHours[key as keyof typeof shiftTypeHours].toFixed(2)
+        );
+      });
+      
+      return {
+        day: day.slice(0, 3), // Short day names
+        fullDay: day,
+        date: dateString,
+        totalHours: Number(totalHours.toFixed(2)),
+        shiftsCount: dayShifts.length,
+        shifts: dayShifts,
+        ...shiftTypeHours
+      };
+    });
+  }, [recentShifts, currentWeek.start]);
+
+  // Get unique shift colors based on type
+  const getShiftColor = (shiftType: string) => {
+    const colors = {
+      morning: '#10b981', // emerald-500
+      evening: '#f59e0b', // amber-500
+      night: '#6366f1',   // indigo-500
+      double: '#ef4444',  // red-500
+      custom: '#8b5cf6'   // violet-500
+    };
+    return colors[shiftType as keyof typeof colors] || '#6b7280';
+  };
 
   const formatElapsedTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -396,6 +477,131 @@ export default function Dashboard() {
       </div>
 
       <div className="space-y-8">
+        {/* Weekly Hours Chart */}
+        <div>
+          <Card>
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">This Week's Hours</h3>
+                    <p className="text-sm text-slate-500">Daily breakdown of your shifts</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <CardContent className="p-6">
+              {shiftsLoading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <Skeleton className="h-48 w-full" />
+                </div>
+              ) : weeklyChartData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="day" 
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        tickLine={{ stroke: '#cbd5e1' }}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        tickLine={{ stroke: '#cbd5e1' }}
+                        label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '12px', fill: '#64748b' } }}
+                      />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
+                                <p className="font-semibold text-slate-900">{data.fullDay}</p>
+                                <p className="text-sm text-slate-600 mb-2">{new Date(data.date).toLocaleDateString()}</p>
+                                {data.shiftsCount > 0 ? (
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-medium text-slate-900">
+                                      Total: {data.totalHours} hours ({data.shiftsCount} shift{data.shiftsCount > 1 ? 's' : ''})
+                                    </p>
+                                    <div className="space-y-1 mt-2">
+                                      {data.morningHours > 0 && (
+                                        <div className="flex items-center gap-2 text-xs">
+                                          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                          <span>Morning: {data.morningHours} hours</span>
+                                        </div>
+                                      )}
+                                      {data.eveningHours > 0 && (
+                                        <div className="flex items-center gap-2 text-xs">
+                                          <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                                          <span>Evening: {data.eveningHours} hours</span>
+                                        </div>
+                                      )}
+                                      {data.nightHours > 0 && (
+                                        <div className="flex items-center gap-2 text-xs">
+                                          <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                                          <span>Night: {data.nightHours} hours</span>
+                                        </div>
+                                      )}
+                                      {data.doubleHours > 0 && (
+                                        <div className="flex items-center gap-2 text-xs">
+                                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                          <span>Double: {data.doubleHours} hours</span>
+                                        </div>
+                                      )}
+                                      {data.customHours > 0 && (
+                                        <div className="flex items-center gap-2 text-xs">
+                                          <div className="w-3 h-3 rounded-full bg-violet-500"></div>
+                                          <span>Custom: {data.customHours} hours</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {data.shifts && data.shifts.length > 0 && (
+                                      <div className="mt-2 pt-2 border-t border-slate-200">
+                                        <p className="text-xs font-medium text-slate-700 mb-1">Individual Shifts:</p>
+                                        {data.shifts.map((shift: any, index: number) => (
+                                          <div key={shift.id} className="text-xs text-slate-600 bg-slate-50 p-1.5 rounded mb-1">
+                                            <div className="font-medium capitalize">{shift.shiftType}</div>
+                                            <div>{formatTime(shift.startTime)} - {formatTime(shift.endTime)}</div>
+                                            <div>{calculateDuration(shift.startTime, shift.endTime).toFixed(2)} hours</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-slate-500">No shifts</p>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      {/* Render separate bars for each shift type */}
+                      <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" />
+                      <Bar dataKey="eveningHours" stackId="shifts" fill="#f59e0b" name="Evening Shifts" />
+                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" />
+                      <Bar dataKey="doubleHours" stackId="shifts" fill="#ef4444" name="Double Shifts" />
+                      <Bar dataKey="customHours" stackId="shifts" fill="#8b5cf6" name="Custom Shifts" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-slate-500">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                    <p className="text-sm">No shifts recorded this week</p>
+                    <p className="text-xs text-slate-400 mt-1">Start tracking your shifts to see the chart</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Recent Shifts */}
         <div>
           <Card>
