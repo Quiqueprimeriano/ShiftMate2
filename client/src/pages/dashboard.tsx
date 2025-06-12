@@ -108,8 +108,11 @@ export default function Dashboard() {
         );
       });
       
+      // Format day with date for better clarity
+      const dayWithDate = `${day.slice(0, 3)} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+      
       return {
-        day: day.slice(0, 3), // Short day names
+        day: dayWithDate, // Short day names with date
         fullDay: day,
         date: dateString,
         totalHours: Number(totalHours.toFixed(2)),

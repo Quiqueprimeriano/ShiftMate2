@@ -41,7 +41,9 @@ export function calculateDuration(startTime: string, endTime: string): number {
 export function getWeekDates(date: Date): { start: string; end: string } {
   const start = new Date(date);
   const day = start.getDay();
-  const diff = start.getDate() - day;
+  // Convert Sunday (0) to 7 for easier Monday-based calculation
+  const mondayBasedDay = day === 0 ? 7 : day;
+  const diff = start.getDate() - (mondayBasedDay - 1);
   
   start.setDate(diff);
   const end = new Date(start);
