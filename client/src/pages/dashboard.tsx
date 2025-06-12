@@ -726,11 +726,14 @@ export default function Dashboard() {
                           {calculateDuration(shift.startTime, shift.endTime).toFixed(2)} hours
                         </p>
                       </div>
-                      <Link href={`/add-shift?edit=${shift.id}`}>
-                        <Button variant="ghost" size="sm" className="touch-target">
-                          <Edit className="h-5 w-5" />
-                        </Button>
-                      </Link>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="touch-target"
+                        onClick={() => handleEditShift(shift)}
+                      >
+                        <Edit className="h-5 w-5" />
+                      </Button>
                     </div>
                   </div>
                 ))
@@ -879,7 +882,7 @@ export default function Dashboard() {
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              onClick={handleDeleteShift}
+              onClick={handleDeletePendingShift}
               className="flex items-center gap-2"
             >
               <Trash2 className="h-4 w-4" />
@@ -892,6 +895,133 @@ export default function Dashboard() {
             >
               <Check className="h-4 w-4" />
               {createShiftMutation.isPending ? "Saving..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Shift Modal */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Shift</DialogTitle>
+          </DialogHeader>
+          
+          {shiftToEdit && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-shift-date">Date</Label>
+                  <Input
+                    id="edit-shift-date"
+                    type="date"
+                    defaultValue={shiftToEdit.date}
+                    onChange={(e) => setShiftToEdit({...shiftToEdit, date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-shift-type">Shift Type</Label>
+                  <Select
+                    value={shiftToEdit.shiftType}
+                    onValueChange={(value) => setShiftToEdit({...shiftToEdit, shiftType: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="morning">Morning</SelectItem>
+                      <SelectItem value="evening">Evening</SelectItem>
+                      <SelectItem value="night">Night</SelectItem>
+                      <SelectItem value="double">Double</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-start-time">Start Time</Label>
+                  <Select
+                    value={shiftToEdit.startTime}
+                    onValueChange={(value) => setShiftToEdit({...shiftToEdit, startTime: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-end-time">End Time</Label>
+                  <Select
+                    value={shiftToEdit.endTime}
+                    onValueChange={(value) => setShiftToEdit({...shiftToEdit, endTime: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-shift-notes">Notes</Label>
+                <Textarea
+                  id="edit-shift-notes"
+                  placeholder="Add notes about this shift..."
+                  defaultValue={shiftToEdit.notes || ''}
+                  onChange={(e) => setShiftToEdit({...shiftToEdit, notes: e.target.value})}
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="text-sm text-slate-600">
+                  Duration: <span className="font-semibold">{calculateDuration(shiftToEdit.startTime, shiftToEdit.endTime).toFixed(2)} hours</span>
+                </div>
+                <div className="text-sm text-slate-600">
+                  Type: <span className="font-semibold capitalize">{shiftToEdit.shiftType}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleDeleteExistingShift}
+              disabled={deleteShiftMutation.isPending}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleteShiftMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+            <Button
+              onClick={() => {
+                if (shiftToEdit) {
+                  const { id, userId, createdAt, ...updateData } = shiftToEdit;
+                  handleUpdateShift(updateData);
+                }
+              }}
+              disabled={updateShiftMutation.isPending}
+              className="flex items-center gap-2"
+            >
+              <Check className="h-4 w-4" />
+              {updateShiftMutation.isPending ? "Updating..." : "Update"}
             </Button>
           </DialogFooter>
         </DialogContent>
