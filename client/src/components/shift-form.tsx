@@ -321,9 +321,12 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
             </Button>
             <Button 
               type="submit" 
-              disabled={createShift.isPending}
+              disabled={createShift.isPending || updateShift.isPending}
             >
-              {createShift.isPending ? "Adding..." : "Add Shift"}
+              {isEditing 
+                ? (updateShift.isPending ? "Updating..." : "Update Shift")
+                : (createShift.isPending ? "Adding..." : "Add Shift")
+              }
             </Button>
           </div>
         </form>
