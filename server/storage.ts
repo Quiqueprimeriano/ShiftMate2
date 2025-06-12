@@ -65,6 +65,15 @@ export interface IStorage {
   getNotificationsByUser(userId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number): Promise<boolean>;
+  
+  // Admin methods
+  getUserCount(): Promise<number>;
+  getShiftCount(): Promise<number>;
+  getTotalHours(): Promise<number>;
+  getNotificationCount(): Promise<number>;
+  getAllUsers(): Promise<User[]>;
+  getAllShiftsWithUsers(): Promise<any[]>;
+  executeRawQuery(query: string): Promise<any>;
 }
 
 export class DbStorage implements IStorage {
@@ -195,6 +204,122 @@ export class DbStorage implements IStorage {
       .set({ isRead: true })
       .where(eq(notifications.id, id));
     return result.rowCount > 0;
+  }
+
+  // Admin methods
+  async getUserCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error('Error getting user count:', error);
+      return 0;
+    }
+  }
+
+  async getShiftCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` }).from(shifts);
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error('Error getting shift count:', error);
+      return 0;
+    }
+  }
+
+  async getTotalHours(): Promise<number> {
+    try {
+      const allShifts = await db.select().from(shifts);
+      let totalHours = 0;
+      
+      for (const shift of allShifts) {
+        const start = new Date(`2000-01-01T${shift.startTime}`);
+        const end = new Date(`2000-01-01T${shift.endTime}`);
+        
+        // Handle overnight shifts
+        if (end < start) {
+          end.setDate(end.getDate() + 1);
+        }
+        
+        const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        totalHours += duration;
+      }
+      
+      return totalHours;
+    } catch (error) {
+      console.error('Error calculating total hours:', error);
+      return 0;
+    }
+  }
+
+  async getNotificationCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` }).from(notifications);
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error('Error getting notification count:', error);
+      return 0;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      return await db.select().from(users).orderBy(desc(users.createdAt));
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      return [];
+    }
+  }
+
+  async getAllShiftsWithUsers(): Promise<any[]> {
+    try {
+      const result = await db
+        .select({
+          id: shifts.id,
+          userId: shifts.userId,
+          date: shifts.date,
+          startTime: shifts.startTime,
+          endTime: shifts.endTime,
+          shiftType: shifts.shiftType,
+          notes: shifts.notes,
+          createdAt: shifts.createdAt,
+          userName: users.name
+        })
+        .from(shifts)
+        .leftJoin(users, eq(shifts.userId, users.id))
+        .orderBy(desc(shifts.createdAt));
+
+      // Calculate duration for each shift
+      return result.map(shift => {
+        const start = new Date(`2000-01-01T${shift.startTime}`);
+        const end = new Date(`2000-01-01T${shift.endTime}`);
+        
+        // Handle overnight shifts
+        if (end < start) {
+          end.setDate(end.getDate() + 1);
+        }
+        
+        const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        
+        return {
+          ...shift,
+          duration
+        };
+      });
+    } catch (error) {
+      console.error('Error getting all shifts with users:', error);
+      return [];
+    }
+  }
+
+  async executeRawQuery(query: string): Promise<any> {
+    try {
+      const result = await db.execute(sql.raw(query));
+      return result;
+    } catch (error) {
+      console.error('Error executing raw query:', error);
+      throw error;
+    }
   }
 }
 

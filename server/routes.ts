@@ -354,6 +354,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin routes for database management
+  app.get("/api/admin/stats", requireAuth, async (req: any, res) => {
+    try {
+      const userCount = await storage.getUserCount();
+      const shiftCount = await storage.getShiftCount();
+      const totalHours = await storage.getTotalHours();
+      const notificationCount = await storage.getNotificationCount();
+      
+      res.json({
+        userCount,
+        shiftCount,
+        totalHours,
+        notificationCount
+      });
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      res.status(500).json({ message: "Failed to fetch statistics" });
+    }
+  });
+
+  app.get("/api/admin/users", requireAuth, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/shifts", requireAuth, async (req: any, res) => {
+    try {
+      const shifts = await storage.getAllShiftsWithUsers();
+      res.json(shifts);
+    } catch (error) {
+      console.error("Error fetching all shifts:", error);
+      res.status(500).json({ message: "Failed to fetch shifts" });
+    }
+  });
+
+  app.post("/api/admin/sql", requireAuth, async (req: any, res) => {
+    try {
+      const { query } = req.body;
+      
+      if (!query) {
+        return res.status(400).json({ message: "SQL query is required" });
+      }
+
+      // Basic safety check - only allow SELECT queries for security
+      const trimmedQuery = query.trim().toLowerCase();
+      if (!trimmedQuery.startsWith('select')) {
+        return res.status(400).json({ 
+          message: "Only SELECT queries are allowed for security reasons" 
+        });
+      }
+
+      const result = await storage.executeRawQuery(query);
+      res.json(result);
+    } catch (error) {
+      console.error("Error executing SQL query:", error);
+      res.status(500).json({ 
+        message: "Query execution failed", 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
