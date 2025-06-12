@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 import { useShifts, useWeeklyHours, useCreateShift } from "@/hooks/use-shifts";
 import { getWeekDates, formatTime, calculateDuration, generateTimeOptions } from "@/lib/time-utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -585,7 +585,18 @@ export default function Dashboard() {
                       <Bar dataKey="eveningHours" stackId="shifts" fill="#f59e0b" name="Evening Shifts" />
                       <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" />
                       <Bar dataKey="doubleHours" stackId="shifts" fill="#ef4444" name="Double Shifts" />
-                      <Bar dataKey="customHours" stackId="shifts" fill="#8b5cf6" name="Custom Shifts" />
+                      <Bar dataKey="customHours" stackId="shifts" fill="#8b5cf6" name="Custom Shifts">
+                        <LabelList 
+                          dataKey="totalHours" 
+                          position="top" 
+                          style={{ 
+                            fontSize: '12px', 
+                            fontWeight: '600',
+                            fill: '#374151'
+                          }}
+                          formatter={(value: number) => value > 0 ? `${value}h` : ''}
+                        />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
