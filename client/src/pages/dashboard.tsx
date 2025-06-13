@@ -56,13 +56,16 @@ export default function Dashboard() {
   const weeklyChartData = useMemo(() => {
     if (!recentShifts) return [];
 
-    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const weekStart = new Date(currentWeek.start);
     
-    return daysOfWeek.map((day, index) => {
+    // Generate all 7 days of the week starting from the week start date
+    return Array.from({ length: 7 }, (_, index) => {
       const currentDate = new Date(weekStart);
       currentDate.setDate(weekStart.getDate() + index);
       const dateString = currentDate.toISOString().split('T')[0];
+      
+      // Get the actual day name for this date
+      const actualDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
       
       // Filter shifts for this specific day
       const dayShifts = recentShifts.filter(shift => shift.date === dateString);
@@ -108,12 +111,12 @@ export default function Dashboard() {
         );
       });
       
-      // Format day with date for better clarity
-      const dayWithDate = `${day.slice(0, 3)} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+      // Use the actual day name instead of the hardcoded array
+      const dayWithDate = `${actualDayName.slice(0, 3)} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
       
       return {
         day: dayWithDate, // Short day names with date
-        fullDay: day,
+        fullDay: actualDayName,
         date: dateString,
         totalHours: Number(totalHours.toFixed(2)),
         shiftsCount: dayShifts.length,
