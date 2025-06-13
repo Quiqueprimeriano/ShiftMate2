@@ -14,6 +14,7 @@ import { Clock, User, X } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import Calendar from "@/pages/calendar";
 import AddShift from "@/pages/add-shift";
+import Shifts from "@/pages/shifts";
 import Reports from "@/pages/reports";
 import Login from "@/pages/login";
 import Admin from "@/pages/admin";
@@ -24,6 +25,7 @@ const PAGE_TITLES = {
   "/dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your shift overview." },
   "/calendar": { title: "Calendar", subtitle: "View and manage your shifts on the calendar." },
   "/add-shift": { title: "Add Shift", subtitle: "Log a new work shift." },
+  "/shifts": { title: "All Shifts", subtitle: "View, edit, and manage your shift history." },
   "/reports": { title: "Reports", subtitle: "Generate and download shift reports." },
 };
 

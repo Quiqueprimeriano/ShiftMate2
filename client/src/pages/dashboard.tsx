@@ -676,7 +676,7 @@ export default function Dashboard() {
             <div className="p-6 border-b border-slate-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900">Recent Shifts</h3>
-                <Link href="/calendar">
+                <Link href="/shifts">
                   <Button variant="ghost" size="sm">
                     View All
                   </Button>
