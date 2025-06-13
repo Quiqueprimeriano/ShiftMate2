@@ -218,6 +218,7 @@ function Router() {
       <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><Dashboard /></AppLayout>} />
       <Route path="/calendar" component={() => <AppLayout location="/calendar"><Calendar /></AppLayout>} />
       <Route path="/add-shift" component={() => <AppLayout location="/add-shift"><AddShift /></AppLayout>} />
+      <Route path="/shifts" component={() => <AppLayout location="/shifts"><Shifts /></AppLayout>} />
       <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
       <Route component={() => <AppLayout location="/404"><NotFound /></AppLayout>} />
     </Switch>
