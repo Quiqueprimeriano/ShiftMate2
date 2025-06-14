@@ -877,6 +877,101 @@ export default function Dashboard() {
                   </Button>
                 </div>
               </div>
+
+              {/* Bar Chart for Selected Date Range */}
+              {recentShiftsChartData.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-slate-700 mb-3">Daily Hours Breakdown</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={recentShiftsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="day" 
+                          tick={{ fontSize: 12 }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis 
+                          tick={{ fontSize: 12 }}
+                          label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length > 0) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
+                                  <p className="font-medium text-slate-900 mb-2">{label}</p>
+                                  {data.shiftsCount > 0 ? (
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-medium text-slate-900">
+                                        Total: {data.totalHours} hours ({data.shiftsCount} shift{data.shiftsCount > 1 ? 's' : ''})
+                                      </p>
+                                      <div className="space-y-1 mt-2">
+                                        {data.morningHours > 0 && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                            <span>Morning: {data.morningHours} hours</span>
+                                          </div>
+                                        )}
+                                        {data.eveningHours > 0 && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                                            <span>Evening: {data.eveningHours} hours</span>
+                                          </div>
+                                        )}
+                                        {data.nightHours > 0 && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                                            <span>Night: {data.nightHours} hours</span>
+                                          </div>
+                                        )}
+                                        {data.doubleHours > 0 && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                            <span>Double: {data.doubleHours} hours</span>
+                                          </div>
+                                        )}
+                                        {data.customHours > 0 && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <div className="w-3 h-3 rounded-full bg-violet-500"></div>
+                                            <span>Custom: {data.customHours} hours</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-slate-500">No shifts</p>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" />
+                        <Bar dataKey="eveningHours" stackId="shifts" fill="#f59e0b" name="Evening Shifts" />
+                        <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" />
+                        <Bar dataKey="doubleHours" stackId="shifts" fill="#ef4444" name="Double Shifts" />
+                        <Bar dataKey="customHours" stackId="shifts" fill="#8b5cf6" name="Custom Shifts">
+                          <LabelList 
+                            dataKey="totalHours" 
+                            position="top" 
+                            style={{ 
+                              fontSize: '12px', 
+                              fontWeight: '600',
+                              fill: '#374151'
+                            }}
+                            formatter={(value: number) => value > 0 ? `${value}h` : ''}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="divide-y divide-slate-200">
               {shiftsLoading ? (
