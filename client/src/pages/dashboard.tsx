@@ -74,7 +74,14 @@ export default function Dashboard() {
 
   // Prepare chart data for filtered recent shifts
   const recentShiftsChartData = useMemo(() => {
-    if (!filteredRecentShifts.length) return [];
+    // Generate all dates in the selected range
+    const startDate = new Date(recentShiftsStartDate);
+    const endDate = new Date(recentShiftsEndDate);
+    const dateRange: Date[] = [];
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      dateRange.push(new Date(d));
+    }
 
     // Group shifts by date
     const shiftsByDate = filteredRecentShifts.reduce((acc, shift) => {
@@ -86,63 +93,63 @@ export default function Dashboard() {
       return acc;
     }, {} as Record<string, any[]>);
 
-    // Create chart data for each date
-    return Object.entries(shiftsByDate)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, shifts]) => {
-        const currentDate = new Date(date);
-        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
-        const formattedDate = `${dayName} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
-        
-        // Calculate total hours and shift type breakdown
-        const totalHours = shifts.reduce((sum, shift) => 
-          sum + calculateDuration(shift.startTime, shift.endTime), 0);
-        
-        const shiftTypeHours = {
-          morningHours: 0,
-          eveningHours: 0,
-          nightHours: 0,
-          doubleHours: 0,
-          customHours: 0
-        };
-        
-        shifts.forEach((shift) => {
-          const duration = Number(calculateDuration(shift.startTime, shift.endTime).toFixed(2));
-          switch (shift.shiftType) {
-            case 'morning':
-              shiftTypeHours.morningHours += duration;
-              break;
-            case 'evening':
-              shiftTypeHours.eveningHours += duration;
-              break;
-            case 'night':
-              shiftTypeHours.nightHours += duration;
-              break;
-            case 'double':
-              shiftTypeHours.doubleHours += duration;
-              break;
-            case 'custom':
-              shiftTypeHours.customHours += duration;
-              break;
-          }
-        });
-
-        // Round all shift type hours to 2 decimal places
-        Object.keys(shiftTypeHours).forEach(key => {
-          shiftTypeHours[key as keyof typeof shiftTypeHours] = Number(
-            shiftTypeHours[key as keyof typeof shiftTypeHours].toFixed(2)
-          );
-        });
-
-        return {
-          day: formattedDate,
-          date,
-          totalHours: Number(totalHours.toFixed(2)),
-          shiftsCount: shifts.length,
-          ...shiftTypeHours
-        };
+    // Create chart data for each date in the range (including days with no shifts)
+    return dateRange.map((currentDate) => {
+      const dateString = currentDate.toISOString().split('T')[0];
+      const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
+      const formattedDate = `${dayName} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+      
+      const shifts = shiftsByDate[dateString] || [];
+      
+      // Calculate total hours and shift type breakdown
+      const totalHours = shifts.reduce((sum, shift) => 
+        sum + calculateDuration(shift.startTime, shift.endTime), 0);
+      
+      const shiftTypeHours = {
+        morningHours: 0,
+        eveningHours: 0,
+        nightHours: 0,
+        doubleHours: 0,
+        customHours: 0
+      };
+      
+      shifts.forEach((shift) => {
+        const duration = Number(calculateDuration(shift.startTime, shift.endTime).toFixed(2));
+        switch (shift.shiftType) {
+          case 'morning':
+            shiftTypeHours.morningHours += duration;
+            break;
+          case 'evening':
+            shiftTypeHours.eveningHours += duration;
+            break;
+          case 'night':
+            shiftTypeHours.nightHours += duration;
+            break;
+          case 'double':
+            shiftTypeHours.doubleHours += duration;
+            break;
+          case 'custom':
+            shiftTypeHours.customHours += duration;
+            break;
+        }
       });
-  }, [filteredRecentShifts]);
+
+      // Round all shift type hours to 2 decimal places
+      Object.keys(shiftTypeHours).forEach(key => {
+        shiftTypeHours[key as keyof typeof shiftTypeHours] = Number(
+          shiftTypeHours[key as keyof typeof shiftTypeHours].toFixed(2)
+        );
+      });
+
+      return {
+        day: formattedDate,
+        date: dateString,
+        totalHours: Number(totalHours.toFixed(2)),
+        shiftsCount: shifts.length,
+        ...shiftTypeHours
+      };
+    });
+  }, [filteredRecentShifts, recentShiftsStartDate, recentShiftsEndDate]);
 
   // Prepare weekly chart data
   const weeklyChartData = useMemo(() => {
