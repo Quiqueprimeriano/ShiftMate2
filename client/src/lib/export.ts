@@ -109,7 +109,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         }
         .content-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr 2fr;
           gap: 15px;
           flex: 1;
         }
@@ -117,29 +117,29 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
           border: 1px solid #bfdbfe;
           border-radius: 8px;
-          padding: 15px;
+          padding: 12px;
         }
         .summary-stats {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 15px;
-          margin-top: 10px;
+          gap: 10px;
+          margin-top: 8px;
         }
         .stat-box {
           text-align: center;
           background: white;
-          padding: 12px;
-          border-radius: 6px;
+          padding: 8px;
+          border-radius: 4px;
           border: 1px solid #e5e7eb;
         }
         .stat-value {
-          font-size: 20px;
+          font-size: 16px;
           font-weight: bold;
           color: #1e40af;
           display: block;
         }
         .stat-label {
-          font-size: 10px;
+          font-size: 9px;
           color: #6b7280;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -210,7 +210,9 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           background: white;
           border: 1px solid #e5e7eb;
           border-radius: 8px;
-          padding: 15px;
+          padding: 12px;
+          max-height: 400px;
+          overflow-y: auto;
         }
         .total-highlight {
           background: linear-gradient(135deg, #dbeafe, #bfdbfe);
@@ -245,7 +247,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           
           <!-- Daily Summary Section -->
           <div class="daily-summary">
-            <div class="section-title">Daily Hours</div>
+            <div class="section-title">Daily Hours (${dailyHours.length} days)</div>
             <table class="compact-table">
               <thead>
                 <tr>
@@ -254,19 +256,12 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
                 </tr>
               </thead>
               <tbody>
-                ${dailyHours.slice(0, 8).map(day => `
+                ${dailyHours.map(day => `
                   <tr>
                     <td>${formatDateDDMMYYYY(day.date)}</td>
                     <td>${day.totalHours.toFixed(1)}h</td>
                   </tr>
                 `).join('')}
-                ${dailyHours.length > 8 ? `
-                  <tr>
-                    <td colspan="2" style="text-align: center; font-style: italic; color: #6b7280;">
-                      ... and ${dailyHours.length - 8} more days
-                    </td>
-                  </tr>
-                ` : ''}
                 <tr class="total-highlight">
                   <td><strong>TOTAL</strong></td>
                   <td><strong>${calculateTotalHours(sortedShifts).toFixed(1)}h</strong></td>
