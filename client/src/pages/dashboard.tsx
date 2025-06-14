@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3 } from "lucide-react";
+import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3, Calendar, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 import { useShifts, useWeeklyHours, useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
-import { getWeekDates, formatTime, calculateDuration, generateTimeOptions } from "@/lib/time-utils";
+import { getWeekDates, formatTime, calculateDuration, generateTimeOptions, formatDateRange } from "@/lib/time-utils";
+import { exportToCSV, exportToPDF } from "@/lib/export";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +40,10 @@ export default function Dashboard() {
   // Edit shift modal state
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [shiftToEdit, setShiftToEdit] = useState<any>(null);
+  
+  // Recent Shifts date range filter state
+  const [recentShiftsStartDate, setRecentShiftsStartDate] = useState(currentWeek.start);
+  const [recentShiftsEndDate, setRecentShiftsEndDate] = useState(currentWeek.end);
 
   const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
   const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(currentWeek.start, currentWeek.end);
@@ -48,9 +53,96 @@ export default function Dashboard() {
   const deleteShiftMutation = useDeleteShift();
   const { toast } = useToast();
 
+  // Filter recent shifts by date range
+  const filteredRecentShifts = useMemo(() => {
+    if (!recentShifts) return [];
+    return recentShifts.filter(shift => 
+      shift.date >= recentShiftsStartDate && shift.date <= recentShiftsEndDate
+    );
+  }, [recentShifts, recentShiftsStartDate, recentShiftsEndDate]);
+
   const recentShiftsToShow = useMemo(() => {
-    return recentShifts?.slice(0, 3) || [];
-  }, [recentShifts]);
+    return filteredRecentShifts?.slice(0, 3) || [];
+  }, [filteredRecentShifts]);
+
+  // Calculate total hours for filtered recent shifts
+  const filteredRecentShiftsTotalHours = useMemo(() => {
+    return filteredRecentShifts.reduce((total, shift) => 
+      total + calculateDuration(shift.startTime, shift.endTime), 0
+    );
+  }, [filteredRecentShifts]);
+
+  // Prepare chart data for filtered recent shifts
+  const recentShiftsChartData = useMemo(() => {
+    if (!filteredRecentShifts.length) return [];
+
+    // Group shifts by date
+    const shiftsByDate = filteredRecentShifts.reduce((acc, shift) => {
+      const date = shift.date;
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(shift);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Create chart data for each date
+    return Object.entries(shiftsByDate)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, shifts]) => {
+        const currentDate = new Date(date);
+        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
+        const formattedDate = `${dayName} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+        
+        // Calculate total hours and shift type breakdown
+        const totalHours = shifts.reduce((sum, shift) => 
+          sum + calculateDuration(shift.startTime, shift.endTime), 0);
+        
+        const shiftTypeHours = {
+          morningHours: 0,
+          eveningHours: 0,
+          nightHours: 0,
+          doubleHours: 0,
+          customHours: 0
+        };
+        
+        shifts.forEach((shift) => {
+          const duration = Number(calculateDuration(shift.startTime, shift.endTime).toFixed(2));
+          switch (shift.shiftType) {
+            case 'morning':
+              shiftTypeHours.morningHours += duration;
+              break;
+            case 'evening':
+              shiftTypeHours.eveningHours += duration;
+              break;
+            case 'night':
+              shiftTypeHours.nightHours += duration;
+              break;
+            case 'double':
+              shiftTypeHours.doubleHours += duration;
+              break;
+            case 'custom':
+              shiftTypeHours.customHours += duration;
+              break;
+          }
+        });
+
+        // Round all shift type hours to 2 decimal places
+        Object.keys(shiftTypeHours).forEach(key => {
+          shiftTypeHours[key as keyof typeof shiftTypeHours] = Number(
+            shiftTypeHours[key as keyof typeof shiftTypeHours].toFixed(2)
+          );
+        });
+
+        return {
+          day: formattedDate,
+          date,
+          totalHours: Number(totalHours.toFixed(2)),
+          shiftsCount: shifts.length,
+          ...shiftTypeHours
+        };
+      });
+  }, [filteredRecentShifts]);
 
   // Prepare weekly chart data
   const weeklyChartData = useMemo(() => {
@@ -352,6 +444,30 @@ export default function Dashboard() {
         variant: "destructive",
       });
     }
+  };
+
+  // Handle report generation for Recent Shifts
+  const handleGenerateReport = (format: 'pdf' | 'csv') => {
+    const options = {
+      format,
+      startDate: recentShiftsStartDate,
+      endDate: recentShiftsEndDate,
+      includeDetails: true,
+      includeSummary: true,
+      includeAverages: true,
+      includeMissing: false
+    };
+
+    if (format === 'csv') {
+      exportToCSV(filteredRecentShifts, options);
+    } else {
+      exportToPDF(filteredRecentShifts, options);
+    }
+
+    toast({
+      title: "Report Generated",
+      description: `${format.toUpperCase()} report for ${formatDateRange(recentShiftsStartDate, recentShiftsEndDate)} has been downloaded.`,
+    });
   };
 
   // Handle deleting existing shift from edit modal
@@ -677,13 +793,89 @@ export default function Dashboard() {
         <div>
           <Card>
             <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-slate-900">Recent Shifts</h3>
                 <Link href="/shifts">
                   <Button variant="ghost" size="sm">
                     View All
                   </Button>
                 </Link>
+              </div>
+              
+              {/* Date Range Filter */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <Label htmlFor="start-date" className="text-sm font-medium text-slate-700">
+                    Start Date
+                  </Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={recentShiftsStartDate}
+                    onChange={(e) => setRecentShiftsStartDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end-date" className="text-sm font-medium text-slate-700">
+                    End Date
+                  </Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={recentShiftsEndDate}
+                    onChange={(e) => setRecentShiftsEndDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Total Hours and Report Generation */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 p-4 bg-slate-50 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-slate-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        Total Hours: {filteredRecentShiftsTotalHours.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        {formatDateRange(recentShiftsStartDate, recentShiftsEndDate)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-slate-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {filteredRecentShifts.length} Shifts
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        {recentShiftsChartData.length} Days
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleGenerateReport('csv')}
+                    disabled={filteredRecentShifts.length === 0}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    CSV Report
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleGenerateReport('pdf')}
+                    disabled={filteredRecentShifts.length === 0}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    PDF Report
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="divide-y divide-slate-200">
