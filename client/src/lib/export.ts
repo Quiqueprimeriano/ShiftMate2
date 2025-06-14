@@ -10,9 +10,21 @@ export interface ExportOptions {
   includeMissing: boolean;
 }
 
+// Helper function to format date as dd/mm/yyyy
+function formatDateDDMMYYYY(dateString: string): string {
+  const date = new Date(dateString);
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export function exportToCSV(shifts: Shift[], options: ExportOptions): void {
+  // Sort shifts from oldest to newest
+  const sortedShifts = [...shifts].sort((a, b) => a.date.localeCompare(b.date));
+  
   const headers = ['Date', 'Shift Type', 'Start Time', 'End Time', 'Duration (hours)', 'Notes'];
-  const rows = shifts.map(shift => {
+  const rows = sortedShifts.map(shift => {
     const start = new Date(`2000-01-01T${shift.startTime}`);
     const end = new Date(`2000-01-01T${shift.endTime}`);
     
@@ -24,7 +36,7 @@ export function exportToCSV(shifts: Shift[], options: ExportOptions): void {
     const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
     
     return [
-      shift.date,
+      formatDateDDMMYYYY(shift.date),
       shift.shiftType,
       shift.startTime,
       shift.endTime,
@@ -51,7 +63,9 @@ export function exportToCSV(shifts: Shift[], options: ExportOptions): void {
 }
 
 export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
-  const dailyHours = calculateDailyHours(shifts);
+  // Sort shifts from oldest to newest
+  const sortedShifts = [...shifts].sort((a, b) => a.date.localeCompare(b.date));
+  const dailyHours = calculateDailyHours(sortedShifts);
   
   // Create a simple HTML structure for PDF generation
   const htmlContent = `
@@ -74,7 +88,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
     </head>
     <body>
       <h1>Shift Report</h1>
-      <p><strong>Period:</strong> ${options.startDate} to ${options.endDate}</p>
+      <p><strong>Period:</strong> ${formatDateDDMMYYYY(options.startDate)} to ${formatDateDDMMYYYY(options.endDate)}</p>
       
       ${options.includeSummary ? `
         <div class="summary">
@@ -97,14 +111,14 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           <tbody>
             ${dailyHours.map(day => `
               <tr>
-                <td>${new Date(day.date).toLocaleDateString()}</td>
+                <td>${formatDateDDMMYYYY(day.date)}</td>
                 <td>${day.totalHours.toFixed(2)}h</td>
               </tr>
             `).join('')}
             ${dailyHours.length > 0 ? `
               <tr class="total-row">
                 <td><strong>TOTAL</strong></td>
-                <td><strong>${calculateTotalHours(shifts).toFixed(2)}h</strong></td>
+                <td><strong>${calculateTotalHours(sortedShifts).toFixed(2)}h</strong></td>
               </tr>
             ` : ''}
           </tbody>
@@ -125,7 +139,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
             </tr>
           </thead>
           <tbody>
-            ${shifts.map(shift => {
+            ${sortedShifts.map(shift => {
               const start = new Date(`2000-01-01T${shift.startTime}`);
               const end = new Date(`2000-01-01T${shift.endTime}`);
               
@@ -137,7 +151,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
               
               return `
                 <tr>
-                  <td>${new Date(shift.date).toLocaleDateString()}</td>
+                  <td>${formatDateDDMMYYYY(shift.date)}</td>
                   <td>${shift.shiftType}</td>
                   <td>${shift.startTime}</td>
                   <td>${shift.endTime}</td>
