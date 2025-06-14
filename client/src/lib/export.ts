@@ -73,29 +73,129 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
     <head>
       <title>Shift Report - ${options.startDate} to ${options.endDate}</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #2563eb; }
-        h2 { color: #1e40af; margin-top: 30px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .summary { background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #2563eb; }
-        .daily-totals { margin-top: 30px; }
-        .daily-totals table { width: 50%; }
-        .daily-totals td:last-child { text-align: right; font-weight: bold; }
-        .total-row { background-color: #e0f2fe; font-weight: bold; }
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+          margin: 30px; 
+          line-height: 1.6; 
+          color: #333;
+        }
+        h1 { 
+          color: #1e40af; 
+          font-size: 28px; 
+          margin-bottom: 10px;
+          border-bottom: 3px solid #2563eb;
+          padding-bottom: 10px;
+        }
+        h2 { 
+          color: #1e40af; 
+          margin-top: 35px; 
+          margin-bottom: 15px;
+          font-size: 20px;
+        }
+        h3 {
+          color: #374151;
+          margin-top: 0;
+          margin-bottom: 10px;
+          font-size: 16px;
+        }
+        table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin-top: 15px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        th, td { 
+          border: 1px solid #e5e7eb; 
+          padding: 12px 16px; 
+          text-align: left; 
+        }
+        th { 
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        tr:nth-child(even) {
+          background-color: #f8fafc;
+        }
+        tr:hover {
+          background-color: #e0f2fe;
+        }
+        .summary { 
+          background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+          padding: 20px; 
+          margin: 25px 0; 
+          border-left: 5px solid #2563eb;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .summary-stats {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 15px;
+        }
+        .stat-item {
+          text-align: center;
+          flex: 1;
+        }
+        .stat-value {
+          font-size: 24px;
+          font-weight: bold;
+          color: #1e40af;
+          display: block;
+        }
+        .stat-label {
+          font-size: 12px;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .period-info {
+          font-size: 14px;
+          color: #6b7280;
+          margin-top: 8px;
+          font-style: italic;
+        }
+        .daily-totals table { 
+          width: 60%; 
+        }
+        .daily-totals td:last-child { 
+          text-align: right; 
+          font-weight: 600; 
+        }
+        .total-row { 
+          background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+          font-weight: bold; 
+          font-size: 16px;
+        }
+        .total-row td {
+          border-top: 2px solid #2563eb;
+        }
       </style>
     </head>
     <body>
       <h1>Shift Report</h1>
-      <p><strong>Period:</strong> ${formatDateDDMMYYYY(options.startDate)} to ${formatDateDDMMYYYY(options.endDate)}</p>
       
       ${options.includeSummary ? `
         <div class="summary">
           <h3>Summary</h3>
-          <p><strong>Total Shifts:</strong> ${shifts.length}</p>
-          <p><strong>Total Hours:</strong> ${calculateTotalHours(shifts).toFixed(2)}</p>
-          <p><strong>Average Daily Hours:</strong> ${dailyHours.length > 0 ? (calculateTotalHours(shifts) / dailyHours.length).toFixed(2) : '0.00'}</p>
+          <div class="period-info">
+            <strong>Period:</strong> ${formatDateDDMMYYYY(options.startDate)} to ${formatDateDDMMYYYY(options.endDate)}
+          </div>
+          <div class="summary-stats">
+            <div class="stat-item">
+              <span class="stat-value">${sortedShifts.length}</span>
+              <span class="stat-label">Total Shifts</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">${calculateTotalHours(sortedShifts).toFixed(1)}h</span>
+              <span class="stat-label">Total Hours</span>
+            </div>
+          </div>
         </div>
       ` : ''}
       
