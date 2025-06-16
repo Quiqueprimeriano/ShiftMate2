@@ -107,9 +107,9 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           opacity: 0.9;
         }
         .content-grid {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-          gap: 25px;
+          display: flex;
+          flex-direction: column;
+          gap: 30px;
         }
         .summary-card {
           background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
