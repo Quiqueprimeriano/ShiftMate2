@@ -201,7 +201,7 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Shift Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select shift type" />
@@ -228,7 +228,7 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Start Time</FormLabel>
-                  <Select onValueChange={handleStartTimeChange} defaultValue={field.value}>
+                  <Select onValueChange={handleStartTimeChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select start time" />
@@ -253,7 +253,7 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>End Time</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder={startTime ? "Select end time" : "Select start time first"} />
