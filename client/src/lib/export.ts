@@ -80,38 +80,36 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         body { 
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
           margin: 0; 
-          line-height: 1.4; 
+          line-height: 1.5; 
           color: #333;
-          font-size: 12px;
+          font-size: 14px;
         }
         .onepager-container {
           max-width: 100%;
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
+          padding: 20px;
         }
         .header {
           background: linear-gradient(135deg, #1e40af, #2563eb);
           color: white;
-          padding: 15px 20px;
-          border-radius: 8px;
-          margin-bottom: 15px;
+          padding: 20px 30px;
+          border-radius: 10px;
+          margin-bottom: 25px;
+          text-align: center;
         }
         .header h1 {
           margin: 0;
-          font-size: 24px;
+          font-size: 32px;
           font-weight: bold;
         }
         .period-subtitle {
-          margin: 5px 0 0 0;
-          font-size: 14px;
+          margin: 8px 0 0 0;
+          font-size: 18px;
           opacity: 0.9;
         }
         .content-grid {
           display: grid;
           grid-template-columns: 1fr 2fr;
-          gap: 15px;
-          flex: 1;
+          gap: 25px;
         }
         .summary-card {
           background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
@@ -145,60 +143,66 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           letter-spacing: 0.5px;
         }
         .section-title {
-          font-size: 14px;
+          font-size: 20px;
           font-weight: bold;
           color: #1e40af;
-          margin-bottom: 10px;
+          margin-bottom: 15px;
+          text-align: center;
         }
-        .compact-table {
+        .daily-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 10px;
+          font-size: 14px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+          overflow: hidden;
         }
-        .compact-table th {
-          background: #f1f5f9;
-          border: 1px solid #e2e8f0;
-          padding: 6px 8px;
+        .daily-table th {
+          background: linear-gradient(135deg, #1e40af, #2563eb);
+          color: white;
+          border: none;
+          padding: 12px 16px;
           font-weight: 600;
-          font-size: 9px;
+          font-size: 16px;
           text-transform: uppercase;
         }
-        .compact-table td {
+        .daily-table td {
           border: 1px solid #e2e8f0;
-          padding: 4px 8px;
+          padding: 10px 16px;
+          font-size: 14px;
         }
-        .compact-table tr:nth-child(even) {
+        .daily-table tr:nth-child(even) {
           background-color: #f8fafc;
-        }
-        .shifts-grid {
-          grid-column: 1 / -1;
-          margin-top: 10px;
         }
         .shifts-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 9px;
+          font-size: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+          overflow: hidden;
         }
         .shifts-table th {
-          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          background: linear-gradient(135deg, #1e40af, #2563eb);
           color: white;
-          border: 1px solid #2563eb;
-          padding: 6px 8px;
+          border: none;
+          padding: 12px 10px;
           font-weight: 600;
-          font-size: 8px;
+          font-size: 13px;
           text-transform: uppercase;
         }
         .shifts-table td {
-          border: 1px solid #e5e7eb;
-          padding: 4px 8px;
+          border: 1px solid #e2e8f0;
+          padding: 8px 10px;
+          font-size: 12px;
         }
         .shifts-table tr:nth-child(even) {
           background-color: #f8fafc;
         }
         .shift-type {
-          padding: 2px 6px;
+          padding: 3px 8px;
           border-radius: 4px;
-          font-size: 8px;
+          font-size: 10px;
           font-weight: 600;
         }
         .morning { background: #d1fae5; color: #065f46; }
@@ -210,12 +214,15 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           background: white;
           border: 1px solid #e5e7eb;
           border-radius: 8px;
-          padding: 12px;
-          max-height: 400px;
-          overflow-y: auto;
+          padding: 15px;
         }
         .total-highlight {
           background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+          font-weight: bold;
+          font-size: 16px;
+        }
+        .total-highlight td {
+          font-size: 16px;
           font-weight: bold;
         }
       </style>
@@ -230,25 +237,10 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         </div>
         
         <div class="content-grid">
-          <!-- Summary Section -->
-          <div class="summary-card">
-            <div class="section-title">Summary</div>
-            <div class="summary-stats">
-              <div class="stat-box">
-                <span class="stat-value">${sortedShifts.length}</span>
-                <span class="stat-label">Total Shifts</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-value">${calculateTotalHours(sortedShifts).toFixed(1)}h</span>
-                <span class="stat-label">Total Hours</span>
-              </div>
-            </div>
-          </div>
-          
           <!-- Daily Summary Section -->
           <div class="daily-summary">
-            <div class="section-title">Daily Hours (${dailyHours.length} days)</div>
-            <table class="compact-table">
+            <div class="section-title">Daily Hours</div>
+            <table class="daily-table">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -259,20 +251,20 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
                 ${dailyHours.map(day => `
                   <tr>
                     <td>${formatDateDDMMYYYY(day.date)}</td>
-                    <td>${day.totalHours.toFixed(1)}h</td>
+                    <td>${day.totalHours.toFixed(2)}h</td>
                   </tr>
                 `).join('')}
                 <tr class="total-highlight">
                   <td><strong>TOTAL</strong></td>
-                  <td><strong>${calculateTotalHours(sortedShifts).toFixed(1)}h</strong></td>
+                  <td><strong>${calculateTotalHours(sortedShifts).toFixed(2)}h</strong></td>
                 </tr>
               </tbody>
             </table>
           </div>
           
           <!-- Detailed Shifts Section -->
-          <div class="shifts-grid">
-            <div class="section-title">Detailed Shift Log (${sortedShifts.length} shifts)</div>
+          <div class="shifts-section">
+            <div class="section-title">Detailed Shift Log</div>
             <table class="shifts-table">
               <thead>
                 <tr>
@@ -301,8 +293,8 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
                       <td><span class="shift-type ${shift.shiftType}">${shift.shiftType}</span></td>
                       <td>${shift.startTime}</td>
                       <td>${shift.endTime}</td>
-                      <td>${duration.toFixed(1)}h</td>
-                      <td>${shift.notes ? shift.notes.substring(0, 20) + (shift.notes.length > 20 ? '...' : '') : '-'}</td>
+                      <td><strong>${duration.toFixed(2)}h</strong></td>
+                      <td>${shift.notes ? shift.notes.substring(0, 25) + (shift.notes.length > 25 ? '...' : '') : '-'}</td>
                     </tr>
                   `;
                 }).join('')}
