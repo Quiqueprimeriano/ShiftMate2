@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -69,6 +69,22 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
   });
 
   const [recurringType, setRecurringType] = useState("none");
+  
+  // Reset form when editing shift changes
+  useEffect(() => {
+    if (editingShift && isEditing) {
+      form.reset({
+        date: editingShift.date,
+        shiftType: editingShift.shiftType,
+        startTime: editingShift.startTime,
+        endTime: editingShift.endTime,
+        notes: editingShift.notes || "",
+        isRecurring: editingShift.isRecurring || false,
+        recurringPattern: editingShift.recurringPattern || "none",
+      });
+      setRecurringType(editingShift.recurringPattern || "none");
+    }
+  }, [editingShift, isEditing, form]);
   
   // Watch start time to filter end time options
   const startTime = form.watch("startTime");
