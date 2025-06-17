@@ -246,7 +246,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         }
         .unified-table td {
           border: 1px solid #e2e8f0;
-          padding: 8px 10px;
+          padding: 6px 8px;
           font-size: 12px;
           text-align: center;
         }
@@ -254,7 +254,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           background-color: #f8fafc;
         }
         .daily-total-row {
-          background: linear-gradient(135deg, #1e40af, #2563eb);
+          background: #2563eb;
           color: white;
           font-weight: bold;
           font-size: 12px;
@@ -262,7 +262,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         .daily-total-row td {
           font-weight: bold;
           font-size: 12px;
-          padding: 12px 10px;
+          padding: 8px 8px;
           color: white;
         }
         .shift-type {
