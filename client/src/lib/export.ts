@@ -62,10 +62,87 @@ export function exportToCSV(shifts: Shift[], options: ExportOptions): void {
   document.body.removeChild(link);
 }
 
+function generateShiftTableRows(shifts: Shift[]): string {
+  // Group shifts by date
+  const shiftsByDate: { [key: string]: Shift[] } = {};
+  shifts.forEach(shift => {
+    if (!shiftsByDate[shift.date]) {
+      shiftsByDate[shift.date] = [];
+    }
+    shiftsByDate[shift.date].push(shift);
+  });
+  
+  let tableRows = '';
+  
+  // Process each date
+  Object.keys(shiftsByDate).sort().forEach(date => {
+    const dayShifts = shiftsByDate[date];
+    
+    // Sort shifts by type (morning first) then by start time
+    const typeOrder: { [key: string]: number } = { 'morning': 1, 'evening': 2, 'night': 3, 'double': 4, 'custom': 5 };
+    dayShifts.sort((a, b) => {
+      const typeA = typeOrder[a.shiftType] || 6;
+      const typeB = typeOrder[b.shiftType] || 6;
+      if (typeA !== typeB) return typeA - typeB;
+      return a.startTime.localeCompare(b.startTime);
+    });
+    
+    // Calculate daily total
+    let dailyTotal = 0;
+    dayShifts.forEach(shift => {
+      const start = new Date('2000-01-01T' + shift.startTime);
+      const end = new Date('2000-01-01T' + shift.endTime);
+      if (end < start) end.setDate(end.getDate() + 1);
+      dailyTotal += (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+    });
+    
+    // Get day name
+    const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
+    
+    // Add daily total row
+    tableRows += `<tr class="daily-total-row">
+        <td><strong>${dayName}</strong></td>
+        <td><strong>${formatDateDDMMYYYY(date)}</strong></td>
+        <td><strong>DAILY TOTAL</strong></td>
+        <td>-</td>
+        <td>-</td>
+        <td><strong>${dailyTotal.toFixed(2)}h</strong></td>
+        <td>-</td>
+      </tr>`;
+    
+    // Add individual shifts
+    dayShifts.forEach(shift => {
+      const start = new Date('2000-01-01T' + shift.startTime);
+      const end = new Date('2000-01-01T' + shift.endTime);
+      if (end < start) end.setDate(end.getDate() + 1);
+      const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      
+      tableRows += `<tr>
+          <td></td>
+          <td></td>
+          <td><span class="shift-type ${shift.shiftType}">${shift.shiftType}</span></td>
+          <td>${shift.startTime}</td>
+          <td>${shift.endTime}</td>
+          <td>${duration.toFixed(2)}h</td>
+          <td>${shift.notes ? shift.notes.substring(0, 20) + (shift.notes.length > 20 ? '...' : '') : '-'}</td>
+        </tr>`;
+    });
+  });
+  
+  // Add grand total
+  tableRows += `<tr class="total-highlight">
+      <td colspan="5"><strong>GRAND TOTAL</strong></td>
+      <td><strong>${calculateTotalHours(shifts).toFixed(2)}h</strong></td>
+      <td><strong>${shifts.length} shifts</strong></td>
+    </tr>`;
+  
+  return tableRows;
+}
+
 export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
   // Sort shifts from oldest to newest
   const sortedShifts = [...shifts].sort((a, b) => a.date.localeCompare(b.date));
-  const dailyHours = calculateDailyHours(sortedShifts);
+  const tableRows = generateShiftTableRows(sortedShifts);
   
   // Create OnePager HTML structure for PDF generation
   const htmlContent = `
@@ -149,7 +226,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           margin-bottom: 15px;
           text-align: center;
         }
-        .daily-table {
+        .unified-table {
           width: 100%;
           border-collapse: collapse;
           font-size: 14px;
@@ -157,47 +234,34 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           border-radius: 8px;
           overflow: hidden;
         }
-        .daily-table th {
-          background: linear-gradient(135deg, #1e40af, #2563eb);
-          color: white;
-          border: none;
-          padding: 12px 16px;
-          font-weight: 600;
-          font-size: 16px;
-          text-transform: uppercase;
-        }
-        .daily-table td {
-          border: 1px solid #e2e8f0;
-          padding: 10px 16px;
-          font-size: 14px;
-        }
-        .daily-table tr:nth-child(even) {
-          background-color: #f8fafc;
-        }
-        .shifts-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 12px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .shifts-table th {
+        .unified-table th {
           background: linear-gradient(135deg, #1e40af, #2563eb);
           color: white;
           border: none;
           padding: 12px 10px;
           font-weight: 600;
-          font-size: 13px;
+          font-size: 15px;
           text-transform: uppercase;
+          text-align: center;
         }
-        .shifts-table td {
+        .unified-table td {
           border: 1px solid #e2e8f0;
           padding: 8px 10px;
-          font-size: 12px;
+          font-size: 13px;
+          text-align: center;
         }
-        .shifts-table tr:nth-child(even) {
+        .unified-table tr:nth-child(even) {
           background-color: #f8fafc;
+        }
+        .daily-total-row {
+          background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+          font-weight: bold;
+          font-size: 15px;
+        }
+        .daily-total-row td {
+          font-weight: bold;
+          font-size: 15px;
+          padding: 12px 10px;
         }
         .shift-type {
           padding: 3px 8px;
@@ -237,37 +301,13 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         </div>
         
         <div class="content-grid">
-          <!-- Daily Summary Section -->
-          <div class="daily-summary">
-            <div class="section-title">Daily Hours</div>
-            <table class="daily-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Hours</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${dailyHours.map(day => `
-                  <tr>
-                    <td>${formatDateDDMMYYYY(day.date)}</td>
-                    <td>${day.totalHours.toFixed(2)}h</td>
-                  </tr>
-                `).join('')}
-                <tr class="total-highlight">
-                  <td><strong>TOTAL</strong></td>
-                  <td><strong>${calculateTotalHours(sortedShifts).toFixed(2)}h</strong></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <!-- Detailed Shifts Section -->
+          <!-- Unified Shift Report -->
           <div class="shifts-section">
-            <div class="section-title">Detailed Shift Log</div>
-            <table class="shifts-table">
+            <div class="section-title">Shift Report</div>
+            <table class="unified-table">
               <thead>
                 <tr>
+                  <th>Day</th>
                   <th>Date</th>
                   <th>Type</th>
                   <th>Start</th>
@@ -277,27 +317,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
                 </tr>
               </thead>
               <tbody>
-                ${sortedShifts.map(shift => {
-                  const start = new Date(`2000-01-01T${shift.startTime}`);
-                  const end = new Date(`2000-01-01T${shift.endTime}`);
-                  
-                  if (end < start) {
-                    end.setDate(end.getDate() + 1);
-                  }
-                  
-                  const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-                  
-                  return `
-                    <tr>
-                      <td>${formatDateDDMMYYYY(shift.date)}</td>
-                      <td><span class="shift-type ${shift.shiftType}">${shift.shiftType}</span></td>
-                      <td>${shift.startTime}</td>
-                      <td>${shift.endTime}</td>
-                      <td><strong>${duration.toFixed(2)}h</strong></td>
-                      <td>${shift.notes ? shift.notes.substring(0, 25) + (shift.notes.length > 25 ? '...' : '') : '-'}</td>
-                    </tr>
-                  `;
-                }).join('')}
+                ${tableRows}
               </tbody>
             </table>
           </div>
