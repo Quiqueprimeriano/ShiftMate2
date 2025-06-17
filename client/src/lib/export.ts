@@ -118,8 +118,8 @@ function generateShiftTableRows(shifts: Shift[]): string {
       const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
       
       tableRows += `<tr>
-          <td></td>
-          <td></td>
+          <td>${dayName}</td>
+          <td>${formatDateDDMMYYYY(date)}</td>
           <td><span class="shift-type ${shift.shiftType}">${shift.shiftType}</span></td>
           <td>${shift.startTime}</td>
           <td>${shift.endTime}</td>
@@ -229,7 +229,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         .unified-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 14px;
+          font-size: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           border-radius: 8px;
           overflow: hidden;
@@ -240,33 +240,35 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           border: none;
           padding: 12px 10px;
           font-weight: 600;
-          font-size: 14px;
+          font-size: 12px;
           text-transform: uppercase;
           text-align: center;
         }
         .unified-table td {
           border: 1px solid #e2e8f0;
           padding: 8px 10px;
-          font-size: 14px;
+          font-size: 12px;
           text-align: center;
         }
         .unified-table tr:nth-child(even) {
           background-color: #f8fafc;
         }
         .daily-total-row {
-          background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+          background: linear-gradient(135deg, #1e40af, #2563eb);
+          color: white;
           font-weight: bold;
-          font-size: 14px;
+          font-size: 12px;
         }
         .daily-total-row td {
           font-weight: bold;
-          font-size: 14px;
+          font-size: 12px;
           padding: 12px 10px;
+          color: white;
         }
         .shift-type {
           padding: 3px 8px;
           border-radius: 4px;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 600;
         }
         .morning { background: #d1fae5; color: #065f46; }
