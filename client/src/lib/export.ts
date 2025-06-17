@@ -175,12 +175,12 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         }
         .header h1 {
           margin: 0;
-          font-size: 32px;
+          font-size: 14px;
           font-weight: bold;
         }
         .period-subtitle {
           margin: 8px 0 0 0;
-          font-size: 18px;
+          font-size: 14px;
           opacity: 0.9;
         }
         .content-grid {
@@ -220,7 +220,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           letter-spacing: 0.5px;
         }
         .section-title {
-          font-size: 20px;
+          font-size: 14px;
           font-weight: bold;
           color: #1e40af;
           margin-bottom: 15px;
@@ -240,14 +240,14 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           border: none;
           padding: 12px 10px;
           font-weight: 600;
-          font-size: 15px;
+          font-size: 14px;
           text-transform: uppercase;
           text-align: center;
         }
         .unified-table td {
           border: 1px solid #e2e8f0;
           padding: 8px 10px;
-          font-size: 13px;
+          font-size: 14px;
           text-align: center;
         }
         .unified-table tr:nth-child(even) {
@@ -256,17 +256,17 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         .daily-total-row {
           background: linear-gradient(135deg, #dbeafe, #bfdbfe);
           font-weight: bold;
-          font-size: 15px;
+          font-size: 14px;
         }
         .daily-total-row td {
           font-weight: bold;
-          font-size: 15px;
+          font-size: 14px;
           padding: 12px 10px;
         }
         .shift-type {
           padding: 3px 8px;
           border-radius: 4px;
-          font-size: 10px;
+          font-size: 14px;
           font-weight: 600;
         }
         .morning { background: #d1fae5; color: #065f46; }
@@ -283,10 +283,10 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
         .total-highlight {
           background: linear-gradient(135deg, #dbeafe, #bfdbfe);
           font-weight: bold;
-          font-size: 16px;
+          font-size: 14px;
         }
         .total-highlight td {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: bold;
         }
       </style>
