@@ -19,6 +19,11 @@ function formatDateDDMMYYYY(dateString: string): string {
   return `${day}/${month}/${year}`;
 }
 
+// Format date range helper function  
+function formatDateRange(startDate: string, endDate: string): string {
+  return `${formatDateDDMMYYYY(startDate)} to ${formatDateDDMMYYYY(endDate)}`;
+}
+
 export function exportToCSV(shifts: Shift[], options: ExportOptions): void {
   // Sort shifts from oldest to newest
   const sortedShifts = [...shifts].sort((a, b) => a.date.localeCompare(b.date));
