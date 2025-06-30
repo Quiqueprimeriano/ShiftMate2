@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
 import type { Shift } from "@shared/schema";
@@ -20,26 +19,14 @@ const shiftFormSchema = z.object({
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
   notes: z.string().optional(),
-  isRecurring: z.boolean().default(false),
-  recurringPattern: z.string().optional(),
-  recurringEndDate: z.string().optional(),
 });
 
 type ShiftFormData = z.infer<typeof shiftFormSchema>;
 
 const shiftTypes = [
-  { value: "morning", label: "Morning Shift" },
-  { value: "evening", label: "Evening Shift" },
-  { value: "night", label: "Night Shift" },
-  { value: "double", label: "Double Shift" },
-  { value: "custom", label: "Custom" },
-];
-
-const recurringOptions = [
-  { value: "none", label: "One-time shift" },
-  { value: "daily", label: "Daily (same time every day)" },
-  { value: "weekly", label: "Weekly (same day and time every week)" },
-  { value: "custom", label: "Custom pattern" },
+  { value: "morning", label: "Morning" },
+  { value: "afternoon", label: "Afternoon" },
+  { value: "night", label: "Night" },
 ];
 
 interface ShiftFormProps {
@@ -50,9 +37,10 @@ interface ShiftFormProps {
 
 export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps) {
   const { toast } = useToast();
-  const createShift = useCreateShift();
-  const updateShift = useUpdateShift();
-  const deleteShift = useDeleteShift();
+  const createShiftMutation = useCreateShift();
+  const updateShiftMutation = useUpdateShift();
+  const deleteShiftMutation = useDeleteShift();
+
   const timeOptions = generateTimeOptions();
   
   const form = useForm<ShiftFormData>({
@@ -63,13 +51,9 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
       startTime: editingShift?.startTime || "",
       endTime: editingShift?.endTime || "",
       notes: editingShift?.notes || "",
-      isRecurring: editingShift?.isRecurring || false,
-      recurringPattern: editingShift?.recurringPattern || "none",
     },
   });
 
-  const [recurringType, setRecurringType] = useState("none");
-  
   // Reset form when editing shift changes
   useEffect(() => {
     if (editingShift && isEditing) {
@@ -79,10 +63,7 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
         startTime: editingShift.startTime,
         endTime: editingShift.endTime,
         notes: editingShift.notes || "",
-        isRecurring: editingShift.isRecurring || false,
-        recurringPattern: editingShift.recurringPattern || "none",
       });
-      setRecurringType(editingShift.recurringPattern || "none");
     }
   }, [editingShift, isEditing, form]);
   
@@ -111,46 +92,34 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
     
     return [...afterStartTime, ...nextDayTimes];
   }, [startTime, timeOptions]);
-  
-  // Reset end time when start time changes
-  const handleStartTimeChange = (value: string) => {
-    form.setValue("startTime", value);
-    form.setValue("endTime", ""); // Clear end time when start time changes
-  };
 
   const onSubmit = async (data: ShiftFormData) => {
     try {
-      const shiftData = {
-        date: data.date,
-        shiftType: data.shiftType,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        notes: data.notes || null,
-        isRecurring: recurringType !== "none",
-        recurringPattern: recurringType !== "none" ? recurringType : null,
-        recurringEndDate: data.recurringEndDate || null,
-      };
-
       if (isEditing && editingShift) {
-        await updateShift.mutateAsync({ id: editingShift.id, ...shiftData });
+        // Update existing shift
+        await updateShiftMutation.mutateAsync({ 
+          id: editingShift.id, 
+          shift: data 
+        });
         toast({
-          title: "Success",
-          description: "Shift updated successfully!",
+          title: "Shift updated",
+          description: "Your shift has been updated successfully.",
         });
       } else {
-        await createShift.mutateAsync(shiftData);
+        // Create new shift
+        await createShiftMutation.mutateAsync(data);
         toast({
-          title: "Success",
-          description: "Shift added successfully!",
+          title: "Shift created",
+          description: "Your shift has been created successfully.",
         });
       }
       
-      form.reset();
       onSuccess?.();
+      form.reset();
     } catch (error) {
       toast({
         title: "Error",
-        description: `Failed to ${isEditing ? 'update' : 'add'} shift. Please try again.`,
+        description: isEditing ? "Failed to update shift." : "Failed to create shift.",
         variant: "destructive",
       });
     }
@@ -160,193 +129,154 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
     if (!editingShift) return;
     
     try {
-      await deleteShift.mutateAsync(editingShift.id);
+      await deleteShiftMutation.mutateAsync(editingShift.id);
       toast({
-        title: "Success",
-        description: "Shift deleted successfully!",
+        title: "Shift deleted",
+        description: "Your shift has been deleted successfully.",
       });
       onSuccess?.();
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete shift. Please try again.",
+        description: "Failed to delete shift.",
         variant: "destructive",
       });
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-slate-900">
-          {isEditing ? 'Edit Shift' : 'Add New Shift'}
-        </h3>
-        {isEditing && (
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={deleteShift.isPending}
-            className="flex items-center gap-2"
-          >
-            {deleteShift.isPending ? 'Deleting...' : 'Delete Shift'}
-          </Button>
-        )}
-      </div>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Shift Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="shiftType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Shift Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select shift type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {shiftTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="startTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Start Time</FormLabel>
-                  <Select onValueChange={handleStartTimeChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select start time" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="max-h-60">
-                      {timeOptions.map((time) => (
-                        <SelectItem key={time.value} value={time.value}>
-                          {time.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="endTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>End Time</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={startTime ? "Select end time" : "Select start time first"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="max-h-60">
-                      {endTimeOptions.map((time) => (
-                        <SelectItem key={time.value} value={time.value}>
-                          {time.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="notes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Notes (Optional)</FormLabel>
+        <FormField
+          control={form.control}
+          name="shiftType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Shift Type</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
-                  <Textarea
-                    placeholder="Add any additional notes about this shift..."
-                    className="resize-none"
-                    rows={3}
-                    {...field}
-                  />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select shift type" />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <SelectContent>
+                  {shiftTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          {/* Recurring Options */}
-          <div className="border-t border-slate-200 pt-6">
-            <h4 className="text-md font-medium text-slate-900 mb-4">Recurring Options</h4>
-            <RadioGroup
-              value={recurringType}
-              onValueChange={setRecurringType}
-              className="space-y-4"
-            >
-              {recurringOptions.map((option) => (
-                <div key={option.value} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.value} id={option.value} />
-                  <Label htmlFor={option.value} className="text-sm">
-                    {option.label}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
+        <FormField
+          control={form.control}
+          name="startTime"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Start Time</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select start time" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {timeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <div className="flex items-center justify-between pt-6">
+        <FormField
+          control={form.control}
+          name="endTime"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>End Time</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select end time" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {endTimeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes (Optional)</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Add any notes about this shift..."
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex gap-2 pt-4">
+          <Button 
+            type="submit" 
+            disabled={createShiftMutation.isPending || updateShiftMutation.isPending}
+            className="flex-1"
+          >
+            {createShiftMutation.isPending || updateShiftMutation.isPending 
+              ? "Saving..." 
+              : isEditing ? "Update Shift" : "Add Shift"
+            }
+          </Button>
+          
+          {isEditing && editingShift && (
             <Button 
               type="button" 
-              variant="outline"
-              onClick={() => form.reset()}
+              variant="destructive" 
+              onClick={handleDelete}
+              disabled={deleteShiftMutation.isPending}
             >
-              Cancel
+              {deleteShiftMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
-            <Button 
-              type="submit" 
-              disabled={createShift.isPending || updateShift.isPending}
-            >
-              {isEditing 
-                ? (updateShift.isPending ? "Updating..." : "Update Shift")
-                : (createShift.isPending ? "Adding..." : "Add Shift")
-              }
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </div>
+          )}
+        </div>
+      </form>
+    </Form>
   );
 }
