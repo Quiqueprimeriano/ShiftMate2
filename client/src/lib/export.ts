@@ -59,7 +59,7 @@ export function exportToCSV(shifts: Shift[], options: ExportOptions): void {
   const url = URL.createObjectURL(blob);
   
   link.setAttribute('href', url);
-  link.setAttribute('download', `shifts_${options.startDate}_${options.endDate}.csv`);
+  link.setAttribute('download', 'Shift Report.csv');
   link.style.visibility = 'hidden';
   
   document.body.appendChild(link);
@@ -297,6 +297,7 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
   if (printWindow) {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
+    printWindow.document.title = 'Shift Report';
     printWindow.focus();
     printWindow.print();
   }
