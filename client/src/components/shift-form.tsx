@@ -99,7 +99,7 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
         // Update existing shift
         await updateShiftMutation.mutateAsync({ 
           id: editingShift.id, 
-          shift: data 
+          ...data 
         });
         toast({
           title: "Shift updated",

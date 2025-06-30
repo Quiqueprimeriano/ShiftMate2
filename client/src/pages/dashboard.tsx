@@ -305,9 +305,9 @@ export default function Dashboard() {
     if (totalMinutes >= 300 && totalMinutes <= 660) {
       return 'morning';
     }
-    // 11:01 AM - 4:00 PM: Evening shift  
+    // 11:01 AM - 4:00 PM: Afternoon shift  
     else if (totalMinutes >= 661 && totalMinutes <= 960) {
-      return 'evening';
+      return 'afternoon';
     }
     // 4:01 PM - 4:59 AM: Night shift
     else {
@@ -716,10 +716,10 @@ export default function Dashboard() {
                                           <span>Morning: {data.morningHours} hours</span>
                                         </div>
                                       )}
-                                      {data.eveningHours > 0 && (
+                                      {data.afternoonHours > 0 && (
                                         <div className="flex items-center gap-2 text-xs">
-                                          <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                                          <span>Evening: {data.eveningHours} hours</span>
+                                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                          <span>Afternoon: {data.afternoonHours} hours</span>
                                         </div>
                                       )}
                                       {data.nightHours > 0 && (
@@ -728,18 +728,7 @@ export default function Dashboard() {
                                           <span>Night: {data.nightHours} hours</span>
                                         </div>
                                       )}
-                                      {data.doubleHours > 0 && (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                          <span>Double: {data.doubleHours} hours</span>
-                                        </div>
-                                      )}
-                                      {data.customHours > 0 && (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <div className="w-3 h-3 rounded-full bg-violet-500"></div>
-                                          <span>Custom: {data.customHours} hours</span>
-                                        </div>
-                                      )}
+
                                     </div>
                                     {data.shifts && data.shifts.length > 0 && (
                                       <div className="mt-2 pt-2 border-t border-slate-200">
@@ -765,10 +754,8 @@ export default function Dashboard() {
                       />
                       {/* Render separate bars for each shift type */}
                       <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" />
-                      <Bar dataKey="eveningHours" stackId="shifts" fill="#f59e0b" name="Evening Shifts" />
-                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" />
-                      <Bar dataKey="doubleHours" stackId="shifts" fill="#ef4444" name="Double Shifts" />
-                      <Bar dataKey="customHours" stackId="shifts" fill="#8b5cf6" name="Custom Shifts">
+                      <Bar dataKey="afternoonHours" stackId="shifts" fill="#3b82f6" name="Afternoon Shifts" />
+                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts">
                         <LabelList 
                           dataKey="totalHours" 
                           position="top" 

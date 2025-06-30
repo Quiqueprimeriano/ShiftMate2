@@ -15,10 +15,8 @@ const DAYS_OF_WEEK = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const SHIFT_TYPE_COLORS = {
   morning: 'bg-emerald-500',
-  evening: 'bg-blue-500',
+  afternoon: 'bg-blue-500',
   night: 'bg-purple-500',
-  double: 'bg-amber-500',
-  custom: 'bg-gray-500',
 };
 
 export function CalendarGrid({ currentDate, onDateChange, shifts, onDayClick }: CalendarGridProps) {
