@@ -3,12 +3,20 @@ import { queryClient } from "@/lib/queryClient";
 import { login, logout, getCurrentUser, type User } from "@/lib/auth";
 
 export function useAuth() {
-  const { data: auth, isLoading } = useQuery({
+  const { data: auth, isLoading, error } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: getCurrentUser,
-    retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes - longer cache for mobile
-    gcTime: 1000 * 60 * 30, // 30 minutes - extend garbage collection
+    retry: (failureCount, error: any) => {
+      // Retry network errors but not auth errors
+      if (error?.message?.includes('401')) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes - longer cache for persistent sessions
+    gcTime: 1000 * 60 * 60, // 1 hour - extend garbage collection for mobile
+    refetchOnWindowFocus: true, // Check auth when app becomes active
+    refetchOnMount: true, // Always check auth on component mount
   });
 
   const loginMutation = useMutation({

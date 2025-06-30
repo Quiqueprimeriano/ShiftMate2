@@ -75,11 +75,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Reset expiration on each request
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: sessionTtl, // 1 year for mobile persistence
-      sameSite: 'strict'
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Allow cross-origin for mobile apps
     }
   }));
 
@@ -179,10 +180,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        // Clear invalid session
+        req.session.destroy(() => {});
+        return res.status(401).json({ message: "User not found" });
       }
+      
+      // Refresh session expiry on successful authentication check
+      (req.session as any).touch();
+      
       res.json({ user });
     } catch (error) {
+      console.error('Auth me error:', error);
       res.status(500).json({ message: "Failed to get user" });
     }
   });
