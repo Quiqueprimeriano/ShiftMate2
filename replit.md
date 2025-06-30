@@ -120,6 +120,7 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - Environment-specific build optimization
 
 ## Changelog
+- June 28, 2025. Implemented persistent authentication with 1-year session duration and cross-device support
 - June 13, 2025. Initial setup
 
 ## User Preferences
