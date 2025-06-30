@@ -191,15 +191,17 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
     
     // Add daily total row
     tableRows += `<tr class="daily-total">
-        <td colspan="6"><strong>Daily Total</strong></td>
+        <td colspan="5"><strong>Daily Total</strong></td>
         <td><strong>${dailyTotal.toFixed(2)}h</strong></td>
+        <td>-</td>
       </tr>`;
   });
   
   // Add period total
   tableRows += `<tr class="period-total">
-      <td colspan="6"><strong>Period Total</strong></td>
+      <td colspan="5"><strong>Period Total</strong></td>
       <td><strong>${totalHours.toFixed(2)}h</strong></td>
+      <td>-</td>
     </tr>`;
 
   const htmlContent = `
