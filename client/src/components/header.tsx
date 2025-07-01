@@ -24,9 +24,15 @@ export function Header({ title, subtitle, onMobileMenuToggle }: HeaderProps) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-            <p className="text-sm text-slate-500">{subtitle}</p>
+          <div className="flex items-center space-x-3">
+            {/* Logo placeholder - will be replaced with actual logo */}
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">SM</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
+              <p className="text-sm text-slate-500">{subtitle}</p>
+            </div>
           </div>
         </div>
         
