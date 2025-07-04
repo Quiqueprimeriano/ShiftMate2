@@ -67,6 +67,29 @@ export function ShiftForm({ onSuccess, editingShift, isEditing }: ShiftFormProps
     }
   }, [editingShift, isEditing, form]);
   
+  // Watch shift type to automatically set times
+  const shiftType = form.watch("shiftType");
+  
+  // Automatically set start and end times based on shift type
+  useEffect(() => {
+    if (shiftType && !isEditing) {
+      switch (shiftType) {
+        case "morning":
+          form.setValue("startTime", "08:00");
+          form.setValue("endTime", "11:00");
+          break;
+        case "afternoon":
+          form.setValue("startTime", "12:30");
+          form.setValue("endTime", "17:00");
+          break;
+        case "night":
+          form.setValue("startTime", "17:30");
+          form.setValue("endTime", "23:00");
+          break;
+      }
+    }
+  }, [shiftType, isEditing, form]);
+  
   // Watch start time to filter end time options
   const startTime = form.watch("startTime");
   
