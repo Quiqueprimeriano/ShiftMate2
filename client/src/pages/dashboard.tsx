@@ -118,6 +118,7 @@ export default function Dashboard() {
             shiftTypeHours.morningHours += duration;
             break;
           case 'afternoon':
+          case 'evening': // Handle old 'evening' shift type as 'afternoon'
             shiftTypeHours.afternoonHours += duration;
             break;
           case 'night':
@@ -142,6 +143,8 @@ export default function Dashboard() {
       };
     });
   }, [filteredRecentShifts, recentShiftsStartDate, recentShiftsEndDate]);
+
+
 
   // Prepare weekly chart data
   const weeklyChartData = useMemo(() => {
@@ -179,6 +182,7 @@ export default function Dashboard() {
             shiftTypeHours.morningHours += duration;
             break;
           case 'afternoon':
+          case 'evening': // Handle old 'evening' shift type as 'afternoon'
             shiftTypeHours.afternoonHours += duration;
             break;
           case 'night':
@@ -208,6 +212,7 @@ export default function Dashboard() {
       };
     });
   }, [recentShifts, currentWeek.start]);
+
 
   // Get unique shift colors based on type
   const getShiftColor = (shiftType: string) => {
@@ -737,7 +742,14 @@ export default function Dashboard() {
                       {/* Render separate bars for each shift type */}
                       <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" />
                       <Bar dataKey="afternoonHours" stackId="shifts" fill="#3b82f6" name="Afternoon Shifts" />
-                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts">
+                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" />
+                      {/* Add total hours label on top of stacked bars */}
+                      <Bar 
+                        dataKey="totalHours" 
+                        fill="transparent" 
+                        name="Total"
+                        stackId="total"
+                      >
                         <LabelList 
                           dataKey="totalHours" 
                           position="top" 
