@@ -681,6 +681,7 @@ export default function Dashboard() {
                       <YAxis 
                         tick={{ fontSize: 12, fill: '#64748b' }}
                         tickLine={{ stroke: '#cbd5e1' }}
+                        domain={[0, 'dataMax + 2']}
                         label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '12px', fill: '#64748b' } }}
                       />
                       <Tooltip
@@ -740,9 +741,9 @@ export default function Dashboard() {
                         }}
                       />
                       {/* Render separate bars for each shift type */}
-                      <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" />
-                      <Bar dataKey="afternoonHours" stackId="shifts" fill="#3b82f6" name="Afternoon Shifts" />
-                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" />
+                      <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" minPointSize={3} />
+                      <Bar dataKey="afternoonHours" stackId="shifts" fill="#3b82f6" name="Afternoon Shifts" minPointSize={3} />
+                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" minPointSize={3} />
                       {/* Add total hours label on top of stacked bars */}
                       <Bar 
                         dataKey="totalHours" 
@@ -883,6 +884,7 @@ export default function Dashboard() {
                         />
                         <YAxis 
                           tick={{ fontSize: 12 }}
+                          domain={[0, 'dataMax + 2']}
                           label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
                         />
                         <Tooltip
@@ -904,28 +906,16 @@ export default function Dashboard() {
                                             <span>Morning: {data.morningHours} hours</span>
                                           </div>
                                         )}
-                                        {data.eveningHours > 0 && (
+                                        {data.afternoonHours > 0 && (
                                           <div className="flex items-center gap-2 text-xs">
-                                            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                                            <span>Evening: {data.eveningHours} hours</span>
+                                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                            <span>Afternoon: {data.afternoonHours} hours</span>
                                           </div>
                                         )}
                                         {data.nightHours > 0 && (
                                           <div className="flex items-center gap-2 text-xs">
                                             <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
                                             <span>Night: {data.nightHours} hours</span>
-                                          </div>
-                                        )}
-                                        {data.doubleHours > 0 && (
-                                          <div className="flex items-center gap-2 text-xs">
-                                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                            <span>Double: {data.doubleHours} hours</span>
-                                          </div>
-                                        )}
-                                        {data.customHours > 0 && (
-                                          <div className="flex items-center gap-2 text-xs">
-                                            <div className="w-3 h-3 rounded-full bg-violet-500"></div>
-                                            <span>Custom: {data.customHours} hours</span>
                                           </div>
                                         )}
                                       </div>
@@ -939,11 +929,16 @@ export default function Dashboard() {
                             return null;
                           }}
                         />
-                        <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" />
-                        <Bar dataKey="eveningHours" stackId="shifts" fill="#f59e0b" name="Evening Shifts" />
-                        <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" />
-                        <Bar dataKey="doubleHours" stackId="shifts" fill="#ef4444" name="Double Shifts" />
-                        <Bar dataKey="customHours" stackId="shifts" fill="#8b5cf6" name="Custom Shifts">
+                        <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" minPointSize={3} />
+                        <Bar dataKey="afternoonHours" stackId="shifts" fill="#3b82f6" name="Afternoon Shifts" minPointSize={3} />
+                        <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" minPointSize={3} />
+                        {/* Add total hours label on top of stacked bars */}
+                        <Bar 
+                          dataKey="totalHours" 
+                          fill="transparent" 
+                          name="Total"
+                          stackId="total"
+                        >
                           <LabelList 
                             dataKey="totalHours" 
                             position="top" 
