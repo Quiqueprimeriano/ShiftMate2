@@ -107,10 +107,8 @@ export default function Dashboard() {
       
       const shiftTypeHours = {
         morningHours: 0,
-        eveningHours: 0,
-        nightHours: 0,
-        doubleHours: 0,
-        customHours: 0
+        afternoonHours: 0,
+        nightHours: 0
       };
       
       shifts.forEach((shift) => {
@@ -119,17 +117,11 @@ export default function Dashboard() {
           case 'morning':
             shiftTypeHours.morningHours += duration;
             break;
-          case 'evening':
-            shiftTypeHours.eveningHours += duration;
+          case 'afternoon':
+            shiftTypeHours.afternoonHours += duration;
             break;
           case 'night':
             shiftTypeHours.nightHours += duration;
-            break;
-          case 'double':
-            shiftTypeHours.doubleHours += duration;
-            break;
-          case 'custom':
-            shiftTypeHours.customHours += duration;
             break;
         }
       });
@@ -176,10 +168,8 @@ export default function Dashboard() {
       // Group shifts by type and calculate hours for each type
       const shiftTypeHours = {
         morningHours: 0,
-        eveningHours: 0,
-        nightHours: 0,
-        doubleHours: 0,
-        customHours: 0
+        afternoonHours: 0,
+        nightHours: 0
       };
       
       dayShifts.forEach((shift) => {
@@ -188,17 +178,11 @@ export default function Dashboard() {
           case 'morning':
             shiftTypeHours.morningHours += duration;
             break;
-          case 'evening':
-            shiftTypeHours.eveningHours += duration;
+          case 'afternoon':
+            shiftTypeHours.afternoonHours += duration;
             break;
           case 'night':
             shiftTypeHours.nightHours += duration;
-            break;
-          case 'double':
-            shiftTypeHours.doubleHours += duration;
-            break;
-          case 'custom':
-            shiftTypeHours.customHours += duration;
             break;
         }
       });
@@ -229,10 +213,8 @@ export default function Dashboard() {
   const getShiftColor = (shiftType: string) => {
     const colors = {
       morning: '#10b981', // emerald-500
-      evening: '#f59e0b', // amber-500
+      afternoon: '#3b82f6', // blue-500
       night: '#6366f1',   // indigo-500
-      double: '#ef4444',  // red-500
-      custom: '#8b5cf6'   // violet-500
     };
     return colors[shiftType as keyof typeof colors] || '#6b7280';
   };
