@@ -120,6 +120,8 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - Environment-specific build optimization
 
 ## Changelog
+- July 11, 2025. Integrated ShiftMate logo throughout the application (header, sidebar, mobile sidebar, and login page)
+- July 11, 2025. Fixed chart display issues with minPointSize, Y-axis domain, and proper shift type mapping
 - June 28, 2025. Implemented persistent authentication with 1-year session duration and cross-device support
 - June 13, 2025. Initial setup
 

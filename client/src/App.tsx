@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, User, X } from "lucide-react";
+import shiftMateLogo from "@assets/ShiftMate Logo_1752270032351.png";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -49,9 +50,11 @@ function MobileSidebar({ onClose }: { onClose: () => void }) {
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Clock className="h-4 w-4 text-primary-foreground" />
-            </div>
+            <img 
+              src={shiftMateLogo} 
+              alt="ShiftMate Logo" 
+              className="w-8 h-8 object-contain"
+            />
             <h1 className="text-xl font-bold text-slate-900">ShiftMate</h1>
           </div>
           <button 
