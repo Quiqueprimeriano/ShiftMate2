@@ -120,7 +120,7 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - Environment-specific build optimization
 
 ## Changelog
-- July 11, 2025. Redesigned Calendar page to show 2-week view with shift hours displayed directly on calendar
+- July 11, 2025. Redesigned Calendar to Google Calendar-style weekly view with hourly time slots (6 AM - 11 PM)
 - July 11, 2025. Integrated ShiftMate logo throughout the application (header, sidebar, mobile sidebar, and login page)
 - July 11, 2025. Fixed chart display issues with minPointSize, Y-axis domain, and proper shift type mapping
 - June 28, 2025. Implemented persistent authentication with 1-year session duration and cross-device support
