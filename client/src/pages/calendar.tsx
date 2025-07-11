@@ -181,35 +181,46 @@ export default function Calendar() {
                 const totalDayHours = dayShifts.reduce((total, shift) => 
                   total + calculateDuration(shift.startTime, shift.endTime), 0);
 
+                // Calculate dynamic height based on total hours (minimum 32px, scale by hours)
+                const dynamicHeight = Math.max(128, 128 + (totalDayHours * 16)); // Base 128px + 16px per hour
+
                 return (
                   <div
                     key={index}
-                    className={`min-h-32 p-2 border rounded-lg ${
+                    className={`p-2 border rounded-lg ${
                       isToday ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
-                    } hover:bg-slate-50 transition-colors`}
+                    } hover:bg-slate-50 transition-all duration-300 flex flex-col`}
+                    style={{ height: `${dynamicHeight}px` }}
                   >
                     <div className={`text-sm font-medium mb-2 ${
                       isToday ? 'text-blue-700' : 'text-slate-700'
                     }`}>
                       {date.getDate()}
                     </div>
-                    <div className="space-y-1">
-                      {dayShifts.map(shift => (
-                        <div
-                          key={shift.id}
-                          className={`text-xs px-2 py-1 rounded border ${getShiftColor(shift.shiftType)}`}
-                        >
-                          <div className="font-medium">{shift.shiftType}</div>
-                          <div className="text-xs opacity-75">
-                            {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                    <div className="space-y-1 flex-1">
+                      {dayShifts.map(shift => {
+                        const shiftHours = calculateDuration(shift.startTime, shift.endTime);
+                        // Calculate height for individual shift based on its duration
+                        const shiftHeight = Math.max(20, shiftHours * 16); // Minimum 20px, scale by hours
+                        
+                        return (
+                          <div
+                            key={shift.id}
+                            className={`text-xs px-2 py-1 rounded border ${getShiftColor(shift.shiftType)} flex flex-col justify-center`}
+                            style={{ height: `${shiftHeight}px` }}
+                          >
+                            <div className="font-medium">{shift.shiftType}</div>
+                            <div className="text-xs opacity-75">
+                              {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                            </div>
+                            <div className="text-xs font-semibold">
+                              {shiftHours.toFixed(1)}h
+                            </div>
                           </div>
-                          <div className="text-xs font-semibold">
-                            {calculateDuration(shift.startTime, shift.endTime).toFixed(1)}h
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {totalDayHours > 0 && dayShifts.length > 1 && (
-                        <div className="text-xs text-slate-600 font-semibold pt-1 border-t">
+                        <div className="text-xs text-slate-600 font-semibold pt-1 border-t mt-auto">
                           Total: {totalDayHours.toFixed(1)}h
                         </div>
                       )}
@@ -228,35 +239,46 @@ export default function Calendar() {
                 const totalDayHours = dayShifts.reduce((total, shift) => 
                   total + calculateDuration(shift.startTime, shift.endTime), 0);
 
+                // Calculate dynamic height based on total hours (minimum 32px, scale by hours)
+                const dynamicHeight = Math.max(128, 128 + (totalDayHours * 16)); // Base 128px + 16px per hour
+
                 return (
                   <div
                     key={index + 7}
-                    className={`min-h-32 p-2 border rounded-lg ${
+                    className={`p-2 border rounded-lg ${
                       isToday ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
-                    } hover:bg-slate-50 transition-colors`}
+                    } hover:bg-slate-50 transition-all duration-300 flex flex-col`}
+                    style={{ height: `${dynamicHeight}px` }}
                   >
                     <div className={`text-sm font-medium mb-2 ${
                       isToday ? 'text-blue-700' : 'text-slate-700'
                     }`}>
                       {date.getDate()}
                     </div>
-                    <div className="space-y-1">
-                      {dayShifts.map(shift => (
-                        <div
-                          key={shift.id}
-                          className={`text-xs px-2 py-1 rounded border ${getShiftColor(shift.shiftType)}`}
-                        >
-                          <div className="font-medium">{shift.shiftType}</div>
-                          <div className="text-xs opacity-75">
-                            {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                    <div className="space-y-1 flex-1">
+                      {dayShifts.map(shift => {
+                        const shiftHours = calculateDuration(shift.startTime, shift.endTime);
+                        // Calculate height for individual shift based on its duration
+                        const shiftHeight = Math.max(20, shiftHours * 16); // Minimum 20px, scale by hours
+                        
+                        return (
+                          <div
+                            key={shift.id}
+                            className={`text-xs px-2 py-1 rounded border ${getShiftColor(shift.shiftType)} flex flex-col justify-center`}
+                            style={{ height: `${shiftHeight}px` }}
+                          >
+                            <div className="font-medium">{shift.shiftType}</div>
+                            <div className="text-xs opacity-75">
+                              {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                            </div>
+                            <div className="text-xs font-semibold">
+                              {shiftHours.toFixed(1)}h
+                            </div>
                           </div>
-                          <div className="text-xs font-semibold">
-                            {calculateDuration(shift.startTime, shift.endTime).toFixed(1)}h
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {totalDayHours > 0 && dayShifts.length > 1 && (
-                        <div className="text-xs text-slate-600 font-semibold pt-1 border-t">
+                        <div className="text-xs text-slate-600 font-semibold pt-1 border-t mt-auto">
                           Total: {totalDayHours.toFixed(1)}h
                         </div>
                       )}
