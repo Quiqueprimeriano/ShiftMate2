@@ -3,6 +3,7 @@ import { useShifts } from "@/hooks/use-shifts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Clock, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatTime, calculateDuration } from "@/lib/time-utils";
 import { Link } from "wouter";
@@ -66,6 +67,7 @@ const getShiftPosition = (startTime: string, endTime: string) => {
 
 export default function Calendar() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getStartOfWeek(new Date()));
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   
   // Get week date range
   const weekDates = useMemo(() => getWeekRange(currentWeekStart), [currentWeekStart]);
@@ -197,7 +199,7 @@ export default function Calendar() {
           <CardContent className="p-0">
             <div className="grid grid-cols-8 border-b border-slate-200">
               {/* Time column header */}
-              <div className="p-3 text-xs text-slate-500 font-medium border-r border-slate-200">
+              <div className="p-2 text-xs text-slate-500 font-medium border-r border-slate-200 w-16">
                 Time
               </div>
               {/* Day headers */}
@@ -206,14 +208,14 @@ export default function Calendar() {
                 return (
                   <div
                     key={index}
-                    className={`p-3 text-center border-r border-slate-200 last:border-r-0 ${
+                    className={`p-2 text-center border-r border-slate-200 last:border-r-0 ${
                       isToday ? 'bg-blue-50' : ''
                     }`}
                   >
                     <div className="text-xs text-slate-500 font-medium">
                       {date.toLocaleDateString('en-US', { weekday: 'short' })}
                     </div>
-                    <div className={`text-lg font-semibold ${
+                    <div className={`text-sm font-semibold ${
                       isToday ? 'text-blue-600' : 'text-slate-900'
                     }`}>
                       {date.getDate()}
@@ -228,7 +230,7 @@ export default function Calendar() {
               {timeSlots.map((slot, timeIndex) => (
                 <div key={slot.hour} className="grid grid-cols-8 border-b border-slate-100 last:border-b-0">
                   {/* Time label */}
-                  <div className="p-2 text-xs text-slate-500 font-medium border-r border-slate-200 bg-slate-50">
+                  <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200 bg-slate-50 w-16">
                     {slot.display}
                   </div>
                   {/* Day columns */}
@@ -240,7 +242,7 @@ export default function Calendar() {
                     return (
                       <div
                         key={dayIndex}
-                        className={`relative h-16 border-r border-slate-200 last:border-r-0 ${
+                        className={`relative h-12 border-r border-slate-200 last:border-r-0 ${
                           isToday ? 'bg-blue-50/30' : ''
                         }`}
                       >
@@ -260,16 +262,17 @@ export default function Calendar() {
                           // Only show shift in the first time slot it appears
                           if (shiftStartHour === slot.hour && shiftStart < shiftEnd) {
                             const duration = calculateDuration(shift.startTime, shift.endTime);
-                            const heightInPixels = Math.max(20, duration * 64); // 64px per hour
+                            const heightInPixels = Math.max(16, duration * 48); // 48px per hour (reduced from 64px)
                             
                             return (
                               <div
                                 key={shift.id}
-                                className={`absolute left-1 right-1 rounded text-xs font-medium ${getShiftColor(shift.shiftType)} shadow-sm z-10 p-1 overflow-hidden`}
+                                className={`absolute left-1 right-1 rounded text-xs font-medium ${getShiftColor(shift.shiftType)} shadow-sm z-10 p-1 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity`}
                                 style={{ 
                                   height: `${heightInPixels}px`,
-                                  top: `${(shiftStartMinutes / 60) * 64}px`
+                                  top: `${(shiftStartMinutes / 60) * 48}px`
                                 }}
+                                onClick={() => setSelectedShift(shift)}
                               >
                                 <div className="font-semibold truncate">{shift.shiftType}</div>
                                 <div className="text-xs opacity-90 truncate">
@@ -291,6 +294,69 @@ export default function Calendar() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Shift Details Dialog */}
+        <Dialog open={!!selectedShift} onOpenChange={() => setSelectedShift(null)}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Shift Details</DialogTitle>
+            </DialogHeader>
+            {selectedShift && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Date</label>
+                    <div className="text-sm text-slate-900">
+                      {new Date(selectedShift.date).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Shift Type</label>
+                    <div className="text-sm text-slate-900">{selectedShift.shiftType}</div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Start Time</label>
+                    <div className="text-sm text-slate-900">{formatTime(selectedShift.startTime)}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">End Time</label>
+                    <div className="text-sm text-slate-900">{formatTime(selectedShift.endTime)}</div>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-slate-600">Duration</label>
+                  <div className="text-sm text-slate-900">
+                    {calculateDuration(selectedShift.startTime, selectedShift.endTime).toFixed(1)} hours
+                  </div>
+                </div>
+                
+                {selectedShift.notes && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Notes</label>
+                    <div className="text-sm text-slate-900 bg-slate-50 p-3 rounded-lg mt-1">
+                      {selectedShift.notes}
+                    </div>
+                  </div>
+                )}
+                
+                {!selectedShift.notes && (
+                  <div className="text-sm text-slate-500 italic">
+                    No notes added for this shift.
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
