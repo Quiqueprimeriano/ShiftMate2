@@ -1,7 +1,7 @@
 import { Menu, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateRange, getWeekDates } from "@/lib/time-utils";
-import shiftMateLogo from "@assets/ShiftMate Logo_1752270032351.png";
+import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 interface HeaderProps {
   title: string;

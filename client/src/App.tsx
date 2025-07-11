@@ -9,7 +9,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, User, X } from "lucide-react";
-import shiftMateLogo from "@assets/ShiftMate Logo_1752270032351.png";
+import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 // Pages
 import Dashboard from "@/pages/dashboard";

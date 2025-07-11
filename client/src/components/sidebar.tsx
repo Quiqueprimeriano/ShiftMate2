@@ -9,7 +9,7 @@ import {
   FileText, 
   User 
 } from "lucide-react";
-import shiftMateLogo from "@assets/ShiftMate Logo_1752270032351.png";
+import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: BarChart3 },
