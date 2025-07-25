@@ -55,6 +55,17 @@ export function getWeekDates(date: Date): { start: string; end: string } {
   };
 }
 
+export function getLast7Days(date: Date): { start: string; end: string } {
+  const end = new Date(date);
+  const start = new Date(date);
+  start.setDate(end.getDate() - 6); // Go back 6 days to include today as the 7th day
+  
+  return {
+    start: start.toISOString().split('T')[0],
+    end: end.toISOString().split('T')[0]
+  };
+}
+
 export function formatDateRange(startDate: string, endDate: string): string {
   const start = new Date(startDate);
   const end = new Date(endDate);

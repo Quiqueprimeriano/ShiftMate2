@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3, Calendar, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 import { useShifts, useWeeklyHours, useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
-import { getWeekDates, formatTime, calculateDuration, generateTimeOptions, formatDateRange } from "@/lib/time-utils";
+import { getWeekDates, getLast7Days, formatTime, calculateDuration, generateTimeOptions, formatDateRange } from "@/lib/time-utils";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -19,6 +19,7 @@ import { useTimer } from "@/hooks/use-timer";
 
 export default function Dashboard() {
   const currentWeek = getWeekDates(new Date());
+  const last7Days = getLast7Days(new Date());
   const previousWeekStart = new Date(currentWeek.start);
   previousWeekStart.setDate(previousWeekStart.getDate() - 7);
   const previousWeekEnd = new Date(currentWeek.end);
@@ -46,7 +47,7 @@ export default function Dashboard() {
   const [recentShiftsEndDate, setRecentShiftsEndDate] = useState(currentWeek.end);
 
   const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
-  const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(currentWeek.start, currentWeek.end);
+  const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(last7Days.start, last7Days.end);
   const { data: lastWeekHours, isLoading: lastWeekLoading } = useWeeklyHours(previousWeek.start, previousWeek.end);
   const createShiftMutation = useCreateShift();
   const updateShiftMutation = useUpdateShift();
@@ -146,16 +147,16 @@ export default function Dashboard() {
 
 
 
-  // Prepare weekly chart data
+  // Prepare weekly chart data for last 7 days
   const weeklyChartData = useMemo(() => {
     if (!recentShifts) return [];
 
-    const weekStart = new Date(currentWeek.start);
+    const last7DaysStart = new Date(last7Days.start);
     
-    // Generate all 7 days of the week starting from the week start date
+    // Generate all 7 days starting from 7 days ago to today
     return Array.from({ length: 7 }, (_, index) => {
-      const currentDate = new Date(weekStart);
-      currentDate.setDate(weekStart.getDate() + index);
+      const currentDate = new Date(last7DaysStart);
+      currentDate.setDate(last7DaysStart.getDate() + index);
       const dateString = currentDate.toISOString().split('T')[0];
       
       // Get the actual day name for this date
@@ -211,7 +212,7 @@ export default function Dashboard() {
         ...shiftTypeHours
       };
     });
-  }, [recentShifts, currentWeek.start]);
+  }, [recentShifts, last7Days.start]);
 
 
   // Get unique shift colors based on type
@@ -567,7 +568,7 @@ export default function Dashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">This Week Hours</p>
+                <p className="text-sm font-medium text-slate-600">Last 7 Days Hours</p>
                 {thisWeekLoading ? (
                   <Skeleton className="h-8 w-16 mt-1" />
                 ) : (
@@ -581,7 +582,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-slate-600">Current week total</span>
+              <span className="text-slate-600">Last 7 days total</span>
             </div>
           </CardContent>
         </Card>
@@ -657,8 +658,8 @@ export default function Dashboard() {
                     <BarChart3 className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900">This Week's Hours</h3>
-                    <p className="text-sm text-slate-500">Daily breakdown of your shifts</p>
+                    <h3 className="text-lg font-semibold text-slate-900">Last 7 Days Hours</h3>
+                    <p className="text-sm text-slate-500">Daily breakdown of your recent shifts</p>
                   </div>
                 </div>
               </div>
