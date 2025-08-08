@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Clock, TrendingUp, DollarSign, Calendar, UserCheck, AlertTriangle, Building2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Users, Clock, TrendingUp, DollarSign, Calendar as CalendarIcon, UserCheck, AlertTriangle, Building2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift } from "@/hooks/use-business";
-import { getDateRange } from "@/lib/time-utils";
+import { getDateRange, formatDuration } from "@/lib/time-utils";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, parseISO } from "date-fns";
 import type { User } from "@shared/schema";
 
 // Mock data for charts until real data is available
@@ -32,30 +35,124 @@ const mockDepartmentData = [
 export default function BusinessDashboard() {
   const { user, isLoading: userLoading } = useAuth();
   const [selectedTimeframe, setSelectedTimeframe] = useState("week");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [viewMode, setViewMode] = useState<"week" | "month" | "custom">("week");
 
-  // Get date range for the last 7 days
-  const { startDate, endDate } = getDateRange();
+  // Calculate date range based on view mode
+  const getDateRangeForView = () => {
+    if (viewMode === "custom" && customStartDate && customEndDate) {
+      return {
+        startDate: customStartDate,
+        endDate: customEndDate
+      };
+    }
+    
+    if (viewMode === "month") {
+      const start = startOfMonth(currentDate);
+      const end = endOfMonth(currentDate);
+      return {
+        startDate: format(start, 'yyyy-MM-dd'),
+        endDate: format(end, 'yyyy-MM-dd')
+      };
+    }
+    
+    // Default to week view
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday start
+    const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+    return {
+      startDate: format(start, 'yyyy-MM-dd'),
+      endDate: format(end, 'yyyy-MM-dd')
+    };
+  };
+
+  const { startDate, endDate } = getDateRangeForView();
 
   // Cast user to include company properties
-  const businessUser = user as User & { companyId?: number; userType?: string };
+  const businessUser = user as any;
 
   // Fetch real company data
   const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useCompanyEmployees(businessUser?.companyId || 0);
   const { data: shifts = [], isLoading: shiftsLoading, error: shiftsError } = useCompanyShifts(businessUser?.companyId || 0, startDate, endDate);
   const { data: pendingShifts = [], isLoading: pendingLoading, error: pendingError } = usePendingShifts(businessUser?.companyId || 0);
 
-  // Debug logging for development
-  console.log('Business Dashboard Data:', {
-    user: businessUser,
-    companyId: businessUser?.companyId,
-    employees: employees,
-    employeesError: employeesError,
-    shifts: shifts,
-    shiftsError: shiftsError,
-    pendingShifts: pendingShifts,
-    pendingError: pendingError
-  });
   const approveShiftMutation = useApproveShift();
+
+  // Process shift data for daily breakdown
+  const processShiftData = () => {
+    const employeeList = Array.isArray(employees) ? employees : [];
+    const shiftList = Array.isArray(shifts) ? shifts : [];
+    
+    // Group shifts by date and employee
+    const dailyData: Record<string, Record<number, number>> = {};
+    
+    shiftList.forEach((shift: any) => {
+      if (!shift.startTime || !shift.endTime || !shift.date) return;
+      
+      const start = new Date(`2000-01-01T${shift.startTime}`);
+      const end = new Date(`2000-01-01T${shift.endTime}`);
+      if (end < start) end.setDate(end.getDate() + 1);
+      
+      const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      
+      if (!dailyData[shift.date]) {
+        dailyData[shift.date] = {};
+      }
+      if (!dailyData[shift.date][shift.userId]) {
+        dailyData[shift.date][shift.userId] = 0;
+      }
+      dailyData[shift.date][shift.userId] += hours;
+    });
+    
+    // Convert to chart format
+    const chartData = Object.entries(dailyData).map(([date, employeeHours]) => {
+      const dayData: any = { date: format(parseISO(date), 'MMM dd') };
+      let totalHours = 0;
+      
+      employeeList.forEach((employee: any) => {
+        const hours = employeeHours[employee.id] || 0;
+        dayData[employee.name] = hours;
+        totalHours += hours;
+      });
+      
+      dayData.totalHours = totalHours;
+      return dayData;
+    }).sort((a, b) => a.date.localeCompare(b.date));
+    
+    return { dailyData, chartData, employeeList };
+  };
+
+  const { dailyData, chartData, employeeList: processedEmployeeList } = processShiftData();
+
+  // Navigation functions
+  const navigatePrevious = () => {
+    if (viewMode === "week") {
+      setCurrentDate(prev => subWeeks(prev, 1));
+    } else if (viewMode === "month") {
+      setCurrentDate(prev => subMonths(prev, 1));
+    }
+  };
+
+  const navigateNext = () => {
+    if (viewMode === "week") {
+      setCurrentDate(prev => addWeeks(prev, 1));
+    } else if (viewMode === "month") {
+      setCurrentDate(prev => addMonths(prev, 1));
+    }
+  };
+
+  const getDateRangeLabel = () => {
+    if (viewMode === "custom") {
+      return `${customStartDate} to ${customEndDate}`;
+    }
+    if (viewMode === "month") {
+      return format(currentDate, 'MMMM yyyy');
+    }
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+    return `${format(start, 'MMM dd')} - ${format(end, 'MMM dd, yyyy')}`;
+  };
 
   // If user is not a business user, show access denied
   if (user && businessUser.userType !== 'business') {
@@ -68,12 +165,12 @@ export default function BusinessDashboard() {
   }
 
   // Calculate real metrics
-  const employeeList = Array.isArray(employees) ? employees : [];
+  const employeeArray = Array.isArray(employees) ? employees : [];
   const shiftList = Array.isArray(shifts) ? shifts : [];
   const pendingList = Array.isArray(pendingShifts) ? pendingShifts : [];
 
-  const totalEmployees = employeeList.length;
-  const activeEmployees = employeeList.filter((emp: any) => emp.isActive !== false).length;
+  const totalEmployees = employeeArray.length;
+  const activeEmployees = employeeArray.filter((emp: any) => emp.isActive !== false).length;
   const totalWeeklyHours = shiftList.reduce((sum: number, shift: any) => {
     if (!shift.startTime || !shift.endTime) return sum;
     const start = new Date(`2000-01-01T${shift.startTime}`);
@@ -106,18 +203,74 @@ export default function BusinessDashboard() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={navigatePrevious}
+              disabled={viewMode === "custom"}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-sm font-medium min-w-[200px] text-center">
+              {getDateRangeLabel()}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={navigateNext}
+              disabled={viewMode === "custom"}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <Select value={viewMode} onValueChange={(value: "week" | "month" | "custom") => setViewMode(value)}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="quarter">This Quarter</SelectItem>
+              <SelectItem value="week">Week</SelectItem>
+              <SelectItem value="month">Month</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
+
+      {/* Custom Date Range Picker */}
+      {viewMode === "custom" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Custom Date Range
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start-date">Start Date</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end-date">End Date</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Loading State */}
       {(userLoading || employeesLoading || shiftsLoading) && (
@@ -190,58 +343,101 @@ export default function BusinessDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
           <TabsTrigger value="shifts">Shifts</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {/* Charts and Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Weekly Hours Trend</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={mockWeeklyData}>
+          {/* Daily Hours Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Hours by Employee</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Hours worked per day split by team members
+              </p>
+            </CardHeader>
+            <CardContent>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
+                    <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="totalHours" fill="#3b82f6" />
+                    <Tooltip 
+                      formatter={(value: any, name: string) => [
+                        `${Number(value).toFixed(1)}h`,
+                        name
+                      ]}
+                    />
+                    {processedEmployeeList.map((employee: any, index: number) => (
+                      <Bar
+                        key={employee.id}
+                        dataKey={employee.name}
+                        stackId="hours"
+                        fill={`hsl(${(index * 137.5) % 360}, 70%, 50%)`}
+                      />
+                    ))}
                   </BarChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
+              ) : (
+                <div className="text-center py-8">
+                  <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium">No shift data</h3>
+                  <p className="text-muted-foreground">No shifts recorded for the selected period.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Department Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={mockDepartmentData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={120}
-                      dataKey="value"
-                    >
-                      {mockDepartmentData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Daily Summary Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(dailyData).length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Date</th>
+                        {processedEmployeeList.map((employee: any) => (
+                          <th key={employee.id} className="text-left p-2">{employee.name}</th>
+                        ))}
+                        <th className="text-left p-2 font-bold">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(dailyData).map(([date, employeeHours]) => {
+                        const totalHours = Object.values(employeeHours).reduce((sum: number, hours: any) => sum + hours, 0);
+                        return (
+                          <tr key={date} className="border-b">
+                            <td className="p-2 font-medium">
+                              {format(parseISO(date), 'MMM dd, yyyy')}
+                            </td>
+                            {processedEmployeeList.map((employee: any) => (
+                              <td key={employee.id} className="p-2">
+                                {employeeHours[employee.id] ? `${employeeHours[employee.id].toFixed(1)}h` : '-'}
+                              </td>
+                            ))}
+                            <td className="p-2 font-bold">{totalHours.toFixed(1)}h</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground">No data available for the selected period.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="employees" className="space-y-6">
@@ -259,9 +455,9 @@ export default function BusinessDashboard() {
                     <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
-              ) : employeeList.length > 0 ? (
+              ) : employeeArray.length > 0 ? (
                 <div className="space-y-4">
-                  {employeeList.map((employee: any) => (
+                  {employeeArray.map((employee: any) => (
                     <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -386,6 +582,66 @@ export default function BusinessDashboard() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="calendar" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Schedule</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                View your team's shifts in calendar format
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
+                {/* Calendar Grid */}
+                <div className="lg:col-span-7">
+                  <div className="grid grid-cols-7 gap-2 mb-4">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                      <div key={day} className="text-center font-medium text-sm text-muted-foreground p-2">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-7 gap-2">
+                    {(() => {
+                      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+                      const days = [];
+                      for (let i = 0; i < 7; i++) {
+                        const day = addDays(start, i);
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const dayShifts = Array.isArray(shifts) ? shifts.filter((shift: any) => shift.date === dateStr) : [];
+                        
+                        days.push(
+                          <div key={dateStr} className="border rounded-lg p-2 min-h-[120px] bg-white">
+                            <div className="font-medium text-sm mb-2">
+                              {format(day, 'd')}
+                            </div>
+                            <div className="space-y-1">
+                              {dayShifts.map((shift: any) => {
+                                const employee = processedEmployeeList.find((emp: any) => emp.id === shift.userId);
+                                return (
+                                  <div
+                                    key={shift.id}
+                                    className="text-xs p-1 rounded bg-blue-100 text-blue-800"
+                                  >
+                                    <div className="font-medium">{employee?.name || `User ${shift.userId}`}</div>
+                                    <div>{shift.startTime}-{shift.endTime}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return days;
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">

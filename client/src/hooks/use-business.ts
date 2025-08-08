@@ -1,6 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Company, User, Shift } from "@shared/schema";
 
 // Company hooks
 export function useCompanyEmployees(companyId: number) {
@@ -43,10 +42,13 @@ export function useCompanyWeeklyHours(companyId: number, startDate: string, endD
 export function useCreateCompany() {
   return useMutation({
     mutationFn: async (companyData: any) => {
-      return await apiRequest("/api/companies", {
+      const response = await fetch("/api/companies", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(companyData),
       });
+      if (!response.ok) throw new Error("Failed to create company");
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
@@ -57,12 +59,15 @@ export function useCreateCompany() {
 export function useApproveShift() {
   return useMutation({
     mutationFn: async ({ shiftId, approvedBy }: { shiftId: number; approvedBy: number }) => {
-      return await apiRequest(`/api/shifts/${shiftId}/approve`, {
+      const response = await fetch(`/api/shifts/${shiftId}/approve`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ approvedBy }),
       });
+      if (!response.ok) throw new Error("Failed to approve shift");
+      return response.json();
     },
-    onSuccess: (_, { shiftId }) => {
+    onSuccess: () => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
