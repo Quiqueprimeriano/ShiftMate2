@@ -363,10 +363,13 @@ export default function BusinessDashboard() {
             <CardContent>
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
-                    <YAxis />
+                    <YAxis 
+                      label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
+                      tickFormatter={(value) => `${value}h`}
+                    />
                     <Tooltip 
                       formatter={(value: any, name: string) => [
                         `${Number(value).toFixed(1)}h`,
