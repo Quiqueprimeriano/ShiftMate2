@@ -574,7 +574,7 @@ export default function BusinessDashboard() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium">No shifts found</h3>
                     <p className="text-muted-foreground">No shifts recorded in the last 7 days.</p>
                   </div>

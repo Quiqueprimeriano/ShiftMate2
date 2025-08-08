@@ -5,7 +5,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 export function useCompanyEmployees(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "employees"],
-    queryFn: () => apiRequest(`/api/companies/${companyId}/employees`),
+    queryFn: async () => {
+      const response = await fetch(`/api/companies/${companyId}/employees`);
+      if (!response.ok) throw new Error("Failed to fetch employees");
+      return response.json();
+    },
     enabled: !!companyId,
   });
 }
@@ -18,7 +22,11 @@ export function useCompanyShifts(companyId: number, startDate?: string, endDate?
   
   return useQuery({
     queryKey: ["/api/companies", companyId, "shifts", { startDate, endDate }],
-    queryFn: () => apiRequest(`/api/companies/${companyId}/shifts${queryString ? `?${queryString}` : ''}`),
+    queryFn: async () => {
+      const response = await fetch(`/api/companies/${companyId}/shifts${queryString ? `?${queryString}` : ''}`);
+      if (!response.ok) throw new Error("Failed to fetch shifts");
+      return response.json();
+    },
     enabled: !!companyId,
   });
 }
@@ -26,7 +34,11 @@ export function useCompanyShifts(companyId: number, startDate?: string, endDate?
 export function usePendingShifts(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "pending-shifts"],
-    queryFn: () => apiRequest(`/api/companies/${companyId}/pending-shifts`),
+    queryFn: async () => {
+      const response = await fetch(`/api/companies/${companyId}/pending-shifts`);
+      if (!response.ok) throw new Error("Failed to fetch pending shifts");
+      return response.json();
+    },
     enabled: !!companyId,
   });
 }
@@ -34,6 +46,12 @@ export function usePendingShifts(companyId: number) {
 export function useCompanyWeeklyHours(companyId: number, startDate: string, endDate: string) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "analytics", "weekly-hours", { startDate, endDate }],
+    queryFn: async () => {
+      const params = new URLSearchParams({ startDate, endDate });
+      const response = await fetch(`/api/companies/${companyId}/analytics/weekly-hours?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch weekly hours");
+      return response.json();
+    },
     enabled: !!companyId && !!startDate && !!endDate,
   });
 }
