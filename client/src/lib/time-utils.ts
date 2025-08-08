@@ -81,3 +81,27 @@ export function formatDateRange(startDate: string, endDate: string): string {
   
   return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}, ${end.getFullYear()}`;
 }
+
+export function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  
+  if (hours === 0) {
+    return `${mins}m`;
+  } else if (mins === 0) {
+    return `${hours}h`;
+  } else {
+    return `${hours}h ${mins}m`;
+  }
+}
+
+export function getDateRange() {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 6); // Last 7 days (including today)
+  
+  return {
+    startDate: startDate.toISOString().split('T')[0],
+    endDate: endDate.toISOString().split('T')[0]
+  };
+}

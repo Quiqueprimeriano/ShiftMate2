@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,21 +8,11 @@ import { Users, Clock, TrendingUp, DollarSign, Calendar, UserCheck, AlertTriangl
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift } from "@/hooks/use-business";
+import { getDateRange } from "@/lib/time-utils";
+import type { User } from "@shared/schema";
 
-// Mock data - In real app, this would come from API
-const mockEmployees = [
-  { id: 1, name: "Sarah Johnson", role: "Manager", status: "active", thisWeekHours: 40, avatar: "SJ" },
-  { id: 2, name: "Mike Davis", role: "Employee", status: "active", thisWeekHours: 35, avatar: "MD" },
-  { id: 3, name: "Emily Chen", role: "Employee", status: "active", thisWeekHours: 30, avatar: "EC" },
-  { id: 4, name: "David Wilson", role: "Supervisor", status: "active", thisWeekHours: 38, avatar: "DW" },
-];
-
-const mockPendingShifts = [
-  { id: 1, employee: "Sarah Johnson", date: "2025-01-08", hours: 8, status: "pending" },
-  { id: 2, employee: "Mike Davis", date: "2025-01-08", hours: 7.5, status: "pending" },
-  { id: 3, employee: "Emily Chen", date: "2025-01-07", hours: 6, status: "pending" },
-];
-
+// Mock data for charts until real data is available
 const mockWeeklyData = [
   { day: "Mon", totalHours: 32, employees: 4 },
   { day: "Tue", totalHours: 35, employees: 4 },
@@ -40,14 +30,53 @@ const mockDepartmentData = [
 ];
 
 export default function BusinessDashboard() {
-  const { user } = useAuth();
+  const { user, isLoading: userLoading } = useAuth();
   const [selectedTimeframe, setSelectedTimeframe] = useState("week");
-  const [selectedDepartment, setSelectedDepartment] = useState("all");
 
-  const totalEmployees = mockEmployees.length;
-  const activeEmployees = mockEmployees.filter(emp => emp.status === 'active').length;
-  const totalWeeklyHours = mockEmployees.reduce((sum, emp) => sum + emp.thisWeekHours, 0);
-  const pendingApprovals = mockPendingShifts.length;
+  // Get date range for the last 7 days
+  const { startDate, endDate } = getDateRange();
+
+  // Cast user to include company properties
+  const businessUser = user as User & { companyId?: number; userType?: string };
+
+  // Fetch real company data
+  const { data: employees = [], isLoading: employeesLoading } = useCompanyEmployees(businessUser?.companyId || 0);
+  const { data: shifts = [], isLoading: shiftsLoading } = useCompanyShifts(businessUser?.companyId || 0, startDate, endDate);
+  const { data: pendingShifts = [], isLoading: pendingLoading } = usePendingShifts(businessUser?.companyId || 0);
+  const approveShiftMutation = useApproveShift();
+
+  // If user is not a business user, show access denied
+  if (user && businessUser.userType !== 'business') {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-bold text-slate-900 mb-4">Access Denied</h1>
+        <p className="text-slate-600">You need to be a business user to access this dashboard.</p>
+      </div>
+    );
+  }
+
+  // Calculate real metrics
+  const employeeList = Array.isArray(employees) ? employees : [];
+  const shiftList = Array.isArray(shifts) ? shifts : [];
+  const pendingList = Array.isArray(pendingShifts) ? pendingShifts : [];
+
+  const totalEmployees = employeeList.length;
+  const activeEmployees = employeeList.filter((emp: any) => emp.isActive !== false).length;
+  const totalWeeklyHours = shiftList.reduce((sum: number, shift: any) => {
+    if (!shift.startTime || !shift.endTime) return sum;
+    const start = new Date(`2000-01-01T${shift.startTime}`);
+    const end = new Date(`2000-01-01T${shift.endTime}`);
+    if (end < start) end.setDate(end.getDate() + 1);
+    return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  }, 0);
+  const pendingApprovals = pendingList.length;
+
+  // Handle shift approval
+  const handleApproveShift = (shiftId: number) => {
+    if (businessUser?.id) {
+      approveShiftMutation.mutate({ shiftId, approvedBy: businessUser.id });
+    }
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -71,215 +100,304 @@ export default function BusinessDashboard() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {(userLoading || employeesLoading || shiftsLoading) && (
+        <div className="space-y-6">
+          <Skeleton className="h-8 w-64" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Total Employees</p>
-                <p className="text-3xl font-bold text-slate-900">{totalEmployees}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-green-600">{activeEmployees} active</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Weekly Hours</p>
-                <p className="text-3xl font-bold text-slate-900">{totalWeeklyHours}h</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-slate-600">Across all departments</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Pending Approvals</p>
-                <p className="text-3xl font-bold text-orange-600">{pendingApprovals}</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-slate-600">Needs review</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Labor Cost</p>
-                <p className="text-3xl font-bold text-slate-900">$2,400</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-green-600">+5% from last week</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Team Overview */}
-        <div className="lg:col-span-2">
+      {!userLoading && !employeesLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-blue-600" />
-                  Team Overview
-                </CardTitle>
-                <Button variant="outline" size="sm">
-                  View All
-                </Button>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mockEmployees.map((employee) => (
-                  <div key={employee.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        {employee.avatar}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{employee.name}</p>
-                        <p className="text-sm text-slate-600">{employee.role}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-slate-900">{employee.thisWeekHours}h</p>
-                      <Badge variant={employee.status === 'active' ? 'default' : 'secondary'}>
-                        {employee.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="text-2xl font-bold">{totalEmployees}</div>
+              <p className="text-xs text-muted-foreground">
+                {activeEmployees} active employees
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Weekly Hours</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{Math.round(totalWeeklyHours)}h</div>
+              <p className="text-xs text-muted-foreground">
+                Last 7 days
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingApprovals}</div>
+              <p className="text-xs text-muted-foreground">
+                Shifts awaiting approval
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg. Hours/Day</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{(totalWeeklyHours / 7).toFixed(1)}h</div>
+              <p className="text-xs text-muted-foreground">
+                Daily average
+              </p>
             </CardContent>
           </Card>
         </div>
+      )}
 
-        {/* Pending Approvals */}
-        <div>
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="employees">Employees</TabsTrigger>
+          <TabsTrigger value="shifts">Shifts</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          {/* Charts and Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Weekly Hours Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={mockWeeklyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="totalHours" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Department Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={mockDepartmentData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={120}
+                      dataKey="value"
+                    >
+                      {mockDepartmentData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="employees" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserCheck className="h-5 w-5 text-orange-600" />
-                Pending Approvals
-              </CardTitle>
+              <CardTitle>Team Members</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Manage your team and view their performance
+              </p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {mockPendingShifts.map((shift) => (
-                  <div key={shift.id} className="p-3 border border-orange-200 rounded-lg bg-orange-50">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium text-slate-900">{shift.employee}</p>
-                      <Badge variant="secondary">{shift.hours}h</Badge>
+              {employeesLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : employeeList.length > 0 ? (
+                <div className="space-y-4">
+                  {employeeList.map((employee: any) => (
+                    <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-blue-700">
+                            {employee.name?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="font-medium">{employee.name}</h3>
+                          <p className="text-sm text-muted-foreground">{employee.email}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant={employee.isActive ? "default" : "secondary"}>
+                          {employee.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Role: {employee.role || "Employee"}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-sm text-slate-600 mb-3">{shift.date}</p>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="default" className="flex-1">
-                        Approve
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium">No employees found</h3>
+                  <p className="text-muted-foreground">Add employees to your company to see them here.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
 
-      {/* Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Hours Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart className="h-5 w-5 text-green-600" />
-              Weekly Hours Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockWeeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '6px'
-                    }}
-                  />
-                  <Bar dataKey="totalHours" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Department Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-purple-600" />
-              Department Hours
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={mockDepartmentData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}%`}
-                  >
-                    {mockDepartmentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+        <TabsContent value="shifts" className="space-y-6">
+          <div className="grid gap-6">
+            {/* Pending Approvals */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Shift Approvals</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Review and approve submitted shifts
+                </p>
+              </CardHeader>
+              <CardContent>
+                {pendingLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(2)].map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
                     ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  </div>
+                ) : pendingList.length > 0 ? (
+                  <div className="space-y-4">
+                    {pendingList.map((shift: any) => (
+                      <div key={shift.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <h3 className="font-medium">User ID: {shift.userId}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {shift.date} • {shift.startTime} - {shift.endTime}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Type: {shift.type}
+                          </p>
+                        </div>
+                        <Button 
+                          onClick={() => handleApproveShift(shift.id)}
+                          disabled={approveShiftMutation.isPending}
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <UserCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium">No pending approvals</h3>
+                    <p className="text-muted-foreground">All shifts are up to date.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Shifts */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Shifts</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Last 7 days of team activity
+                </p>
+              </CardHeader>
+              <CardContent>
+                {shiftsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : shiftList.length > 0 ? (
+                  <div className="space-y-4">
+                    {shiftList.map((shift: any) => (
+                      <div key={shift.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <h3 className="font-medium">User ID: {shift.userId}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {shift.date} • {shift.startTime} - {shift.endTime}
+                          </p>
+                        </div>
+                        <Badge variant={shift.status === 'approved' ? 'default' : 'secondary'}>
+                          {shift.status || 'pending'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium">No shifts found</h3>
+                    <p className="text-muted-foreground">No shifts recorded in the last 7 days.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Team Analytics</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Performance metrics for your team
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600">{totalEmployees}</div>
+                    <p className="text-sm text-muted-foreground">Total Team Members</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-green-600">{Math.round(totalWeeklyHours)}</div>
+                    <p className="text-sm text-muted-foreground">Hours This Week</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-orange-600">{(totalWeeklyHours / Math.max(totalEmployees, 1)).toFixed(1)}</div>
+                    <p className="text-sm text-muted-foreground">Avg Hours per Employee</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
