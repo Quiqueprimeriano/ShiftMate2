@@ -220,13 +220,14 @@ function Router() {
 
   // Determine which interface to show based on user type
   const userType = user?.userType || 'individual';
-  const isBusinessUser = userType === 'business_owner' || userType === 'manager';
+  const isBusinessUser = userType === 'business';
 
   if (isBusinessUser) {
     return (
       <Switch>
         <Route path="/" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
         <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><BusinessDashboard /></AppLayout>} />
+        <Route path="/business-dashboard" component={() => <AppLayout location="/business-dashboard"><BusinessDashboard /></AppLayout>} />
         <Route path="/calendar" component={() => <AppLayout location="/calendar"><Calendar /></AppLayout>} />
         <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
         <Route component={() => <AppLayout location="/404"><NotFound /></AppLayout>} />
