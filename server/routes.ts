@@ -429,6 +429,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Business routes
+  app.post("/api/companies", async (req, res) => {
+    try {
+      const companyData = req.body;
+      const company = await storage.createCompany(companyData);
+      res.status(201).json(company);
+    } catch (error) {
+      console.error("Error creating company:", error);
+      res.status(500).json({ message: "Failed to create company" });
+    }
+  });
+
+  app.get("/api/companies/:id/employees", async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const employees = await storage.getCompanyEmployees(companyId);
+      res.json(employees);
+    } catch (error) {
+      console.error("Error getting company employees:", error);
+      res.status(500).json({ message: "Failed to get company employees" });
+    }
+  });
+
+  app.get("/api/companies/:id/shifts", async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const { startDate, endDate } = req.query;
+      
+      let shifts;
+      if (startDate && endDate) {
+        shifts = await storage.getShiftsByCompanyAndDateRange(companyId, startDate as string, endDate as string);
+      } else {
+        shifts = await storage.getShiftsByCompany(companyId);
+      }
+      
+      res.json(shifts);
+    } catch (error) {
+      console.error("Error getting company shifts:", error);
+      res.status(500).json({ message: "Failed to get company shifts" });
+    }
+  });
+
+  app.get("/api/companies/:id/pending-shifts", async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const pendingShifts = await storage.getPendingShifts(companyId);
+      res.json(pendingShifts);
+    } catch (error) {
+      console.error("Error getting pending shifts:", error);
+      res.status(500).json({ message: "Failed to get pending shifts" });
+    }
+  });
+
+  app.post("/api/shifts/:id/approve", async (req, res) => {
+    try {
+      const shiftId = parseInt(req.params.id);
+      const { approvedBy } = req.body;
+      
+      const shift = await storage.approveShift(shiftId, approvedBy);
+      
+      if (!shift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+      
+      res.json(shift);
+    } catch (error) {
+      console.error("Error approving shift:", error);
+      res.status(500).json({ message: "Failed to approve shift" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

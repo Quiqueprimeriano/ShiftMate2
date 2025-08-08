@@ -121,6 +121,26 @@ export class DbStorage implements IStorage {
     }
   }
 
+  // Company methods
+  async getCompany(id: number): Promise<Company | undefined> {
+    const result = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getCompanyByEmail(email: string): Promise<Company | undefined> {
+    const result = await db.select().from(companies).where(eq(companies.email, email)).limit(1);
+    return result[0];
+  }
+
+  async createCompany(company: InsertCompany): Promise<Company> {
+    const result = await db.insert(companies).values(company).returning();
+    return result[0];
+  }
+
+  async getCompanyEmployees(companyId: number): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.companyId, companyId));
+  }
+
   // Shift methods
   async getShiftsByUser(userId: number): Promise<Shift[]> {
     return await db.select().from(shifts).where(eq(shifts.userId, userId)).orderBy(desc(shifts.date));
@@ -153,9 +173,68 @@ export class DbStorage implements IStorage {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
+  async getShiftsByCompany(companyId: number): Promise<Shift[]> {
+    return await db.select().from(shifts).where(eq(shifts.companyId, companyId)).orderBy(desc(shifts.date));
+  }
+
+  async getShiftsByCompanyAndDateRange(companyId: number, startDate: string, endDate: string): Promise<Shift[]> {
+    return await db.select().from(shifts)
+      .where(
+        and(
+          eq(shifts.companyId, companyId),
+          gte(shifts.date, startDate),
+          lte(shifts.date, endDate)
+        )
+      )
+      .orderBy(shifts.date);
+  }
+
+  async getPendingShifts(companyId: number): Promise<Shift[]> {
+    return await db.select().from(shifts)
+      .where(
+        and(
+          eq(shifts.companyId, companyId),
+          eq(shifts.status, 'pending_approval')
+        )
+      )
+      .orderBy(desc(shifts.date));
+  }
+
+  async approveShift(id: number, approvedBy: number): Promise<Shift | undefined> {
+    const result = await db.update(shifts)
+      .set({ 
+        status: 'approved', 
+        approvedBy: approvedBy, 
+        approvedAt: new Date()
+      })
+      .where(eq(shifts.id, id))
+      .returning();
+    return result[0];
+  }
+
   // Analytics methods
   async getWeeklyHours(userId: number, startDate: string, endDate: string): Promise<number> {
     const shiftsInRange = await this.getShiftsByUserAndDateRange(userId, startDate, endDate);
+    
+    let totalMinutes = 0;
+    for (const shift of shiftsInRange) {
+      const start = new Date(`2000-01-01T${shift.startTime}`);
+      const end = new Date(`2000-01-01T${shift.endTime}`);
+      
+      // Handle overnight shifts
+      if (end < start) {
+        end.setDate(end.getDate() + 1);
+      }
+      
+      const shiftMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+      totalMinutes += shiftMinutes;
+    }
+    
+    return totalMinutes / 60; // Convert to hours
+  }
+
+  async getCompanyWeeklyHours(companyId: number, startDate: string, endDate: string): Promise<number> {
+    const shiftsInRange = await this.getShiftsByCompanyAndDateRange(companyId, startDate, endDate);
     
     let totalMinutes = 0;
     for (const shift of shiftsInRange) {
