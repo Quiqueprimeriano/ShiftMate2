@@ -13,21 +13,42 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Companies/Organizations table
+export const companies = pgTable("shiftmate_companies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  ownerName: text("owner_name").notNull(),
+  industry: text("industry"), // retail, hospitality, healthcare, etc.
+  size: text("size"), // small, medium, large
+  timezone: text("timezone").default("UTC"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const users = pgTable("shiftmate_users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
+  userType: text("user_type").notNull().default("individual"), // individual, business_owner, employee
+  companyId: integer("company_id").references(() => companies.id),
+  role: text("role"), // manager, supervisor, employee
+  hourlyRate: integer("hourly_rate"), // in cents
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const shifts = pgTable("shiftmate_shifts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
+  companyId: integer("company_id").references(() => companies.id),
   date: date("date").notNull(),
   startTime: time("start_time").notNull(),
   endTime: time("end_time").notNull(),
   shiftType: text("shift_type").notNull(), // morning, evening, night, double, custom
   notes: text("notes"),
+  status: text("status").default("completed"), // completed, pending_approval, approved, rejected
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
   isRecurring: boolean("is_recurring").default(false),
   recurringPattern: text("recurring_pattern"), // daily, weekly, custom
   recurringEndDate: date("recurring_end_date"),
@@ -43,6 +64,11 @@ export const notifications = pgTable("shiftmate_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -51,6 +77,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertShiftSchema = createInsertSchema(shifts).omit({
   id: true,
   createdAt: true,
+  approvedAt: true,
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
@@ -58,6 +85,8 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export type Company = typeof companies.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertShift = z.infer<typeof insertShiftSchema>;

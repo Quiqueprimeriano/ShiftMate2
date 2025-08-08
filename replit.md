@@ -120,6 +120,10 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - Environment-specific build optimization
 
 ## Changelog
+- August 8, 2025. Implementing multi-tenant architecture with separate user and business portals similar to Deputy-style interface
+- August 8, 2025. Updated database schema to support companies table, user types, and business management features
+- August 8, 2025. Changed "This Week's Hours" to display last 7 days (rolling period) instead of Monday-Sunday week
+- August 8, 2025. Created landing page for portal selection between individual users and business accounts
 - July 11, 2025. Redesigned Calendar to Google Calendar-style weekly view with hourly time slots (6 AM - 11 PM)
 - July 11, 2025. Integrated ShiftMate logo throughout the application (header, sidebar, mobile sidebar, and login page)
 - July 11, 2025. Fixed chart display issues with minPointSize, Y-axis domain, and proper shift type mapping

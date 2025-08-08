@@ -20,6 +20,8 @@ import Reports from "@/pages/reports";
 import Login from "@/pages/login";
 import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
+import Landing from "@/pages/landing";
+import BusinessDashboard from "@/pages/business-dashboard";
 
 const PAGE_TITLES = {
   "/": { title: "Dashboard", subtitle: "Welcome back! Here's your shift overview." },
@@ -192,7 +194,7 @@ function AuthenticatedApp() {
 }
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -210,7 +212,24 @@ function Router() {
     return (
       <Switch>
         <Route path="/login" component={Login} />
-        <Route component={Login} />
+        <Route path="/landing" component={Landing} />
+        <Route component={Landing} />
+      </Switch>
+    );
+  }
+
+  // Determine which interface to show based on user type
+  const userType = user?.userType || 'individual';
+  const isBusinessUser = userType === 'business_owner' || userType === 'manager';
+
+  if (isBusinessUser) {
+    return (
+      <Switch>
+        <Route path="/" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
+        <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><BusinessDashboard /></AppLayout>} />
+        <Route path="/calendar" component={() => <AppLayout location="/calendar"><Calendar /></AppLayout>} />
+        <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
+        <Route component={() => <AppLayout location="/404"><NotFound /></AppLayout>} />
       </Switch>
     );
   }

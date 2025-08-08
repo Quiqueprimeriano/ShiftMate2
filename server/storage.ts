@@ -5,12 +5,15 @@ import {
   users, 
   shifts, 
   notifications,
+  companies,
   type User, 
   type InsertUser, 
   type Shift, 
   type InsertShift,
   type Notification,
-  type InsertNotification
+  type InsertNotification,
+  type Company,
+  type InsertCompany
 } from "@shared/schema";
 
 const connectionString = process.env.DATABASE_URL;
@@ -49,15 +52,26 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
+  // Company methods
+  getCompany(id: number): Promise<Company | undefined>;
+  getCompanyByEmail(email: string): Promise<Company | undefined>;
+  createCompany(company: InsertCompany): Promise<Company>;
+  getCompanyEmployees(companyId: number): Promise<User[]>;
+  
   // Shift methods
   getShiftsByUser(userId: number): Promise<Shift[]>;
   getShiftsByUserAndDateRange(userId: number, startDate: string, endDate: string): Promise<Shift[]>;
+  getShiftsByCompany(companyId: number): Promise<Shift[]>;
+  getShiftsByCompanyAndDateRange(companyId: number, startDate: string, endDate: string): Promise<Shift[]>;
+  getPendingShifts(companyId: number): Promise<Shift[]>;
   createShift(shift: InsertShift): Promise<Shift>;
   updateShift(id: number, shift: Partial<InsertShift>): Promise<Shift | undefined>;
   deleteShift(id: number): Promise<boolean>;
+  approveShift(id: number, approvedBy: number): Promise<Shift | undefined>;
   
   // Analytics methods
   getWeeklyHours(userId: number, startDate: string, endDate: string): Promise<number>;
+  getCompanyWeeklyHours(companyId: number, startDate: string, endDate: string): Promise<number>;
   getDailyAverage(userId: number, startDate: string, endDate: string): Promise<number>;
   getMissingEntries(userId: number, startDate: string, endDate: string): Promise<string[]>;
   
