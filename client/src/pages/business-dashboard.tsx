@@ -592,8 +592,30 @@ export default function BusinessDashboard() {
             <CardHeader>
               <CardTitle>Team Schedule</CardTitle>
               <p className="text-sm text-muted-foreground">
-                View your team's shifts in calendar format
+                View your team's shifts in calendar format with shift details
               </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex items-center gap-1 text-xs">
+                  <div className="w-3 h-3 rounded bg-yellow-100 border border-yellow-200"></div>
+                  <span>Morning</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs">
+                  <div className="w-3 h-3 rounded bg-orange-100 border border-orange-200"></div>
+                  <span>Afternoon</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs">
+                  <div className="w-3 h-3 rounded bg-purple-100 border border-purple-200"></div>
+                  <span>Evening</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs">
+                  <div className="w-3 h-3 rounded bg-blue-100 border border-blue-200"></div>
+                  <span>Night</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs">
+                  <div className="w-3 h-3 rounded bg-red-100 border border-red-200"></div>
+                  <span>Double</span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
@@ -617,23 +639,63 @@ export default function BusinessDashboard() {
                         const dayShifts = Array.isArray(shifts) ? shifts.filter((shift: any) => shift.date === dateStr) : [];
                         
                         days.push(
-                          <div key={dateStr} className="border rounded-lg p-2 min-h-[120px] bg-white">
-                            <div className="font-medium text-sm mb-2">
+                          <div key={dateStr} className="border rounded-lg p-2 min-h-[150px] bg-white hover:bg-gray-50 transition-colors">
+                            <div className="font-medium text-sm mb-2 text-gray-700">
                               {format(day, 'd')}
                             </div>
                             <div className="space-y-1">
                               {dayShifts.map((shift: any) => {
                                 const employee = processedEmployeeList.find((emp: any) => emp.id === shift.userId);
+                                const startTime = shift.startTime?.slice(0, 5); // Remove seconds
+                                const endTime = shift.endTime?.slice(0, 5);
+                                const hours = (() => {
+                                  if (!shift.startTime || !shift.endTime) return 0;
+                                  const start = new Date(`2000-01-01T${shift.startTime}`);
+                                  const end = new Date(`2000-01-01T${shift.endTime}`);
+                                  if (end < start) end.setDate(end.getDate() + 1);
+                                  return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(1);
+                                })();
+                                
+                                // Color coding by shift type
+                                const getShiftColor = (type: string) => {
+                                  switch (type) {
+                                    case 'morning': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                                    case 'afternoon': return 'bg-orange-100 text-orange-800 border-orange-200';
+                                    case 'evening': return 'bg-purple-100 text-purple-800 border-purple-200';
+                                    case 'night': return 'bg-blue-100 text-blue-800 border-blue-200';
+                                    case 'double': return 'bg-red-100 text-red-800 border-red-200';
+                                    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+                                  }
+                                };
+                                
                                 return (
                                   <div
                                     key={shift.id}
-                                    className="text-xs p-1 rounded bg-blue-100 text-blue-800"
+                                    className={`text-xs p-2 rounded-md border ${getShiftColor(shift.shiftType)} hover:shadow-sm transition-shadow`}
                                   >
-                                    <div className="font-medium">{employee?.name || `User ${shift.userId}`}</div>
-                                    <div>{shift.startTime}-{shift.endTime}</div>
+                                    <div className="font-semibold truncate" title={employee?.name}>
+                                      {employee?.name || `User ${shift.userId}`}
+                                    </div>
+                                    <div className="flex justify-between items-center mt-1">
+                                      <span className="text-xs">{startTime}-{endTime}</span>
+                                      <span className="text-xs font-medium">{hours}h</span>
+                                    </div>
+                                    <div className="text-xs capitalize mt-1 opacity-75">
+                                      {shift.shiftType}
+                                    </div>
+                                    {shift.notes && (
+                                      <div className="text-xs mt-1 opacity-75 truncate" title={shift.notes}>
+                                        📝 {shift.notes}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
+                              {dayShifts.length === 0 && (
+                                <div className="text-xs text-gray-400 italic text-center py-2">
+                                  No shifts
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
