@@ -6,13 +6,20 @@ import { Company, User, Shift } from "@shared/schema";
 export function useCompanyEmployees(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "employees"],
+    queryFn: () => apiRequest(`/api/companies/${companyId}/employees`),
     enabled: !!companyId,
   });
 }
 
 export function useCompanyShifts(companyId: number, startDate?: string, endDate?: string) {
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  const queryString = params.toString();
+  
   return useQuery({
     queryKey: ["/api/companies", companyId, "shifts", { startDate, endDate }],
+    queryFn: () => apiRequest(`/api/companies/${companyId}/shifts${queryString ? `?${queryString}` : ''}`),
     enabled: !!companyId,
   });
 }
@@ -20,6 +27,7 @@ export function useCompanyShifts(companyId: number, startDate?: string, endDate?
 export function usePendingShifts(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "pending-shifts"],
+    queryFn: () => apiRequest(`/api/companies/${companyId}/pending-shifts`),
     enabled: !!companyId,
   });
 }

@@ -40,9 +40,21 @@ export default function BusinessDashboard() {
   const businessUser = user as User & { companyId?: number; userType?: string };
 
   // Fetch real company data
-  const { data: employees = [], isLoading: employeesLoading } = useCompanyEmployees(businessUser?.companyId || 0);
-  const { data: shifts = [], isLoading: shiftsLoading } = useCompanyShifts(businessUser?.companyId || 0, startDate, endDate);
-  const { data: pendingShifts = [], isLoading: pendingLoading } = usePendingShifts(businessUser?.companyId || 0);
+  const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useCompanyEmployees(businessUser?.companyId || 0);
+  const { data: shifts = [], isLoading: shiftsLoading, error: shiftsError } = useCompanyShifts(businessUser?.companyId || 0, startDate, endDate);
+  const { data: pendingShifts = [], isLoading: pendingLoading, error: pendingError } = usePendingShifts(businessUser?.companyId || 0);
+
+  // Debug logging for development
+  console.log('Business Dashboard Data:', {
+    user: businessUser,
+    companyId: businessUser?.companyId,
+    employees: employees,
+    employeesError: employeesError,
+    shifts: shifts,
+    shiftsError: shiftsError,
+    pendingShifts: pendingShifts,
+    pendingError: pendingError
+  });
   const approveShiftMutation = useApproveShift();
 
   // If user is not a business user, show access denied
@@ -84,7 +96,14 @@ export default function BusinessDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Business Dashboard</h1>
-          <p className="text-slate-600">Welcome back! Here's your team overview.</p>
+          <p className="text-slate-600">
+            Welcome back, {businessUser?.name}! Here's your team overview.
+          </p>
+          {businessUser?.companyId && (
+            <p className="text-sm text-slate-500 mt-1">
+              Company ID: {businessUser.companyId} | Role: {businessUser.role || 'Owner'}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
