@@ -345,7 +345,7 @@ export default function BusinessDashboard() {
       )}
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="calendar" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
@@ -673,29 +673,13 @@ export default function BusinessDashboard() {
                       const days = [];
                       let day = startDate;
                       
-                      // Debug info
-                      console.log('Calendar Debug:', { 
-                        allShifts: allShifts?.length || 0, 
-                        employees: employees?.length || 0,
-                        allShiftsLoading,
-                        currentMonth: format(currentDate, 'yyyy-MM'),
-                        sampleShiftDates: allShifts?.slice(0, 5).map((s: any) => s.date) || [],
-                        monthStart: format(monthStart, 'yyyy-MM-dd'),
-                        monthEnd: format(monthEnd, 'yyyy-MM-dd')
-                      });
+
                       
                       while (day <= endDate) {
                         const dateStr = format(day, 'yyyy-MM-dd');
                         const dayShifts = Array.isArray(allShifts) ? allShifts.filter((shift: any) => shift.date === dateStr) : [];
                         
-                        // Debug specific dates with shifts
-                        if (dateStr === '2025-08-08' || dateStr === '2025-08-07') {
-                          console.log(`Debug ${dateStr}:`, { 
-                            dayShifts: dayShifts.length, 
-                            shifts: dayShifts.map(s => ({ id: s.id, userId: s.userId, type: s.shiftType })),
-                            employees: employees.map(e => ({ id: e.id, name: e.name }))
-                          });
-                        }
+
                         const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                         const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                         
@@ -709,12 +693,7 @@ export default function BusinessDashboard() {
                               {format(day, 'd')}
                             </div>
                             <div className="space-y-1">
-                              {/* Debug indicator for days with shifts */}
-                              {dayShifts.length > 0 && dateStr === '2025-08-07' && (
-                                <div className="bg-red-500 text-white text-xs p-1 rounded">
-                                  DEBUG: {dayShifts.length} shifts
-                                </div>
-                              )}
+
                               {dayShifts.slice(0, 3).map((shift: any) => {
                                 const employee = Array.isArray(employees) ? employees.find((emp: any) => emp.id === shift.userId) : null;
                                 const startTime = shift.startTime?.slice(0, 5);
