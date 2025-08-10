@@ -673,6 +673,14 @@ export default function BusinessDashboard() {
                       const days = [];
                       let day = startDate;
                       
+                      // Debug info
+                      console.log('Calendar Debug:', { 
+                        allShifts: allShifts?.length || 0, 
+                        employees: employees?.length || 0,
+                        allShiftsLoading,
+                        currentMonth: format(currentDate, 'yyyy-MM')
+                      });
+                      
                       while (day <= endDate) {
                         const dateStr = format(day, 'yyyy-MM-dd');
                         const dayShifts = Array.isArray(allShifts) ? allShifts.filter((shift: any) => shift.date === dateStr) : [];
@@ -690,7 +698,7 @@ export default function BusinessDashboard() {
                             </div>
                             <div className="space-y-1">
                               {dayShifts.slice(0, 3).map((shift: any) => {
-                                const employee = processedEmployeeList.find((emp: any) => emp.id === shift.userId);
+                                const employee = Array.isArray(employees) ? employees.find((emp: any) => emp.id === shift.userId) : null;
                                 const startTime = shift.startTime?.slice(0, 5);
                                 const endTime = shift.endTime?.slice(0, 5);
                                 const hours = (() => {
