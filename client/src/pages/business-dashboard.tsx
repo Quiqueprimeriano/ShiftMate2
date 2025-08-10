@@ -678,12 +678,23 @@ export default function BusinessDashboard() {
                         allShifts: allShifts?.length || 0, 
                         employees: employees?.length || 0,
                         allShiftsLoading,
-                        currentMonth: format(currentDate, 'yyyy-MM')
+                        currentMonth: format(currentDate, 'yyyy-MM'),
+                        sampleShiftDates: allShifts?.slice(0, 5).map((s: any) => s.date) || [],
+                        monthStart: format(monthStart, 'yyyy-MM-dd'),
+                        monthEnd: format(monthEnd, 'yyyy-MM-dd')
                       });
                       
                       while (day <= endDate) {
                         const dateStr = format(day, 'yyyy-MM-dd');
                         const dayShifts = Array.isArray(allShifts) ? allShifts.filter((shift: any) => shift.date === dateStr) : [];
+                        
+                        // Debug specific dates with shifts
+                        if (dateStr === '2025-08-08' || dateStr === '2025-08-07') {
+                          console.log(`Debug ${dateStr}:`, { 
+                            dayShifts: dayShifts.length, 
+                            shifts: dayShifts.map(s => ({ id: s.id, userId: s.userId, type: s.shiftType }))
+                          });
+                        }
                         const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                         const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                         
