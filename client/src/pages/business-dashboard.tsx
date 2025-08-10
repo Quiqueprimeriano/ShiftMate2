@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift } from "@/hooks/use-business";
 import { getDateRange, formatDuration } from "@/lib/time-utils";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, parseISO } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, subDays, parseISO } from "date-fns";
 import type { User } from "@shared/schema";
 
 // Mock data for charts until real data is available
@@ -39,6 +39,8 @@ export default function BusinessDashboard() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [viewMode, setViewMode] = useState<"week" | "month" | "custom">("week");
+  const [overviewStartDate, setOverviewStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
+  const [overviewEndDate, setOverviewEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   // Calculate date range based on view mode
   const getDateRangeForView = () => {
@@ -345,7 +347,7 @@ export default function BusinessDashboard() {
       )}
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="calendar" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
@@ -355,6 +357,225 @@ export default function BusinessDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          {/* Date Filter Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-4 items-end">
+                <div className="grid grid-cols-2 gap-4 flex-1">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Start Date</label>
+                    <input
+                      type="date"
+                      value={overviewStartDate}
+                      onChange={(e) => setOverviewStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">End Date</label>
+                    <input
+                      type="date"
+                      value={overviewEndDate}
+                      onChange={(e) => setOverviewEndDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const today = new Date();
+                      const weekAgo = subDays(today, 7);
+                      setOverviewStartDate(format(weekAgo, 'yyyy-MM-dd'));
+                      setOverviewEndDate(format(today, 'yyyy-MM-dd'));
+                    }}
+                  >
+                    Last 7 Days
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const today = new Date();
+                      const monthStart = startOfMonth(today);
+                      setOverviewStartDate(format(monthStart, 'yyyy-MM-dd'));
+                      setOverviewEndDate(format(today, 'yyyy-MM-dd'));
+                    }}
+                  >
+                    This Month
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Daily Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Shift Summary</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {format(parseISO(overviewStartDate), 'MMM dd, yyyy')} - {format(parseISO(overviewEndDate), 'MMM dd, yyyy')}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(() => {
+                  const filteredShifts = Array.isArray(allShifts) 
+                    ? allShifts.filter((shift: any) => 
+                        shift.date >= overviewStartDate && shift.date <= overviewEndDate
+                      ) 
+                    : [];
+
+                  // Group shifts by date
+                  const shiftsByDate = filteredShifts.reduce((acc: any, shift: any) => {
+                    if (!acc[shift.date]) {
+                      acc[shift.date] = [];
+                    }
+                    acc[shift.date].push(shift);
+                    return acc;
+                  }, {});
+
+                  // Calculate totals
+                  const totalWeekHours = filteredShifts.reduce((total: number, shift: any) => {
+                    if (!shift.startTime || !shift.endTime) return total;
+                    const start = new Date(`2000-01-01T${shift.startTime}`);
+                    const end = new Date(`2000-01-01T${shift.endTime}`);
+                    if (end < start) end.setDate(end.getDate() + 1);
+                    return total + ((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+                  }, 0);
+
+                  const sortedDates = Object.keys(shiftsByDate).sort();
+
+                  return (
+                    <>
+                      {/* Period Summary */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <div className="text-2xl font-bold text-blue-900">{filteredShifts.length}</div>
+                            <div className="text-sm text-blue-700">Total Shifts</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-blue-900">{totalWeekHours.toFixed(1)}h</div>
+                            <div className="text-sm text-blue-700">Total Hours</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-blue-900">{sortedDates.length}</div>
+                            <div className="text-sm text-blue-700">Days Worked</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Daily Breakdown */}
+                      {sortedDates.map((date) => {
+                        const dayShifts = shiftsByDate[date];
+                        const sortedShifts = dayShifts.sort((a: any, b: any) => 
+                          a.startTime?.localeCompare(b.startTime) || 0
+                        );
+                        
+                        const dayTotal = dayShifts.reduce((total: number, shift: any) => {
+                          if (!shift.startTime || !shift.endTime) return total;
+                          const start = new Date(`2000-01-01T${shift.startTime}`);
+                          const end = new Date(`2000-01-01T${shift.endTime}`);
+                          if (end < start) end.setDate(end.getDate() + 1);
+                          return total + ((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+                        }, 0);
+
+                        const employeeHours = dayShifts.reduce((acc: any, shift: any) => {
+                          const employee = employees.find((emp: any) => emp.id === shift.userId);
+                          const employeeName = employee?.name || `User ${shift.userId}`;
+                          
+                          if (!shift.startTime || !shift.endTime) return acc;
+                          const start = new Date(`2000-01-01T${shift.startTime}`);
+                          const end = new Date(`2000-01-01T${shift.endTime}`);
+                          if (end < start) end.setDate(end.getDate() + 1);
+                          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+                          
+                          acc[employeeName] = (acc[employeeName] || 0) + hours;
+                          return acc;
+                        }, {});
+
+                        return (
+                          <div key={date} className="border rounded-lg p-4">
+                            <div className="flex justify-between items-center mb-3">
+                              <h3 className="font-semibold text-lg">
+                                {format(parseISO(date), 'EEEE, MMM dd, yyyy')}
+                              </h3>
+                              <div className="text-right">
+                                <div className="font-bold text-lg">{dayTotal.toFixed(1)}h</div>
+                                <div className="text-sm text-gray-600">{dayShifts.length} shifts</div>
+                              </div>
+                            </div>
+
+                            {/* Employee Hours Summary */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+                              {Object.entries(employeeHours).map(([name, hours]: [string, any]) => (
+                                <div key={name} className="bg-gray-50 rounded p-2 text-sm">
+                                  <div className="font-medium truncate">{name.split(' ')[0]}</div>
+                                  <div className="text-gray-600">{hours.toFixed(1)}h</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Shift Timeline */}
+                            <div className="space-y-2">
+                              {sortedShifts.map((shift: any) => {
+                                const employee = employees.find((emp: any) => emp.id === shift.userId);
+                                const employeeName = employee?.name || `User ${shift.userId}`;
+                                const hours = (() => {
+                                  if (!shift.startTime || !shift.endTime) return 0;
+                                  const start = new Date(`2000-01-01T${shift.startTime}`);
+                                  const end = new Date(`2000-01-01T${shift.endTime}`);
+                                  if (end < start) end.setDate(end.getDate() + 1);
+                                  return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(1);
+                                })();
+
+                                const getShiftColor = (type: string) => {
+                                  switch (type) {
+                                    case 'morning': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                                    case 'afternoon': return 'bg-orange-100 text-orange-800 border-orange-200';
+                                    case 'evening': return 'bg-purple-100 text-purple-800 border-purple-200';
+                                    case 'night': return 'bg-blue-100 text-blue-800 border-blue-200';
+                                    case 'double': return 'bg-red-100 text-red-800 border-red-200';
+                                    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+                                  }
+                                };
+
+                                return (
+                                  <div key={shift.id} className={`flex items-center justify-between p-3 rounded-md border ${getShiftColor(shift.shiftType)}`}>
+                                    <div className="flex items-center space-x-3">
+                                      <div className="font-medium">{employeeName}</div>
+                                      <div className="text-sm opacity-75">{shift.shiftType}</div>
+                                    </div>
+                                    <div className="flex items-center space-x-4 text-sm">
+                                      <span>{shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}</span>
+                                      <span className="font-medium">{hours}h</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {sortedDates.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          No shifts found for the selected date range.
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="employees" className="space-y-6">
           {/* Daily Hours Breakdown */}
           <Card>
             <CardHeader>
