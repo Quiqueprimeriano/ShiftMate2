@@ -564,7 +564,7 @@ export default function BusinessDashboard() {
                   <CardHeader>
                     <CardTitle>Daily Hours Timeline</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Hours worked per day with employee breakdown
+                      Total hours worked per day with employee breakdown
                     </p>
                   </CardHeader>
                   <CardContent>
@@ -574,8 +574,10 @@ export default function BusinessDashboard() {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="date" />
                           <YAxis 
-                            label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
-                            tickFormatter={(value) => `${value}h`}
+                            domain={[0, 24]}
+                            ticks={[0, 4, 8, 12, 16, 20, 24]}
+                            label={{ value: 'Hours (0-24)', angle: -90, position: 'insideLeft' }}
+                            tickFormatter={(value) => `${value}:00`}
                           />
                           <Tooltip 
                             formatter={(value: any, name: string) => [
@@ -602,6 +604,88 @@ export default function BusinessDashboard() {
                         <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <h3 className="text-lg font-medium">No data for selected period</h3>
                         <p className="text-muted-foreground">Adjust the date range to view shift data.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Hourly Timeline Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Hourly Activity Timeline</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Employee activity throughout the day (24-hour view)
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    {filteredShifts.length > 0 ? (
+                      (() => {
+                        // Create hourly timeline data
+                        const hourlyData = Array.from({ length: 24 }, (_, hour) => {
+                          const hourKey = `${hour.toString().padStart(2, '0')}:00`;
+                          const activeEmployees = new Set();
+                          
+                          // Check which employees are working at this hour
+                          filteredShifts.forEach((shift: any) => {
+                            if (!shift.startTime || !shift.endTime) return;
+                            
+                            const startHour = parseInt(shift.startTime.split(':')[0]);
+                            let endHour = parseInt(shift.endTime.split(':')[0]);
+                            const endMinute = parseInt(shift.endTime.split(':')[1]);
+                            
+                            // If end minute is not 00, consider the full hour
+                            if (endMinute > 0) endHour += 1;
+                            
+                            // Handle overnight shifts
+                            if (endHour <= startHour) endHour += 24;
+                            
+                            // Check if this hour falls within the shift
+                            if (hour >= startHour && hour < endHour) {
+                              const employee = employees.find((emp: any) => emp.id === shift.userId);
+                              const employeeName = employee?.name?.split(' ')[0] || `User${shift.userId}`;
+                              activeEmployees.add(employeeName);
+                            }
+                          });
+
+                          return {
+                            hour: hourKey,
+                            activeCount: activeEmployees.size,
+                            employees: Array.from(activeEmployees)
+                          };
+                        });
+
+                        return (
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={hourlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="hour" />
+                              <YAxis 
+                                label={{ value: 'Active Employees', angle: -90, position: 'insideLeft' }}
+                                domain={[0, Math.max(4, Math.max(...hourlyData.map(d => d.activeCount)))]}
+                              />
+                              <Tooltip 
+                                formatter={(value: any) => [`${value} employees`, 'Active']}
+                                labelFormatter={(label) => {
+                                  const data = hourlyData.find(d => d.hour === label);
+                                  return data && data.employees.length > 0 
+                                    ? `${label} - ${data.employees.join(', ')}` 
+                                    : `${label} - No active employees`;
+                                }}
+                              />
+                              <Bar
+                                dataKey="activeCount"
+                                fill="#3b82f6"
+                                radius={[4, 4, 0, 0]}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        );
+                      })()
+                    ) : (
+                      <div className="text-center py-8">
+                        <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-medium">No shift data</h3>
+                        <p className="text-muted-foreground">Select a date range with shift data to view hourly activity.</p>
                       </div>
                     )}
                   </CardContent>
