@@ -360,7 +360,10 @@ export default function BusinessDashboard() {
           {/* Date Filter Controls */}
           <Card>
             <CardHeader>
-              <CardTitle>Overview Filters</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Overview Filters
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row gap-4 items-end">
@@ -412,167 +415,243 @@ export default function BusinessDashboard() {
             </CardContent>
           </Card>
 
-          {/* Daily Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Shift Summary</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {format(parseISO(overviewStartDate), 'MMM dd, yyyy')} - {format(parseISO(overviewEndDate), 'MMM dd, yyyy')}
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {(() => {
-                  const filteredShifts = Array.isArray(allShifts) 
-                    ? allShifts.filter((shift: any) => 
-                        shift.date >= overviewStartDate && shift.date <= overviewEndDate
-                      ) 
-                    : [];
+          {(() => {
+            const filteredShifts = Array.isArray(allShifts) 
+              ? allShifts.filter((shift: any) => 
+                  shift.date >= overviewStartDate && shift.date <= overviewEndDate
+                ) 
+              : [];
 
-                  // Group shifts by date
-                  const shiftsByDate = filteredShifts.reduce((acc: any, shift: any) => {
-                    if (!acc[shift.date]) {
-                      acc[shift.date] = [];
-                    }
-                    acc[shift.date].push(shift);
-                    return acc;
-                  }, {});
+            // Generate timeline chart data
+            const timelineData = (() => {
+              const shiftsByDate = filteredShifts.reduce((acc: any, shift: any) => {
+                if (!acc[shift.date]) {
+                  acc[shift.date] = [];
+                }
+                acc[shift.date].push(shift);
+                return acc;
+              }, {});
 
-                  // Calculate totals
-                  const totalWeekHours = filteredShifts.reduce((total: number, shift: any) => {
-                    if (!shift.startTime || !shift.endTime) return total;
-                    const start = new Date(`2000-01-01T${shift.startTime}`);
-                    const end = new Date(`2000-01-01T${shift.endTime}`);
-                    if (end < start) end.setDate(end.getDate() + 1);
-                    return total + ((end.getTime() - start.getTime()) / (1000 * 60 * 60));
-                  }, 0);
+              const sortedDates = Object.keys(shiftsByDate).sort();
+              
+              return sortedDates.map(date => {
+                const dayShifts = shiftsByDate[date];
+                
+                // Calculate total hours for the day
+                const totalHours = dayShifts.reduce((total: number, shift: any) => {
+                  if (!shift.startTime || !shift.endTime) return total;
+                  const start = new Date(`2000-01-01T${shift.startTime}`);
+                  const end = new Date(`2000-01-01T${shift.endTime}`);
+                  if (end < start) end.setDate(end.getDate() + 1);
+                  return total + ((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+                }, 0);
 
-                  const sortedDates = Object.keys(shiftsByDate).sort();
+                // Calculate hours per employee
+                const employeeHours = dayShifts.reduce((acc: any, shift: any) => {
+                  const employee = employees.find((emp: any) => emp.id === shift.userId);
+                  const employeeName = employee?.name?.split(' ')[0] || `User${shift.userId}`;
+                  
+                  if (!shift.startTime || !shift.endTime) return acc;
+                  const start = new Date(`2000-01-01T${shift.startTime}`);
+                  const end = new Date(`2000-01-01T${shift.endTime}`);
+                  if (end < start) end.setDate(end.getDate() + 1);
+                  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+                  
+                  acc[employeeName] = (acc[employeeName] || 0) + hours;
+                  return acc;
+                }, {});
 
-                  return (
-                    <>
-                      {/* Period Summary */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <div className="text-2xl font-bold text-blue-900">{filteredShifts.length}</div>
-                            <div className="text-sm text-blue-700">Total Shifts</div>
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold text-blue-900">{totalWeekHours.toFixed(1)}h</div>
-                            <div className="text-sm text-blue-700">Total Hours</div>
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold text-blue-900">{sortedDates.length}</div>
-                            <div className="text-sm text-blue-700">Days Worked</div>
-                          </div>
-                        </div>
+                return {
+                  date: format(parseISO(date), 'MMM dd'),
+                  fullDate: date,
+                  totalHours: Number(totalHours.toFixed(1)),
+                  shifts: dayShifts.length,
+                  ...employeeHours
+                };
+              });
+            })();
+
+            // Calculate period totals
+            const totalPeriodHours = filteredShifts.reduce((total: number, shift: any) => {
+              if (!shift.startTime || !shift.endTime) return total;
+              const start = new Date(`2000-01-01T${shift.startTime}`);
+              const end = new Date(`2000-01-01T${shift.endTime}`);
+              if (end < start) end.setDate(end.getDate() + 1);
+              return total + ((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+            }, 0);
+
+            // Calculate employee totals for the period
+            const employeeTotals = filteredShifts.reduce((acc: any, shift: any) => {
+              const employee = employees.find((emp: any) => emp.id === shift.userId);
+              const employeeName = employee?.name || `User ${shift.userId}`;
+              
+              if (!shift.startTime || !shift.endTime) return acc;
+              const start = new Date(`2000-01-01T${shift.startTime}`);
+              const end = new Date(`2000-01-01T${shift.endTime}`);
+              if (end < start) end.setDate(end.getDate() + 1);
+              const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+              
+              acc[employeeName] = (acc[employeeName] || 0) + hours;
+              return acc;
+            }, {});
+
+            const uniqueEmployees = Array.from(new Set(filteredShifts.map((shift: any) => {
+              const employee = employees.find((emp: any) => emp.id === shift.userId);
+              return employee?.name?.split(' ')[0] || `User${shift.userId}`;
+            })));
+
+            return (
+              <>
+                {/* Period Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{totalPeriodHours.toFixed(1)}h</div>
+                      <p className="text-xs text-muted-foreground">
+                        {format(parseISO(overviewStartDate), 'MMM dd')} - {format(parseISO(overviewEndDate), 'MMM dd')}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Shifts</CardTitle>
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{filteredShifts.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {timelineData.length} days worked
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {timelineData.length > 0 ? (totalPeriodHours / timelineData.length).toFixed(1) : '0'}h
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Per working day
+                      </p>
+                    </CardContent>
+                  </Card>
 
-                      {/* Daily Breakdown */}
-                      {sortedDates.map((date) => {
-                        const dayShifts = shiftsByDate[date];
-                        const sortedShifts = dayShifts.sort((a: any, b: any) => 
-                          a.startTime?.localeCompare(b.startTime) || 0
-                        );
-                        
-                        const dayTotal = dayShifts.reduce((total: number, shift: any) => {
-                          if (!shift.startTime || !shift.endTime) return total;
-                          const start = new Date(`2000-01-01T${shift.startTime}`);
-                          const end = new Date(`2000-01-01T${shift.endTime}`);
-                          if (end < start) end.setDate(end.getDate() + 1);
-                          return total + ((end.getTime() - start.getTime()) / (1000 * 60 * 60));
-                        }, 0);
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{Object.keys(employeeTotals).length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        In this period
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
 
-                        const employeeHours = dayShifts.reduce((acc: any, shift: any) => {
-                          const employee = employees.find((emp: any) => emp.id === shift.userId);
-                          const employeeName = employee?.name || `User ${shift.userId}`;
-                          
-                          if (!shift.startTime || !shift.endTime) return acc;
-                          const start = new Date(`2000-01-01T${shift.startTime}`);
-                          const end = new Date(`2000-01-01T${shift.endTime}`);
-                          if (end < start) end.setDate(end.getDate() + 1);
-                          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-                          
-                          acc[employeeName] = (acc[employeeName] || 0) + hours;
-                          return acc;
-                        }, {});
+                {/* Timeline Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Daily Hours Timeline</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Hours worked per day with employee breakdown
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    {timelineData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={400}>
+                        <BarChart data={timelineData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis 
+                            label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
+                            tickFormatter={(value) => `${value}h`}
+                          />
+                          <Tooltip 
+                            formatter={(value: any, name: string) => [
+                              `${Number(value).toFixed(1)}h`,
+                              name === 'totalHours' ? 'Total Hours' : name
+                            ]}
+                            labelFormatter={(label) => {
+                              const data = timelineData.find(d => d.date === label);
+                              return data ? `${label} (${data.shifts} shifts)` : label;
+                            }}
+                          />
+                          {uniqueEmployees.map((employee, index) => (
+                            <Bar
+                              key={employee}
+                              dataKey={employee}
+                              stackId="hours"
+                              fill={`hsl(${(index * 137.5) % 360}, 70%, 50%)`}
+                            />
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-medium">No data for selected period</h3>
+                        <p className="text-muted-foreground">Adjust the date range to view shift data.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-                        return (
-                          <div key={date} className="border rounded-lg p-4">
-                            <div className="flex justify-between items-center mb-3">
-                              <h3 className="font-semibold text-lg">
-                                {format(parseISO(date), 'EEEE, MMM dd, yyyy')}
-                              </h3>
+                {/* Employee Hours Breakdown */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Employee Hours Summary</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Total hours per employee in selected period
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    {Object.keys(employeeTotals).length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {Object.entries(employeeTotals)
+                          .sort(([,a], [,b]) => (b as number) - (a as number))
+                          .map(([name, hours]) => (
+                          <div key={name} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="font-semibold text-gray-900">{name}</h3>
+                                <p className="text-sm text-gray-600">
+                                  {filteredShifts.filter((shift: any) => {
+                                    const employee = employees.find((emp: any) => emp.id === shift.userId);
+                                    return (employee?.name || `User ${shift.userId}`) === name;
+                                  }).length} shifts
+                                </p>
+                              </div>
                               <div className="text-right">
-                                <div className="font-bold text-lg">{dayTotal.toFixed(1)}h</div>
-                                <div className="text-sm text-gray-600">{dayShifts.length} shifts</div>
+                                <div className="text-2xl font-bold text-blue-900">{(hours as number).toFixed(1)}h</div>
+                                <div className="text-xs text-blue-700">
+                                  {timelineData.length > 0 ? ((hours as number) / timelineData.length).toFixed(1) : '0'}h/day avg
+                                </div>
                               </div>
                             </div>
-
-                            {/* Employee Hours Summary */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
-                              {Object.entries(employeeHours).map(([name, hours]: [string, any]) => (
-                                <div key={name} className="bg-gray-50 rounded p-2 text-sm">
-                                  <div className="font-medium truncate">{name.split(' ')[0]}</div>
-                                  <div className="text-gray-600">{hours.toFixed(1)}h</div>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Shift Timeline */}
-                            <div className="space-y-2">
-                              {sortedShifts.map((shift: any) => {
-                                const employee = employees.find((emp: any) => emp.id === shift.userId);
-                                const employeeName = employee?.name || `User ${shift.userId}`;
-                                const hours = (() => {
-                                  if (!shift.startTime || !shift.endTime) return 0;
-                                  const start = new Date(`2000-01-01T${shift.startTime}`);
-                                  const end = new Date(`2000-01-01T${shift.endTime}`);
-                                  if (end < start) end.setDate(end.getDate() + 1);
-                                  return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(1);
-                                })();
-
-                                const getShiftColor = (type: string) => {
-                                  switch (type) {
-                                    case 'morning': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-                                    case 'afternoon': return 'bg-orange-100 text-orange-800 border-orange-200';
-                                    case 'evening': return 'bg-purple-100 text-purple-800 border-purple-200';
-                                    case 'night': return 'bg-blue-100 text-blue-800 border-blue-200';
-                                    case 'double': return 'bg-red-100 text-red-800 border-red-200';
-                                    default: return 'bg-gray-100 text-gray-800 border-gray-200';
-                                  }
-                                };
-
-                                return (
-                                  <div key={shift.id} className={`flex items-center justify-between p-3 rounded-md border ${getShiftColor(shift.shiftType)}`}>
-                                    <div className="flex items-center space-x-3">
-                                      <div className="font-medium">{employeeName}</div>
-                                      <div className="text-sm opacity-75">{shift.shiftType}</div>
-                                    </div>
-                                    <div className="flex items-center space-x-4 text-sm">
-                                      <span>{shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}</span>
-                                      <span className="font-medium">{hours}h</span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
                           </div>
-                        );
-                      })}
-
-                      {sortedDates.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
-                          No shifts found for the selected date range.
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </CardContent>
-          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        No employee data for the selected period.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="employees" className="space-y-6">
