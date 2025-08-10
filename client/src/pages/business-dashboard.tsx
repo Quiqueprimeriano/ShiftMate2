@@ -583,6 +583,28 @@ export default function BusinessDashboard() {
                         const maxDays = 14; // Show max 14 days for readability
                         const displayDates = sortedDates.slice(0, maxDays);
 
+                        // Get unique employees and assign colors
+                        const uniqueEmployees = Array.from(new Set(filteredShifts.map((shift: any) => shift.userId)))
+                          .map(userId => employees.find((emp: any) => emp.id === userId))
+                          .filter(Boolean);
+
+                        const getEmployeeColor = (userId: number) => {
+                          const index = uniqueEmployees.findIndex((emp: any) => emp.id === userId);
+                          const colors = [
+                            { bg: 'bg-blue-500', border: 'border-blue-600', text: 'text-white' },
+                            { bg: 'bg-green-500', border: 'border-green-600', text: 'text-white' },
+                            { bg: 'bg-purple-500', border: 'border-purple-600', text: 'text-white' },
+                            { bg: 'bg-red-500', border: 'border-red-600', text: 'text-white' },
+                            { bg: 'bg-yellow-500', border: 'border-yellow-600', text: 'text-black' },
+                            { bg: 'bg-pink-500', border: 'border-pink-600', text: 'text-white' },
+                            { bg: 'bg-indigo-500', border: 'border-indigo-600', text: 'text-white' },
+                            { bg: 'bg-teal-500', border: 'border-teal-600', text: 'text-white' },
+                            { bg: 'bg-orange-500', border: 'border-orange-600', text: 'text-white' },
+                            { bg: 'bg-cyan-500', border: 'border-cyan-600', text: 'text-white' }
+                          ];
+                          return colors[index % colors.length] || colors[0];
+                        };
+
                         return (
                           <div className="relative">
                             {/* Chart container */}
@@ -611,8 +633,8 @@ export default function BusinessDashboard() {
                                 {displayDates.map((_, i) => (
                                   <div
                                     key={i}
-                                    className="absolute h-full border-l border-gray-200"
-                                    style={{ left: `${(i / displayDates.length) * 100}%` }}
+                                    className="absolute h-full border-l border-gray-300"
+                                    style={{ left: `${((i + 1) / displayDates.length) * 100}%` }}
                                   />
                                 ))}
 
@@ -620,60 +642,66 @@ export default function BusinessDashboard() {
                                 {displayDates.map((date, dateIndex) => {
                                   const dayShifts = shiftsByDate[date];
                                   
-                                  return dayShifts.map((shift: any, shiftIndex: number) => {
-                                    if (!shift.startTime || !shift.endTime) return null;
-                                    
-                                    const employee = employees.find((emp: any) => emp.id === shift.userId);
-                                    const employeeName = employee?.name || `User ${shift.userId}`;
-                                    
-                                    // Parse start and end times
-                                    const [startHours, startMinutes] = shift.startTime.split(':').map(Number);
-                                    const [endHours, endMinutes] = shift.endTime.split(':').map(Number);
-                                    
-                                    const startTime = startHours + startMinutes / 60;
-                                    let endTime = endHours + endMinutes / 60;
-                                    
-                                    // Handle overnight shifts
-                                    if (endTime <= startTime) {
-                                      endTime += 24;
+                                  // Group shifts by employee for this day to avoid overlaps
+                                  const shiftsByEmployee = dayShifts.reduce((acc: any, shift: any) => {
+                                    if (!acc[shift.userId]) {
+                                      acc[shift.userId] = [];
                                     }
-                                    
-                                    // Convert to percentage positions (flip Y-axis so 0:00 is at bottom)
-                                    const topPercent = ((24 - Math.min(endTime, 24)) / 24) * 100;
-                                    const heightPercent = ((Math.min(endTime, 24) - startTime) / 24) * 100;
-                                    
-                                    // X position
-                                    const leftPercent = (dateIndex / displayDates.length) * 100;
-                                    const widthPercent = (1 / displayDates.length) * 100;
-                                    
-                                    const getShiftColor = (type: string) => {
-                                      switch (type) {
-                                        case 'morning': return 'bg-yellow-400 border-yellow-500';
-                                        case 'afternoon': return 'bg-orange-400 border-orange-500';
-                                        case 'evening': return 'bg-purple-400 border-purple-500';
-                                        case 'night': return 'bg-blue-400 border-blue-500';
-                                        case 'double': return 'bg-red-400 border-red-500';
-                                        default: return 'bg-gray-400 border-gray-500';
+                                    acc[shift.userId].push(shift);
+                                    return acc;
+                                  }, {});
+
+                                  const employeeIds = Object.keys(shiftsByEmployee);
+                                  const columnWidth = (1 / displayDates.length) * 100;
+                                  const subColumnWidth = columnWidth / Math.max(employeeIds.length, 1);
+                                  
+                                  return Object.entries(shiftsByEmployee).map(([userId, userShifts]: [string, any], empIndex) => {
+                                    return (userShifts as any[]).map((shift: any, shiftIndex: number) => {
+                                      if (!shift.startTime || !shift.endTime) return null;
+                                      
+                                      const employee = employees.find((emp: any) => emp.id === parseInt(userId));
+                                      const employeeName = employee?.name || `User ${shift.userId}`;
+                                      
+                                      // Parse start and end times
+                                      const [startHours, startMinutes] = shift.startTime.split(':').map(Number);
+                                      const [endHours, endMinutes] = shift.endTime.split(':').map(Number);
+                                      
+                                      const startTime = startHours + startMinutes / 60;
+                                      let endTime = endHours + endMinutes / 60;
+                                      
+                                      // Handle overnight shifts
+                                      if (endTime <= startTime) {
+                                        endTime += 24;
                                       }
-                                    };
-                                    
-                                    return (
-                                      <div
-                                        key={`${shift.id}-${shiftIndex}`}
-                                        className={`absolute border rounded opacity-80 hover:opacity-100 transition-opacity cursor-pointer ${getShiftColor(shift.shiftType)}`}
-                                        style={{
-                                          left: `${leftPercent + (shiftIndex % 3) * 2}%`, // Offset overlapping shifts
-                                          width: `${Math.max(widthPercent - 4, 8)}%`,
-                                          top: `${topPercent}%`,
-                                          height: `${Math.max(heightPercent, 2)}%`
-                                        }}
-                                        title={`${employeeName}: ${format(parseISO(date), 'MMM dd')} - ${shift.startTime} to ${shift.endTime} (${shift.shiftType})`}
-                                      >
-                                        <div className="text-xs text-white font-medium p-1 truncate">
-                                          {employeeName.split(' ')[0]}
+                                      
+                                      // Convert to percentage positions (flip Y-axis so 0:00 is at bottom)
+                                      const topPercent = ((24 - Math.min(endTime, 24)) / 24) * 100;
+                                      const heightPercent = ((Math.min(endTime, 24) - startTime) / 24) * 100;
+                                      
+                                      // X position - precise column alignment
+                                      const leftPercent = (dateIndex / displayDates.length) * 100 + (empIndex * subColumnWidth);
+                                      const widthPercent = Math.max(subColumnWidth * 0.9, 2); // 90% of sub-column width with minimum
+                                      
+                                      const colorScheme = getEmployeeColor(parseInt(userId));
+                                      
+                                      return (
+                                        <div
+                                          key={`${shift.id}-${empIndex}-${shiftIndex}`}
+                                          className={`absolute border-2 rounded opacity-90 hover:opacity-100 transition-opacity cursor-pointer ${colorScheme.bg} ${colorScheme.border}`}
+                                          style={{
+                                            left: `${leftPercent}%`,
+                                            width: `${widthPercent}%`,
+                                            top: `${topPercent}%`,
+                                            height: `${Math.max(heightPercent, 2)}%`
+                                          }}
+                                          title={`${employeeName}: ${format(parseISO(date), 'MMM dd')} - ${shift.startTime} to ${shift.endTime} (${shift.shiftType})`}
+                                        >
+                                          <div className={`text-xs font-medium p-1 truncate ${colorScheme.text}`}>
+                                            {employeeName.split(' ')[0]}
+                                          </div>
                                         </div>
-                                      </div>
-                                    );
+                                      );
+                                    });
                                   });
                                 })}
                               </div>
@@ -689,20 +717,20 @@ export default function BusinessDashboard() {
                               </div>
                             </div>
 
-                            {/* Legend */}
-                            <div className="mt-4 flex flex-wrap gap-4 justify-center">
-                              {[
-                                { type: 'morning', color: 'bg-yellow-400', label: 'Morning' },
-                                { type: 'afternoon', color: 'bg-orange-400', label: 'Afternoon' },
-                                { type: 'evening', color: 'bg-purple-400', label: 'Evening' },
-                                { type: 'night', color: 'bg-blue-400', label: 'Night' },
-                                { type: 'double', color: 'bg-red-400', label: 'Double' }
-                              ].map(({ type, color, label }) => (
-                                <div key={type} className="flex items-center gap-2">
-                                  <div className={`w-4 h-4 rounded ${color}`}></div>
-                                  <span className="text-sm">{label}</span>
-                                </div>
-                              ))}
+                            {/* Employee Legend */}
+                            <div className="mt-4">
+                              <h4 className="text-sm font-medium mb-3 text-center">Employee Colors</h4>
+                              <div className="flex flex-wrap gap-4 justify-center">
+                                {uniqueEmployees.map((employee: any) => {
+                                  const colorScheme = getEmployeeColor(employee.id);
+                                  return (
+                                    <div key={employee.id} className="flex items-center gap-2">
+                                      <div className={`w-4 h-4 rounded border-2 ${colorScheme.bg} ${colorScheme.border}`}></div>
+                                      <span className="text-sm font-medium">{employee.name}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
                         );
