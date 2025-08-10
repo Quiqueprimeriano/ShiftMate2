@@ -559,152 +559,159 @@ export default function BusinessDashboard() {
                   </Card>
                 </div>
 
-                {/* Shift Timeline Chart */}
+                {/* Timeline Chart - Days vs Hours */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Shift Timeline by Hours</CardTitle>
+                    <CardTitle>Shift Timeline</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Visual timeline showing when each shift occurs during the day
+                      Days (x-axis) vs Hours (y-axis) showing when shifts occur
                     </p>
                   </CardHeader>
                   <CardContent>
                     {filteredShifts.length > 0 ? (
-                      <div className="space-y-6">
-                        {(() => {
-                          // Group shifts by date
-                          const shiftsByDate = filteredShifts.reduce((acc: any, shift: any) => {
-                            if (!acc[shift.date]) {
-                              acc[shift.date] = [];
-                            }
-                            acc[shift.date].push(shift);
-                            return acc;
-                          }, {});
+                      (() => {
+                        // Group shifts by date
+                        const shiftsByDate = filteredShifts.reduce((acc: any, shift: any) => {
+                          if (!acc[shift.date]) {
+                            acc[shift.date] = [];
+                          }
+                          acc[shift.date].push(shift);
+                          return acc;
+                        }, {});
 
-                          const sortedDates = Object.keys(shiftsByDate).sort().slice(0, 7); // Show max 7 days
+                        const sortedDates = Object.keys(shiftsByDate).sort();
+                        const maxDays = 14; // Show max 14 days for readability
+                        const displayDates = sortedDates.slice(0, maxDays);
 
-                          return sortedDates.map((date) => {
-                            const dayShifts = shiftsByDate[date];
-                            
-                            return (
-                              <div key={date} className="border rounded-lg p-4">
-                                <h3 className="font-semibold text-lg mb-4">
-                                  {format(parseISO(date), 'EEEE, MMM dd, yyyy')}
-                                </h3>
-                                
-                                {/* 24-hour timeline */}
-                                <div className="relative">
-                                  {/* Hour markers */}
-                                  <div className="flex justify-between text-xs text-gray-500 mb-2">
-                                    {Array.from({ length: 25 }, (_, i) => (
-                                      <div key={i} className="text-center" style={{ width: '4%' }}>
-                                        {i}:00
-                                      </div>
-                                    ))}
+                        return (
+                          <div className="relative">
+                            {/* Chart container */}
+                            <div className="relative bg-gray-50 border rounded-lg p-4" style={{ height: '600px' }}>
+                              {/* Y-axis labels (Hours) */}
+                              <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-600 py-4">
+                                {Array.from({ length: 25 }, (_, i) => (
+                                  <div key={i} className="text-right pr-2">
+                                    {(24 - i).toString().padStart(2, '0')}:00
                                   </div>
-                                  
-                                  {/* Timeline background */}
-                                  <div className="relative h-20 bg-gray-50 rounded border">
-                                    {/* Hour grid lines */}
-                                    {Array.from({ length: 24 }, (_, i) => (
-                                      <div
-                                        key={i}
-                                        className="absolute top-0 bottom-0 border-l border-gray-200"
-                                        style={{ left: `${(i / 24) * 100}%` }}
-                                      />
-                                    ))}
-                                    
-                                    {/* Shift bars */}
-                                    {dayShifts.map((shift: any, index: number) => {
-                                      if (!shift.startTime || !shift.endTime) return null;
-                                      
-                                      const employee = employees.find((emp: any) => emp.id === shift.userId);
-                                      const employeeName = employee?.name || `User ${shift.userId}`;
-                                      
-                                      // Parse start and end times
-                                      const [startHours, startMinutes] = shift.startTime.split(':').map(Number);
-                                      const [endHours, endMinutes] = shift.endTime.split(':').map(Number);
-                                      
-                                      const startTime = startHours + startMinutes / 60;
-                                      let endTime = endHours + endMinutes / 60;
-                                      
-                                      // Handle overnight shifts
-                                      if (endTime <= startTime) {
-                                        endTime += 24;
-                                      }
-                                      
-                                      // Clip to 24-hour display
-                                      const displayEndTime = Math.min(endTime, 24);
-                                      
-                                      const leftPercent = (startTime / 24) * 100;
-                                      const widthPercent = ((displayEndTime - startTime) / 24) * 100;
-                                      
-                                      const getShiftColor = (type: string) => {
-                                        switch (type) {
-                                          case 'morning': return 'bg-yellow-400';
-                                          case 'afternoon': return 'bg-orange-400';
-                                          case 'evening': return 'bg-purple-400';
-                                          case 'night': return 'bg-blue-400';
-                                          case 'double': return 'bg-red-400';
-                                          default: return 'bg-gray-400';
-                                        }
-                                      };
-                                      
-                                      return (
-                                        <div
-                                          key={shift.id}
-                                          className={`absolute rounded ${getShiftColor(shift.shiftType)} text-white text-xs font-medium flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity`}
-                                          style={{
-                                            left: `${leftPercent}%`,
-                                            width: `${Math.max(widthPercent, 2)}%`, // Minimum 2% width for visibility
-                                            top: `${20 + (index % 3) * 16}px`, // Stack overlapping shifts
-                                            height: '14px'
-                                          }}
-                                          title={`${employeeName}: ${shift.startTime} - ${shift.endTime} (${shift.shiftType})`}
-                                        >
-                                          <span className="truncate px-1">
-                                            {employeeName.split(' ')[0]} {shift.startTime.slice(0, 5)}-{shift.endTime.slice(0, 5)}
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                  
-                                  {/* Legend for this day */}
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {dayShifts.map((shift: any) => {
-                                      const employee = employees.find((emp: any) => emp.id === shift.userId);
-                                      const employeeName = employee?.name || `User ${shift.userId}`;
-                                      
-                                      const getShiftColor = (type: string) => {
-                                        switch (type) {
-                                          case 'morning': return 'bg-yellow-400';
-                                          case 'afternoon': return 'bg-orange-400';
-                                          case 'evening': return 'bg-purple-400';
-                                          case 'night': return 'bg-blue-400';
-                                          case 'double': return 'bg-red-400';
-                                          default: return 'bg-gray-400';
-                                        }
-                                      };
-                                      
-                                      return (
-                                        <div key={shift.id} className="flex items-center gap-2 text-sm">
-                                          <div className={`w-3 h-3 rounded ${getShiftColor(shift.shiftType)}`}></div>
-                                          <span>{employeeName} ({shift.shiftType})</span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
+                                ))}
                               </div>
-                            );
-                          });
-                        })()}
-                      </div>
+
+                              {/* Chart area */}
+                              <div className="ml-12 mr-4 relative h-full">
+                                {/* Grid lines - horizontal (hours) */}
+                                {Array.from({ length: 25 }, (_, i) => (
+                                  <div
+                                    key={i}
+                                    className="absolute w-full border-t border-gray-200"
+                                    style={{ top: `${(i / 24) * 100}%` }}
+                                  />
+                                ))}
+                                
+                                {/* Grid lines - vertical (days) */}
+                                {displayDates.map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className="absolute h-full border-l border-gray-200"
+                                    style={{ left: `${(i / displayDates.length) * 100}%` }}
+                                  />
+                                ))}
+
+                                {/* Shift blocks */}
+                                {displayDates.map((date, dateIndex) => {
+                                  const dayShifts = shiftsByDate[date];
+                                  
+                                  return dayShifts.map((shift: any, shiftIndex: number) => {
+                                    if (!shift.startTime || !shift.endTime) return null;
+                                    
+                                    const employee = employees.find((emp: any) => emp.id === shift.userId);
+                                    const employeeName = employee?.name || `User ${shift.userId}`;
+                                    
+                                    // Parse start and end times
+                                    const [startHours, startMinutes] = shift.startTime.split(':').map(Number);
+                                    const [endHours, endMinutes] = shift.endTime.split(':').map(Number);
+                                    
+                                    const startTime = startHours + startMinutes / 60;
+                                    let endTime = endHours + endMinutes / 60;
+                                    
+                                    // Handle overnight shifts
+                                    if (endTime <= startTime) {
+                                      endTime += 24;
+                                    }
+                                    
+                                    // Convert to percentage positions (flip Y-axis so 0:00 is at bottom)
+                                    const topPercent = ((24 - Math.min(endTime, 24)) / 24) * 100;
+                                    const heightPercent = ((Math.min(endTime, 24) - startTime) / 24) * 100;
+                                    
+                                    // X position
+                                    const leftPercent = (dateIndex / displayDates.length) * 100;
+                                    const widthPercent = (1 / displayDates.length) * 100;
+                                    
+                                    const getShiftColor = (type: string) => {
+                                      switch (type) {
+                                        case 'morning': return 'bg-yellow-400 border-yellow-500';
+                                        case 'afternoon': return 'bg-orange-400 border-orange-500';
+                                        case 'evening': return 'bg-purple-400 border-purple-500';
+                                        case 'night': return 'bg-blue-400 border-blue-500';
+                                        case 'double': return 'bg-red-400 border-red-500';
+                                        default: return 'bg-gray-400 border-gray-500';
+                                      }
+                                    };
+                                    
+                                    return (
+                                      <div
+                                        key={`${shift.id}-${shiftIndex}`}
+                                        className={`absolute border rounded opacity-80 hover:opacity-100 transition-opacity cursor-pointer ${getShiftColor(shift.shiftType)}`}
+                                        style={{
+                                          left: `${leftPercent + (shiftIndex % 3) * 2}%`, // Offset overlapping shifts
+                                          width: `${Math.max(widthPercent - 4, 8)}%`,
+                                          top: `${topPercent}%`,
+                                          height: `${Math.max(heightPercent, 2)}%`
+                                        }}
+                                        title={`${employeeName}: ${format(parseISO(date), 'MMM dd')} - ${shift.startTime} to ${shift.endTime} (${shift.shiftType})`}
+                                      >
+                                        <div className="text-xs text-white font-medium p-1 truncate">
+                                          {employeeName.split(' ')[0]}
+                                        </div>
+                                      </div>
+                                    );
+                                  });
+                                })}
+                              </div>
+
+                              {/* X-axis labels (Days) */}
+                              <div className="absolute bottom-0 left-12 right-4 flex justify-between text-xs text-gray-600 pt-2">
+                                {displayDates.map((date) => (
+                                  <div key={date} className="text-center" style={{ width: `${100 / displayDates.length}%` }}>
+                                    <div className="font-medium">{format(parseISO(date), 'MMM dd')}</div>
+                                    <div className="text-gray-500">{format(parseISO(date), 'EEE')}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Legend */}
+                            <div className="mt-4 flex flex-wrap gap-4 justify-center">
+                              {[
+                                { type: 'morning', color: 'bg-yellow-400', label: 'Morning' },
+                                { type: 'afternoon', color: 'bg-orange-400', label: 'Afternoon' },
+                                { type: 'evening', color: 'bg-purple-400', label: 'Evening' },
+                                { type: 'night', color: 'bg-blue-400', label: 'Night' },
+                                { type: 'double', color: 'bg-red-400', label: 'Double' }
+                              ].map(({ type, color, label }) => (
+                                <div key={type} className="flex items-center gap-2">
+                                  <div className={`w-4 h-4 rounded ${color}`}></div>
+                                  <span className="text-sm">{label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()
                     ) : (
                       <div className="text-center py-8">
                         <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <h3 className="text-lg font-medium">No shifts for selected period</h3>
-                        <p className="text-muted-foreground">Adjust the date range to view shift timelines.</p>
+                        <p className="text-muted-foreground">Adjust the date range to view shift timeline.</p>
                       </div>
                     )}
                   </CardContent>
