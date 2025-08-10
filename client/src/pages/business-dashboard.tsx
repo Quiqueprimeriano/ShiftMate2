@@ -559,51 +559,152 @@ export default function BusinessDashboard() {
                   </Card>
                 </div>
 
-                {/* Timeline Chart */}
+                {/* Shift Timeline Chart */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Daily Hours Timeline</CardTitle>
+                    <CardTitle>Shift Timeline by Hours</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Total hours worked per day with employee breakdown
+                      Visual timeline showing when each shift occurs during the day
                     </p>
                   </CardHeader>
                   <CardContent>
-                    {timelineData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={400}>
-                        <BarChart data={timelineData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis 
-                            domain={[0, 24]}
-                            ticks={[0, 4, 8, 12, 16, 20, 24]}
-                            label={{ value: 'Hours (0-24)', angle: -90, position: 'insideLeft' }}
-                            tickFormatter={(value) => `${value}:00`}
-                          />
-                          <Tooltip 
-                            formatter={(value: any, name: string) => [
-                              `${Number(value).toFixed(1)}h`,
-                              name === 'totalHours' ? 'Total Hours' : name
-                            ]}
-                            labelFormatter={(label) => {
-                              const data = timelineData.find(d => d.date === label);
-                              return data ? `${label} (${data.shifts} shifts)` : label;
-                            }}
-                          />
-                          {uniqueEmployees.map((employee, index) => (
-                            <Bar
-                              key={employee}
-                              dataKey={employee}
-                              stackId="hours"
-                              fill={`hsl(${(index * 137.5) % 360}, 70%, 50%)`}
-                            />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
+                    {filteredShifts.length > 0 ? (
+                      <div className="space-y-6">
+                        {(() => {
+                          // Group shifts by date
+                          const shiftsByDate = filteredShifts.reduce((acc: any, shift: any) => {
+                            if (!acc[shift.date]) {
+                              acc[shift.date] = [];
+                            }
+                            acc[shift.date].push(shift);
+                            return acc;
+                          }, {});
+
+                          const sortedDates = Object.keys(shiftsByDate).sort().slice(0, 7); // Show max 7 days
+
+                          return sortedDates.map((date) => {
+                            const dayShifts = shiftsByDate[date];
+                            
+                            return (
+                              <div key={date} className="border rounded-lg p-4">
+                                <h3 className="font-semibold text-lg mb-4">
+                                  {format(parseISO(date), 'EEEE, MMM dd, yyyy')}
+                                </h3>
+                                
+                                {/* 24-hour timeline */}
+                                <div className="relative">
+                                  {/* Hour markers */}
+                                  <div className="flex justify-between text-xs text-gray-500 mb-2">
+                                    {Array.from({ length: 25 }, (_, i) => (
+                                      <div key={i} className="text-center" style={{ width: '4%' }}>
+                                        {i}:00
+                                      </div>
+                                    ))}
+                                  </div>
+                                  
+                                  {/* Timeline background */}
+                                  <div className="relative h-20 bg-gray-50 rounded border">
+                                    {/* Hour grid lines */}
+                                    {Array.from({ length: 24 }, (_, i) => (
+                                      <div
+                                        key={i}
+                                        className="absolute top-0 bottom-0 border-l border-gray-200"
+                                        style={{ left: `${(i / 24) * 100}%` }}
+                                      />
+                                    ))}
+                                    
+                                    {/* Shift bars */}
+                                    {dayShifts.map((shift: any, index: number) => {
+                                      if (!shift.startTime || !shift.endTime) return null;
+                                      
+                                      const employee = employees.find((emp: any) => emp.id === shift.userId);
+                                      const employeeName = employee?.name || `User ${shift.userId}`;
+                                      
+                                      // Parse start and end times
+                                      const [startHours, startMinutes] = shift.startTime.split(':').map(Number);
+                                      const [endHours, endMinutes] = shift.endTime.split(':').map(Number);
+                                      
+                                      const startTime = startHours + startMinutes / 60;
+                                      let endTime = endHours + endMinutes / 60;
+                                      
+                                      // Handle overnight shifts
+                                      if (endTime <= startTime) {
+                                        endTime += 24;
+                                      }
+                                      
+                                      // Clip to 24-hour display
+                                      const displayEndTime = Math.min(endTime, 24);
+                                      
+                                      const leftPercent = (startTime / 24) * 100;
+                                      const widthPercent = ((displayEndTime - startTime) / 24) * 100;
+                                      
+                                      const getShiftColor = (type: string) => {
+                                        switch (type) {
+                                          case 'morning': return 'bg-yellow-400';
+                                          case 'afternoon': return 'bg-orange-400';
+                                          case 'evening': return 'bg-purple-400';
+                                          case 'night': return 'bg-blue-400';
+                                          case 'double': return 'bg-red-400';
+                                          default: return 'bg-gray-400';
+                                        }
+                                      };
+                                      
+                                      return (
+                                        <div
+                                          key={shift.id}
+                                          className={`absolute rounded ${getShiftColor(shift.shiftType)} text-white text-xs font-medium flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity`}
+                                          style={{
+                                            left: `${leftPercent}%`,
+                                            width: `${Math.max(widthPercent, 2)}%`, // Minimum 2% width for visibility
+                                            top: `${20 + (index % 3) * 16}px`, // Stack overlapping shifts
+                                            height: '14px'
+                                          }}
+                                          title={`${employeeName}: ${shift.startTime} - ${shift.endTime} (${shift.shiftType})`}
+                                        >
+                                          <span className="truncate px-1">
+                                            {employeeName.split(' ')[0]} {shift.startTime.slice(0, 5)}-{shift.endTime.slice(0, 5)}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  
+                                  {/* Legend for this day */}
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {dayShifts.map((shift: any) => {
+                                      const employee = employees.find((emp: any) => emp.id === shift.userId);
+                                      const employeeName = employee?.name || `User ${shift.userId}`;
+                                      
+                                      const getShiftColor = (type: string) => {
+                                        switch (type) {
+                                          case 'morning': return 'bg-yellow-400';
+                                          case 'afternoon': return 'bg-orange-400';
+                                          case 'evening': return 'bg-purple-400';
+                                          case 'night': return 'bg-blue-400';
+                                          case 'double': return 'bg-red-400';
+                                          default: return 'bg-gray-400';
+                                        }
+                                      };
+                                      
+                                      return (
+                                        <div key={shift.id} className="flex items-center gap-2 text-sm">
+                                          <div className={`w-3 h-3 rounded ${getShiftColor(shift.shiftType)}`}></div>
+                                          <span>{employeeName} ({shift.shiftType})</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
                     ) : (
                       <div className="text-center py-8">
                         <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-medium">No data for selected period</h3>
-                        <p className="text-muted-foreground">Adjust the date range to view shift data.</p>
+                        <h3 className="text-lg font-medium">No shifts for selected period</h3>
+                        <p className="text-muted-foreground">Adjust the date range to view shift timelines.</p>
                       </div>
                     )}
                   </CardContent>
