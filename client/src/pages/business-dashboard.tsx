@@ -41,6 +41,7 @@ export default function BusinessDashboard() {
   const [viewMode, setViewMode] = useState<"week" | "month" | "custom">("week");
   const [overviewStartDate, setOverviewStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
   const [overviewEndDate, setOverviewEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedShift, setSelectedShift] = useState<any>(null);
 
   // Calculate date range based on view mode
   const getDateRangeForView = () => {
@@ -687,14 +688,20 @@ export default function BusinessDashboard() {
                                       return (
                                         <div
                                           key={`${shift.id}-${empIndex}-${shiftIndex}`}
-                                          className={`absolute border-2 rounded opacity-90 hover:opacity-100 transition-opacity cursor-pointer ${colorScheme.bg} ${colorScheme.border}`}
+                                          className={`absolute border-2 rounded opacity-90 hover:opacity-100 hover:scale-105 transition-all cursor-pointer ${colorScheme.bg} ${colorScheme.border}`}
                                           style={{
                                             left: `${leftPercent}%`,
                                             width: `${widthPercent}%`,
                                             top: `${topPercent}%`,
                                             height: `${Math.max(heightPercent, 2)}%`
                                           }}
-                                          title={`${employeeName}: ${format(parseISO(date), 'MMM dd')} - ${shift.startTime} to ${shift.endTime} (${shift.shiftType})`}
+                                          onClick={() => setSelectedShift({
+                                            ...shift,
+                                            employeeName,
+                                            date,
+                                            duration: ((Math.min(endTime, 24) - startTime)).toFixed(1)
+                                          })}
+                                          title={`Click to view details: ${employeeName}`}
                                         >
                                           <div className={`text-xs font-medium p-1 truncate ${colorScheme.text}`}>
                                             {employeeName.split(' ')[0]}
@@ -744,6 +751,97 @@ export default function BusinessDashboard() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Shift Details Modal */}
+                {selectedShift && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedShift(null)}>
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-lg font-semibold">Shift Details</h3>
+                        <button 
+                          onClick={() => setSelectedShift(null)}
+                          className="text-gray-400 hover:text-gray-600 text-2xl"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Employee Info */}
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <h4 className="font-medium text-gray-900">{selectedShift.employeeName}</h4>
+                          <p className="text-sm text-gray-600">{format(parseISO(selectedShift.date), 'EEEE, MMMM dd, yyyy')}</p>
+                        </div>
+
+                        {/* Time Details */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <h5 className="font-medium text-blue-900">Start Time</h5>
+                            <p className="text-lg font-bold text-blue-700">
+                              {selectedShift.startTime?.slice(0, 5) || 'N/A'}
+                            </p>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3">
+                            <h5 className="font-medium text-green-900">End Time</h5>
+                            <p className="text-lg font-bold text-green-700">
+                              {selectedShift.endTime?.slice(0, 5) || 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Duration and Type */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-purple-50 rounded-lg p-3">
+                            <h5 className="font-medium text-purple-900">Total Hours</h5>
+                            <p className="text-lg font-bold text-purple-700">{selectedShift.duration}h</p>
+                          </div>
+                          <div className="bg-orange-50 rounded-lg p-3">
+                            <h5 className="font-medium text-orange-900">Shift Type</h5>
+                            <p className="text-lg font-bold text-orange-700 capitalize">{selectedShift.shiftType}</p>
+                          </div>
+                        </div>
+
+                        {/* Location */}
+                        {selectedShift.location && (
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <h5 className="font-medium text-gray-900">Location</h5>
+                            <p className="text-gray-700">{selectedShift.location}</p>
+                          </div>
+                        )}
+
+                        {/* Comments */}
+                        {selectedShift.notes && (
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <h5 className="font-medium text-gray-900">Comments</h5>
+                            <p className="text-gray-700">{selectedShift.notes}</p>
+                          </div>
+                        )}
+
+                        {/* Status */}
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <h5 className="font-medium text-gray-900">Status</h5>
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            selectedShift.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            selectedShift.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            selectedShift.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {selectedShift.status || 'Completed'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 flex justify-end">
+                        <button 
+                          onClick={() => setSelectedShift(null)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Hourly Timeline Chart */}
                 <Card>
