@@ -692,7 +692,8 @@ export default function BusinessDashboard() {
                         if (dateStr === '2025-08-08' || dateStr === '2025-08-07') {
                           console.log(`Debug ${dateStr}:`, { 
                             dayShifts: dayShifts.length, 
-                            shifts: dayShifts.map(s => ({ id: s.id, userId: s.userId, type: s.shiftType }))
+                            shifts: dayShifts.map(s => ({ id: s.id, userId: s.userId, type: s.shiftType })),
+                            employees: employees.map(e => ({ id: e.id, name: e.name }))
                           });
                         }
                         const isCurrentMonth = day.getMonth() === currentDate.getMonth();
@@ -708,6 +709,12 @@ export default function BusinessDashboard() {
                               {format(day, 'd')}
                             </div>
                             <div className="space-y-1">
+                              {/* Debug indicator for days with shifts */}
+                              {dayShifts.length > 0 && dateStr === '2025-08-07' && (
+                                <div className="bg-red-500 text-white text-xs p-1 rounded">
+                                  DEBUG: {dayShifts.length} shifts
+                                </div>
+                              )}
                               {dayShifts.slice(0, 3).map((shift: any) => {
                                 const employee = Array.isArray(employees) ? employees.find((emp: any) => emp.id === shift.userId) : null;
                                 const startTime = shift.startTime?.slice(0, 5);
