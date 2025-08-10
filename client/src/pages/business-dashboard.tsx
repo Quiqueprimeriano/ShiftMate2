@@ -76,6 +76,9 @@ export default function BusinessDashboard() {
   const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useCompanyEmployees(businessUser?.companyId || 0);
   const { data: shifts = [], isLoading: shiftsLoading, error: shiftsError } = useCompanyShifts(businessUser?.companyId || 0, startDate, endDate);
   const { data: pendingShifts = [], isLoading: pendingLoading, error: pendingError } = usePendingShifts(businessUser?.companyId || 0);
+  
+  // Fetch ALL shifts for calendar (not date filtered)
+  const { data: allShifts = [], isLoading: allShiftsLoading } = useCompanyShifts(businessUser?.companyId || 0);
 
   const approveShiftMutation = useApproveShift();
 
@@ -629,24 +632,66 @@ export default function BusinessDashboard() {
                     ))}
                   </div>
                   
+                  {/* Calendar Navigation */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <h2 className="text-lg font-semibold">
+                        {format(currentDate, 'MMMM yyyy')}
+                      </h2>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentDate(new Date())}
+                    >
+                      Today
+                    </Button>
+                  </div>
+
+                  {/* Month Calendar Grid */}
                   <div className="grid grid-cols-7 gap-2">
                     {(() => {
-                      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+                      const monthStart = startOfMonth(currentDate);
+                      const monthEnd = endOfMonth(currentDate);
+                      const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+                      const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+                      
                       const days = [];
-                      for (let i = 0; i < 7; i++) {
-                        const day = addDays(start, i);
+                      let day = startDate;
+                      
+                      while (day <= endDate) {
                         const dateStr = format(day, 'yyyy-MM-dd');
-                        const dayShifts = Array.isArray(shifts) ? shifts.filter((shift: any) => shift.date === dateStr) : [];
+                        const dayShifts = Array.isArray(allShifts) ? allShifts.filter((shift: any) => shift.date === dateStr) : [];
+                        const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                        const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                         
                         days.push(
-                          <div key={dateStr} className="border rounded-lg p-2 min-h-[150px] bg-white hover:bg-gray-50 transition-colors">
-                            <div className="font-medium text-sm mb-2 text-gray-700">
+                          <div key={dateStr} className={`border rounded-lg p-2 min-h-[120px] transition-colors ${
+                            isCurrentMonth 
+                              ? (isToday ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50') 
+                              : 'bg-gray-50 text-gray-400'
+                          }`}>
+                            <div className={`font-medium text-sm mb-2 ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
                               {format(day, 'd')}
                             </div>
                             <div className="space-y-1">
-                              {dayShifts.map((shift: any) => {
+                              {dayShifts.slice(0, 3).map((shift: any) => {
                                 const employee = processedEmployeeList.find((emp: any) => emp.id === shift.userId);
-                                const startTime = shift.startTime?.slice(0, 5); // Remove seconds
+                                const startTime = shift.startTime?.slice(0, 5);
                                 const endTime = shift.endTime?.slice(0, 5);
                                 const hours = (() => {
                                   if (!shift.startTime || !shift.endTime) return 0;
@@ -656,7 +701,6 @@ export default function BusinessDashboard() {
                                   return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(1);
                                 })();
                                 
-                                // Color coding by shift type
                                 const getShiftColor = (type: string) => {
                                   switch (type) {
                                     case 'morning': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -671,34 +715,28 @@ export default function BusinessDashboard() {
                                 return (
                                   <div
                                     key={shift.id}
-                                    className={`text-xs p-2 rounded-md border ${getShiftColor(shift.shiftType)} hover:shadow-sm transition-shadow`}
+                                    className={`text-xs p-1.5 rounded-md border ${getShiftColor(shift.shiftType)} hover:shadow-sm transition-shadow`}
                                   >
-                                    <div className="font-semibold truncate" title={employee?.name}>
-                                      {employee?.name || `User ${shift.userId}`}
+                                    <div className="font-semibold truncate text-xs" title={employee?.name}>
+                                      {employee?.name?.split(' ')[0] || `User ${shift.userId}`}
                                     </div>
-                                    <div className="flex justify-between items-center mt-1">
-                                      <span className="text-xs">{startTime}-{endTime}</span>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs">{startTime}</span>
                                       <span className="text-xs font-medium">{hours}h</span>
                                     </div>
-                                    <div className="text-xs capitalize mt-1 opacity-75">
-                                      {shift.shiftType}
-                                    </div>
-                                    {shift.notes && (
-                                      <div className="text-xs mt-1 opacity-75 truncate" title={shift.notes}>
-                                        📝 {shift.notes}
-                                      </div>
-                                    )}
                                   </div>
                                 );
                               })}
-                              {dayShifts.length === 0 && (
-                                <div className="text-xs text-gray-400 italic text-center py-2">
-                                  No shifts
+                              {dayShifts.length > 3 && (
+                                <div className="text-xs text-blue-600 font-medium">
+                                  +{dayShifts.length - 3} more
                                 </div>
                               )}
                             </div>
                           </div>
                         );
+                        
+                        day = addDays(day, 1);
                       }
                       return days;
                     })()}
