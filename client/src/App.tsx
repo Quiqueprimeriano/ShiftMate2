@@ -24,8 +24,9 @@ import Landing from "@/pages/landing";
 import BusinessDashboard from "@/pages/business-dashboard";
 
 const PAGE_TITLES = {
-  "/": { title: "Dashboard", subtitle: "Welcome back! Here's your shift overview." },
-  "/dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your shift overview." },
+  "/": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
+  "/dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
+  "/business-dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
   "/calendar": { title: "Calendar", subtitle: "View and manage your shifts on the calendar." },
   "/add-shift": { title: "Add Shift", subtitle: "Log a new work shift." },
   "/shifts": { title: "All Shifts", subtitle: "View, edit, and manage your shift history." },
@@ -219,7 +220,7 @@ function Router() {
   }
 
   // Determine which interface to show based on user type
-  const userType = user?.userType || 'individual';
+  const userType = (user as any)?.userType || 'individual';
   const isBusinessUser = userType === 'business';
 
   if (isBusinessUser) {
