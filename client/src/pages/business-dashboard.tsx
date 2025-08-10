@@ -41,7 +41,8 @@ export default function BusinessDashboard() {
   const [viewMode, setViewMode] = useState<"week" | "month" | "custom">("week");
   const [overviewStartDate, setOverviewStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
   const [overviewEndDate, setOverviewEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [selectedShift, setSelectedShift] = useState<any>(null);
+  const [hoveredShift, setHoveredShift] = useState<any>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // Calculate date range based on view mode
   const getDateRangeForView = () => {
@@ -610,11 +611,11 @@ export default function BusinessDashboard() {
                           <div className="relative">
                             {/* Chart container */}
                             <div className="relative bg-gray-50 border rounded-lg p-4" style={{ height: '600px' }}>
-                              {/* Y-axis labels (Hours) */}
+                              {/* Y-axis labels (Hours) - 0:00 at top, 24:00 at bottom */}
                               <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-600 py-4">
                                 {Array.from({ length: 25 }, (_, i) => (
                                   <div key={i} className="text-right pr-2">
-                                    {(24 - i).toString().padStart(2, '0')}:00
+                                    {i.toString().padStart(2, '0')}:00
                                   </div>
                                 ))}
                               </div>
@@ -643,24 +644,11 @@ export default function BusinessDashboard() {
                                 {displayDates.map((date, dateIndex) => {
                                   const dayShifts = shiftsByDate[date];
                                   
-                                  // Group shifts by employee for this day to avoid overlaps
-                                  const shiftsByEmployee = dayShifts.reduce((acc: any, shift: any) => {
-                                    if (!acc[shift.userId]) {
-                                      acc[shift.userId] = [];
-                                    }
-                                    acc[shift.userId].push(shift);
-                                    return acc;
-                                  }, {});
-
-                                  const employeeIds = Object.keys(shiftsByEmployee);
-                                  const columnWidth = (1 / displayDates.length) * 100;
-                                  const subColumnWidth = columnWidth / Math.max(employeeIds.length, 1);
-                                  
-                                  return Object.entries(shiftsByEmployee).map(([userId, userShifts]: [string, any], empIndex) => {
-                                    return (userShifts as any[]).map((shift: any, shiftIndex: number) => {
+                                  // Stack all shifts vertically for this day
+                                  return dayShifts.map((shift: any, shiftIndex: number) => {
                                       if (!shift.startTime || !shift.endTime) return null;
                                       
-                                      const employee = employees.find((emp: any) => emp.id === parseInt(userId));
+                                      const employee = employees.find((emp: any) => emp.id === shift.userId);
                                       const employeeName = employee?.name || `User ${shift.userId}`;
                                       
                                       // Parse start and end times
@@ -675,19 +663,20 @@ export default function BusinessDashboard() {
                                         endTime += 24;
                                       }
                                       
-                                      // Convert to percentage positions (flip Y-axis so 0:00 is at bottom)
-                                      const topPercent = ((24 - Math.min(endTime, 24)) / 24) * 100;
+                                      // Convert to percentage positions (0:00 at top, 24:00 at bottom)
+                                      const topPercent = (startTime / 24) * 100;
                                       const heightPercent = ((Math.min(endTime, 24) - startTime) / 24) * 100;
                                       
-                                      // X position - precise column alignment
-                                      const leftPercent = (dateIndex / displayDates.length) * 100 + (empIndex * subColumnWidth);
-                                      const widthPercent = Math.max(subColumnWidth * 0.9, 2); // 90% of sub-column width with minimum
+                                      // X position - stack vertically for non-doubled shifts, side by side for doubled
+                                      const columnWidth = (1 / displayDates.length) * 100;
+                                      const leftPercent = (dateIndex / displayDates.length) * 100;
+                                      const widthPercent = Math.max(columnWidth * 0.95, 3); // Use most of column width
                                       
-                                      const colorScheme = getEmployeeColor(parseInt(userId));
+                                      const colorScheme = getEmployeeColor(shift.userId);
                                       
                                       return (
                                         <div
-                                          key={`${shift.id}-${empIndex}-${shiftIndex}`}
+                                          key={`${shift.id}-${dateIndex}-${shiftIndex}`}
                                           className={`absolute border-2 rounded opacity-90 hover:opacity-100 hover:scale-105 transition-all cursor-pointer ${colorScheme.bg} ${colorScheme.border}`}
                                           style={{
                                             left: `${leftPercent}%`,
@@ -695,13 +684,18 @@ export default function BusinessDashboard() {
                                             top: `${topPercent}%`,
                                             height: `${Math.max(heightPercent, 2)}%`
                                           }}
-                                          onClick={() => setSelectedShift({
-                                            ...shift,
-                                            employeeName,
-                                            date,
-                                            duration: ((Math.min(endTime, 24) - startTime)).toFixed(1)
-                                          })}
-                                          title={`Click to view details: ${employeeName}`}
+                                          onMouseEnter={(e) => {
+                                            setHoveredShift({
+                                              ...shift,
+                                              employeeName,
+                                              date,
+                                              duration: ((Math.min(endTime, 24) - startTime)).toFixed(1)
+                                            });
+                                            setMousePosition({ x: e.clientX, y: e.clientY });
+                                          }}
+                                          onMouseLeave={() => setHoveredShift(null)}
+                                          onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })}
+                                          title={`${employeeName}: ${shift.startTime} - ${shift.endTime}`}
                                         >
                                           <div className={`text-xs font-medium p-1 truncate ${colorScheme.text}`}>
                                             {employeeName.split(' ')[0]}
@@ -709,18 +703,31 @@ export default function BusinessDashboard() {
                                         </div>
                                       );
                                     });
-                                  });
                                 })}
                               </div>
 
-                              {/* X-axis labels (Days) */}
+                              {/* X-axis labels (Days) with totals */}
                               <div className="absolute bottom-0 left-12 right-4 flex justify-between text-xs text-gray-600 pt-2">
-                                {displayDates.map((date) => (
-                                  <div key={date} className="text-center" style={{ width: `${100 / displayDates.length}%` }}>
-                                    <div className="font-medium">{format(parseISO(date), 'MMM dd')}</div>
-                                    <div className="text-gray-500">{format(parseISO(date), 'EEE')}</div>
-                                  </div>
-                                ))}
+                                {displayDates.map((date) => {
+                                  const dayShifts = shiftsByDate[date];
+                                  const dayTotal = dayShifts.reduce((total: number, shift: any) => {
+                                    if (!shift.startTime || !shift.endTime) return total;
+                                    const [startHours, startMinutes] = shift.startTime.split(':').map(Number);
+                                    const [endHours, endMinutes] = shift.endTime.split(':').map(Number);
+                                    const startTime = startHours + startMinutes / 60;
+                                    let endTime = endHours + endMinutes / 60;
+                                    if (endTime <= startTime) endTime += 24;
+                                    return total + (endTime - startTime);
+                                  }, 0);
+                                  
+                                  return (
+                                    <div key={date} className="text-center" style={{ width: `${100 / displayDates.length}%` }}>
+                                      <div className="font-medium">{format(parseISO(date), 'MMM dd')}</div>
+                                      <div className="text-gray-500">{format(parseISO(date), 'EEE')}</div>
+                                      <div className="font-bold text-blue-600 mt-1">{dayTotal.toFixed(1)}h</div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
 
@@ -752,93 +759,43 @@ export default function BusinessDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Shift Details Modal */}
-                {selectedShift && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedShift(null)}>
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-lg font-semibold">Shift Details</h3>
-                        <button 
-                          onClick={() => setSelectedShift(null)}
-                          className="text-gray-400 hover:text-gray-600 text-2xl"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {/* Employee Info */}
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <h4 className="font-medium text-gray-900">{selectedShift.employeeName}</h4>
-                          <p className="text-sm text-gray-600">{format(parseISO(selectedShift.date), 'EEEE, MMMM dd, yyyy')}</p>
+                {/* Hover Tooltip */}
+                {hoveredShift && (
+                  <div 
+                    className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 pointer-events-none"
+                    style={{ 
+                      left: `${mousePosition.x + 10}px`, 
+                      top: `${mousePosition.y - 10}px`,
+                      maxWidth: '300px'
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <div className="font-semibold text-gray-900">{hoveredShift.employeeName}</div>
+                      <div className="text-sm text-gray-600">{format(parseISO(hoveredShift.date), 'EEEE, MMM dd, yyyy')}</div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="font-medium text-blue-700">Start:</span> {hoveredShift.startTime?.slice(0, 5)}
                         </div>
-
-                        {/* Time Details */}
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <h5 className="font-medium text-blue-900">Start Time</h5>
-                            <p className="text-lg font-bold text-blue-700">
-                              {selectedShift.startTime?.slice(0, 5) || 'N/A'}
-                            </p>
-                          </div>
-                          <div className="bg-green-50 rounded-lg p-3">
-                            <h5 className="font-medium text-green-900">End Time</h5>
-                            <p className="text-lg font-bold text-green-700">
-                              {selectedShift.endTime?.slice(0, 5) || 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Duration and Type */}
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-purple-50 rounded-lg p-3">
-                            <h5 className="font-medium text-purple-900">Total Hours</h5>
-                            <p className="text-lg font-bold text-purple-700">{selectedShift.duration}h</p>
-                          </div>
-                          <div className="bg-orange-50 rounded-lg p-3">
-                            <h5 className="font-medium text-orange-900">Shift Type</h5>
-                            <p className="text-lg font-bold text-orange-700 capitalize">{selectedShift.shiftType}</p>
-                          </div>
-                        </div>
-
-                        {/* Location */}
-                        {selectedShift.location && (
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <h5 className="font-medium text-gray-900">Location</h5>
-                            <p className="text-gray-700">{selectedShift.location}</p>
-                          </div>
-                        )}
-
-                        {/* Comments */}
-                        {selectedShift.notes && (
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <h5 className="font-medium text-gray-900">Comments</h5>
-                            <p className="text-gray-700">{selectedShift.notes}</p>
-                          </div>
-                        )}
-
-                        {/* Status */}
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <h5 className="font-medium text-gray-900">Status</h5>
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            selectedShift.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            selectedShift.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            selectedShift.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {selectedShift.status || 'Completed'}
-                          </span>
+                        <div>
+                          <span className="font-medium text-green-700">End:</span> {hoveredShift.endTime?.slice(0, 5)}
                         </div>
                       </div>
-
-                      <div className="mt-6 flex justify-end">
-                        <button 
-                          onClick={() => setSelectedShift(null)}
-                          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                        >
-                          Close
-                        </button>
+                      <div className="text-sm">
+                        <span className="font-medium text-purple-700">Duration:</span> {hoveredShift.duration}h
                       </div>
+                      <div className="text-sm">
+                        <span className="font-medium text-orange-700">Type:</span> <span className="capitalize">{hoveredShift.shiftType}</span>
+                      </div>
+                      {hoveredShift.notes && (
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">Notes:</span> {hoveredShift.notes}
+                        </div>
+                      )}
+                      {hoveredShift.location && (
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">Location:</span> {hoveredShift.location}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
