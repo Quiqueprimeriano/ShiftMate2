@@ -120,6 +120,9 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - Environment-specific build optimization
 
 ## Changelog
+- August 11, 2025. Fixed critical multi-tenant data integrity issue: Individual user shifts now automatically associate with their company, enabling real-time visibility in business dashboards
+- August 11, 2025. Resolved routing 404 errors for both business and individual users with proper wildcard catch-all routes
+- August 11, 2025. Updated 10 historical shifts to have proper company association, restoring business timeline data integrity
 - August 8, 2025. Implementing multi-tenant architecture with separate user and business portals similar to Deputy-style interface
 - August 8, 2025. Updated database schema to support companies table, user types, and business management features
 - August 8, 2025. Changed "This Week's Hours" to display last 7 days (rolling period) instead of Monday-Sunday week
