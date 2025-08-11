@@ -225,9 +225,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/shifts", requireAuth, async (req: any, res) => {
     try {
+      // Get user data to access their companyId
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
       const shiftData = insertShiftSchema.parse({
         ...req.body,
-        userId: req.userId
+        userId: req.userId,
+        companyId: user.companyId // Automatically associate with user's company
       });
 
       const shift = await storage.createShift(shiftData);
@@ -243,7 +250,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/shifts/:id", requireAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const shiftData = insertShiftSchema.partial().parse(req.body);
+      
+      // Get user data to ensure companyId is maintained
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const shiftData = insertShiftSchema.partial().parse({
+        ...req.body,
+        // Ensure companyId is preserved/set during updates
+        companyId: user.companyId
+      });
 
       const shift = await storage.updateShift(id, shiftData);
       if (!shift) {
