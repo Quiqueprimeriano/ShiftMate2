@@ -196,6 +196,7 @@ function AuthenticatedApp() {
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -231,7 +232,7 @@ function Router() {
         <Route path="/business-dashboard" component={() => <AppLayout location="/business-dashboard"><BusinessDashboard /></AppLayout>} />
         <Route path="/calendar" component={() => <AppLayout location="/calendar"><BusinessDashboard /></AppLayout>} />
         <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
-        <Route component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
+        <Route path="*" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
       </Switch>
     );
   }
@@ -244,7 +245,7 @@ function Router() {
       <Route path="/add-shift" component={() => <AppLayout location="/add-shift"><AddShift /></AppLayout>} />
       <Route path="/shifts" component={() => <AppLayout location="/shifts"><Shifts /></AppLayout>} />
       <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
-      <Route component={() => <AppLayout location="/404"><NotFound /></AppLayout>} />
+      <Route path="*" component={() => <AppLayout location="/"><Dashboard /></AppLayout>} />
     </Switch>
   );
 }
