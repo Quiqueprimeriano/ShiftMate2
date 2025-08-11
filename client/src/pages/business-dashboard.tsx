@@ -610,7 +610,7 @@ export default function BusinessDashboard() {
                         return (
                           <div className="relative">
                             {/* Chart container */}
-                            <div className="relative bg-gray-50 border rounded-lg p-4" style={{ height: '600px' }}>
+                            <div className="relative bg-gray-50 border rounded-lg p-4 pb-16" style={{ height: '650px' }}>
                               {/* Y-axis labels (Hours) - 0:00 at top, 24:00 at bottom */}
                               <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-600 py-4">
                                 {Array.from({ length: 25 }, (_, i) => (
@@ -707,7 +707,7 @@ export default function BusinessDashboard() {
                               </div>
 
                               {/* X-axis labels (Days) with totals */}
-                              <div className="absolute bottom-0 left-12 right-4 flex justify-between text-xs text-gray-600 pt-2">
+                              <div className="absolute bottom-4 left-12 right-4 flex justify-between text-xs text-gray-600 pt-4">
                                 {displayDates.map((date) => {
                                   const dayShifts = shiftsByDate[date];
                                   const dayTotal = dayShifts.reduce((total: number, shift: any) => {
