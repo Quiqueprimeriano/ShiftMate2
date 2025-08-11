@@ -225,31 +225,27 @@ function Router() {
 
   if (isBusinessUser) {
     return (
-      <AppLayout location="/">
-        <Switch>
-          <Route path="/" component={BusinessDashboard} />
-          <Route path="/dashboard" component={BusinessDashboard} />
-          <Route path="/business-dashboard" component={BusinessDashboard} />
-          <Route path="/calendar" component={BusinessDashboard} />
-          <Route path="/reports" component={Reports} />
-          <Route component={BusinessDashboard} />
-        </Switch>
-      </AppLayout>
+      <Switch>
+        <Route path="/" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
+        <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><BusinessDashboard /></AppLayout>} />
+        <Route path="/business-dashboard" component={() => <AppLayout location="/business-dashboard"><BusinessDashboard /></AppLayout>} />
+        <Route path="/calendar" component={() => <AppLayout location="/calendar"><BusinessDashboard /></AppLayout>} />
+        <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
+        <Route component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
+      </Switch>
     );
   }
 
   return (
-    <AppLayout location="/">
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/calendar" component={Calendar} />
-        <Route path="/add-shift" component={AddShift} />
-        <Route path="/shifts" component={Shifts} />
-        <Route path="/reports" component={Reports} />
-        <Route component={NotFound} />
-      </Switch>
-    </AppLayout>
+    <Switch>
+      <Route path="/" component={() => <AppLayout location="/"><Dashboard /></AppLayout>} />
+      <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><Dashboard /></AppLayout>} />
+      <Route path="/calendar" component={() => <AppLayout location="/calendar"><Calendar /></AppLayout>} />
+      <Route path="/add-shift" component={() => <AppLayout location="/add-shift"><AddShift /></AppLayout>} />
+      <Route path="/shifts" component={() => <AppLayout location="/shifts"><Shifts /></AppLayout>} />
+      <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
+      <Route component={() => <AppLayout location="/404"><NotFound /></AppLayout>} />
+    </Switch>
   );
 }
 
