@@ -282,8 +282,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Middleware to check authentication
+  // Enhanced middleware to check both JWT and session authentication
   const requireAuth = (req: any, res: any, next: any) => {
+    // First check JWT auth (from middleware)
+    if (req.user?.id) {
+      req.userId = req.user.id;
+      return next();
+    }
+    
+    // Fall back to session-based auth for backward compatibility
     const userId = req.session?.userId;
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
@@ -292,8 +299,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Shift routes
-  app.get("/api/shifts", requireAuth, async (req: any, res) => {
+  // Shift routes - support both JWT and session auth
+  app.get("/api/shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const { startDate, endDate } = req.query;
       
@@ -310,7 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/shifts", requireAuth, async (req: any, res) => {
+  app.post("/api/shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       // Get user data to access their companyId
       const user = await storage.getUser(req.userId);
@@ -334,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/shifts/:id", requireAuth, async (req: any, res) => {
+  app.put("/api/shifts/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -364,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/shifts/:id", requireAuth, async (req: any, res) => {
+  app.delete("/api/shifts/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.deleteShift(id);
@@ -379,8 +386,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Analytics routes
-  app.get("/api/analytics/weekly-hours", requireAuth, async (req: any, res) => {
+  // Analytics routes - support both JWT and session auth
+  app.get("/api/analytics/weekly-hours", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const { startDate, endDate } = req.query;
       
@@ -395,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analytics/daily-average", requireAuth, async (req: any, res) => {
+  app.get("/api/analytics/daily-average", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const { startDate, endDate } = req.query;
       
@@ -410,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analytics/missing-entries", requireAuth, async (req: any, res) => {
+  app.get("/api/analytics/missing-entries", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const { startDate, endDate } = req.query;
       
@@ -425,8 +432,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Notification routes
-  app.get("/api/notifications", requireAuth, async (req: any, res) => {
+  // Notification routes - support both JWT and session auth
+  app.get("/api/notifications", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const notifications = await storage.getNotificationsByUser(req.userId);
       res.json(notifications);
@@ -435,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/notifications", requireAuth, async (req: any, res) => {
+  app.post("/api/notifications", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const notificationData = insertNotificationSchema.parse({
         ...req.body,
@@ -452,7 +459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/notifications/:id/read", requireAuth, async (req: any, res) => {
+  app.put("/api/notifications/:id/read", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.markNotificationAsRead(id);
@@ -467,8 +474,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin routes for database management
-  app.get("/api/admin/stats", requireAuth, async (req: any, res) => {
+  // Admin routes for database management - support both JWT and session auth
+  app.get("/api/admin/stats", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const userCount = await storage.getUserCount();
       const shiftCount = await storage.getShiftCount();
@@ -487,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/users", requireAuth, async (req: any, res) => {
+  app.get("/api/admin/users", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -497,7 +504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/shifts", requireAuth, async (req: any, res) => {
+  app.get("/api/admin/shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const shifts = await storage.getAllShiftsWithUsers();
       res.json(shifts);
@@ -507,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/sql", requireAuth, async (req: any, res) => {
+  app.post("/api/admin/sql", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const { query } = req.body;
       
@@ -534,8 +541,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Business routes
-  app.post("/api/companies", async (req, res) => {
+  // Business routes - support both JWT and session auth  
+  app.post("/api/companies", optionalJwtAuth, requireAuth, async (req, res) => {
     try {
       const companyData = req.body;
       const company = await storage.createCompany(companyData);
@@ -546,7 +553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id/employees", async (req, res) => {
+  app.get("/api/companies/:id/employees", optionalJwtAuth, requireAuth, async (req, res) => {
     try {
       const companyId = parseInt(req.params.id);
       const employees = await storage.getCompanyEmployees(companyId);
@@ -557,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id/shifts", async (req, res) => {
+  app.get("/api/companies/:id/shifts", optionalJwtAuth, requireAuth, async (req, res) => {
     try {
       const companyId = parseInt(req.params.id);
       const { startDate, endDate } = req.query;
@@ -576,7 +583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id/pending-shifts", async (req, res) => {
+  app.get("/api/companies/:id/pending-shifts", optionalJwtAuth, requireAuth, async (req, res) => {
     try {
       const companyId = parseInt(req.params.id);
       const pendingShifts = await storage.getPendingShifts(companyId);
@@ -587,7 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/shifts/:id/approve", async (req, res) => {
+  app.post("/api/shifts/:id/approve", optionalJwtAuth, requireAuth, async (req, res) => {
     try {
       const shiftId = parseInt(req.params.id);
       const { approvedBy } = req.body;
