@@ -15,10 +15,15 @@ export async function login(email: string, name: string, rememberMe = false): Pr
   const response = await apiRequest("POST", "/api/auth/login", { email, name, rememberMe });
   const data = await response.json();
   
+  console.log('Login response data:', { hasUser: !!data.user, hasAccessToken: !!data.accessToken });
+  
   // Store access token if provided
   if (data.accessToken) {
     const { setAccessToken } = await import('@/lib/queryClient');
     setAccessToken(data.accessToken);
+    console.log('Access token stored successfully');
+  } else {
+    console.log('No access token in login response');
   }
 
   return data;

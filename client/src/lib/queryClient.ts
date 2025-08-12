@@ -13,6 +13,7 @@ let refreshPromise: Promise<void> | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
+  console.log('setAccessToken called with:', token ? 'token present' : 'null');
 }
 
 export function getAccessToken(): string | null {
@@ -72,6 +73,7 @@ export async function apiRequest(
 
   // First attempt with current token
   let res = await makeRequest(accessToken || undefined);
+  console.log(`API Request: ${method} ${url} with token: ${accessToken ? 'present' : 'none'}`);
 
   // If 401 and we have a token, try to refresh
   if (res.status === 401 && accessToken) {
@@ -104,6 +106,7 @@ export const getQueryFn: <T>(options: {
 
     // First attempt with current token
     let res = await makeRequest(accessToken || undefined);
+    console.log(`Query Request: ${queryKey[0]} with token: ${accessToken ? 'present' : 'none'}`);
 
     // If 401 and we have a token, try to refresh
     if (res.status === 401 && accessToken) {

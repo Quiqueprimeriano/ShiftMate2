@@ -149,6 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       console.log('Login successful for user:', user.id, 'RememberMe:', rememberMe);
+      console.log('Sending access token in response:', accessToken ? 'YES' : 'NO');
       res.json({ 
         user, 
         accessToken,
