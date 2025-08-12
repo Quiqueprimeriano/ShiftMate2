@@ -285,18 +285,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Enhanced middleware to check both JWT and session authentication
   const requireAuth = (req: any, res: any, next: any) => {
+    console.log('RequireAuth - Checking authentication for:', req.url);
+    console.log('RequireAuth - JWT user:', req.user?.id || 'none');
+    console.log('RequireAuth - Session user:', req.session?.userId || 'none');
+    
     // First check JWT auth (from middleware)
     if (req.user?.id) {
       req.userId = req.user.id;
+      console.log('RequireAuth - Using JWT auth for user:', req.userId);
       return next();
     }
     
     // Fall back to session-based auth for backward compatibility
     const userId = req.session?.userId;
     if (!userId) {
+      console.log('RequireAuth - No authentication found, returning 401');
       return res.status(401).json({ message: "Authentication required" });
     }
     req.userId = userId;
+    console.log('RequireAuth - Using session auth for user:', req.userId);
     next();
   };
 

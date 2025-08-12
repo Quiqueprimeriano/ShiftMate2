@@ -53,21 +53,30 @@ export const optionalJwtAuth = async (req: Request, res: Response, next: NextFun
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
 
+    console.log('OptionalJwtAuth - Authorization header:', authHeader ? 'present' : 'none');
+    console.log('OptionalJwtAuth - Token extracted:', token ? 'present' : 'none');
+
     if (token) {
       const decoded = AuthUtils.verifyAccessToken(token);
+      console.log('OptionalJwtAuth - Token decoded:', decoded ? 'success' : 'failed');
+      
       if (decoded) {
         const user = await storage.getUser(decoded.userId);
+        console.log('OptionalJwtAuth - User found:', user ? `user ${user.id}` : 'not found');
+        
         if (user) {
           req.user = {
             id: user.id,
             email: user.email
           };
+          console.log('OptionalJwtAuth - User set in request:', req.user.id);
         }
       }
     }
 
     next();
   } catch (error) {
+    console.error('OptionalJwtAuth error:', error);
     // Don't fail, just continue without user
     next();
   }
