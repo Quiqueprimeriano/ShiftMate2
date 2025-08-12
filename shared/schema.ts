@@ -64,6 +64,16 @@ export const notifications = pgTable("shiftmate_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Refresh tokens for persistent authentication
+export const refreshTokens = pgTable("shiftmate_refresh_tokens", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  isRevoked: boolean("is_revoked").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertCompanySchema = createInsertSchema(companies).omit({
   id: true,
   createdAt: true,
@@ -85,6 +95,11 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertRefreshTokenSchema = createInsertSchema(refreshTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -93,3 +108,5 @@ export type InsertShift = z.infer<typeof insertShiftSchema>;
 export type Shift = typeof shifts.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+export type InsertRefreshToken = z.infer<typeof insertRefreshTokenSchema>;
+export type RefreshToken = typeof refreshTokens.$inferSelect;

@@ -1,9 +1,12 @@
-import type { Express, Request } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import cookieParser from "cookie-parser";
 import { storage } from "./storage";
 import { insertUserSchema, insertShiftSchema, insertNotificationSchema } from "@shared/schema";
+import { AuthUtils } from "./auth-utils";
+import { jwtAuth, optionalJwtAuth } from "./jwt-middleware";
 import { z } from "zod";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -60,7 +63,10 @@ function setupGoogleAuth() {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Configure session middleware for mobile app persistence
+  // Add cookie parser for refresh tokens
+  app.use(cookieParser());
+
+  // Configure session middleware (keeping for Google OAuth compatibility)
   const sessionTtl = 365 * 24 * 60 * 60 * 1000; // 1 year for mobile app
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
@@ -106,29 +112,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Email/Name Auth routes - Auto-creates user if doesn't exist
+  // JWT-based auth routes with persistent login
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email, name } = req.body;
+      const { email, name, rememberMe = false } = req.body;
       
-      console.log('Login attempt:', { email, name });
+      console.log('Login attempt:', { email, name, rememberMe });
       
       // Check if user exists
       let user = await storage.getUserByEmail(email);
       
-      if (user) {
-        // User exists, log them in
-        (req.session as any).userId = user.id;
-        console.log('Login successful for existing user:', user.id);
-        res.json({ user });
-      } else {
+      if (!user) {
         // User doesn't exist, create them automatically
         console.log('Creating new user during login:', { email, name });
         user = await storage.createUser({ email, name });
-        (req.session as any).userId = user.id;
         console.log('Auto-signup successful for new user:', user.id);
-        res.json({ user });
       }
+
+      // Generate tokens
+      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+      const refreshToken = AuthUtils.generateRefreshToken();
+
+      // Store refresh token
+      await AuthUtils.storeRefreshToken(refreshToken, user.id, rememberMe);
+
+      // Set refresh token as httpOnly cookie
+      const cookieExpiry = rememberMe 
+        ? 30 * 24 * 60 * 60 * 1000  // 30 days
+        : 24 * 60 * 60 * 1000;      // 24 hours
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: cookieExpiry
+      });
+
+      console.log('Login successful for user:', user.id, 'RememberMe:', rememberMe);
+      res.json({ 
+        user, 
+        accessToken,
+        expiresIn: '15m' // Access token expiry
+      });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: "Login failed", error: error instanceof Error ? error.message : String(error) });
@@ -160,18 +185,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        console.error('Logout error:', err);
-        return res.status(500).json({ message: "Failed to logout" });
+  // Refresh token endpoint
+  app.post("/api/auth/refresh", async (req, res) => {
+    try {
+      const { refreshToken } = req.cookies;
+      
+      if (!refreshToken) {
+        return res.status(401).json({ message: "Refresh token not provided" });
       }
-      res.clearCookie('connect.sid');
-      res.json({ message: "Logged out successfully" });
-    });
+
+      const result = await AuthUtils.refreshTokens(refreshToken);
+      
+      if (!result) {
+        // Clear invalid cookie
+        res.clearCookie('refreshToken');
+        return res.status(401).json({ message: "Invalid or expired refresh token" });
+      }
+
+      // Update refresh token cookie
+      res.cookie('refreshToken', result.newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      });
+
+      res.json({
+        accessToken: result.accessToken,
+        expiresIn: '15m'
+      });
+    } catch (error) {
+      console.error('Refresh token error:', error);
+      res.status(401).json({ message: "Token refresh failed" });
+    }
   });
 
-  app.get("/api/auth/me", async (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const { refreshToken } = req.cookies;
+      
+      if (refreshToken) {
+        // Revoke the refresh token
+        await AuthUtils.revokeRefreshToken(refreshToken);
+      }
+
+      // Clear cookies
+      res.clearCookie('refreshToken');
+      res.clearCookie('connect.sid');
+      
+      // Destroy session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+        }
+      });
+
+      res.json({ message: "Logged out successfully" });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: "Failed to logout" });
+    }
+  });
+
+  // New JWT-based auth check endpoint
+  app.get("/api/auth/me", optionalJwtAuth, async (req, res) => {
+    // First try JWT auth
+    if (req.user) {
+      try {
+        const user = await storage.getUser(req.user.id);
+        if (user) {
+          return res.json({ user });
+        }
+      } catch (error) {
+        console.error('JWT auth me error:', error);
+      }
+    }
+
+    // Fall back to session-based auth for backward compatibility
     const userId = (req.session as any)?.userId;
     if (!userId) {
       return res.status(401).json({ message: "Not authenticated" });
@@ -180,17 +270,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await storage.getUser(userId);
       if (!user) {
-        // Clear invalid session
         req.session.destroy(() => {});
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Refresh session expiry on successful authentication check
       (req.session as any).touch();
-      
       res.json({ user });
     } catch (error) {
-      console.error('Auth me error:', error);
+      console.error('Session auth me error:', error);
       res.status(500).json({ message: "Failed to get user" });
     }
   });

@@ -1,11 +1,12 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, or } from "drizzle-orm";
 import { 
   users, 
   shifts, 
   notifications,
   companies,
+  refreshTokens,
   type User, 
   type InsertUser, 
   type Shift, 
@@ -13,7 +14,9 @@ import {
   type Notification,
   type InsertNotification,
   type Company,
-  type InsertCompany
+  type InsertCompany,
+  type RefreshToken,
+  type InsertRefreshToken
 } from "@shared/schema";
 
 const connectionString = process.env.DATABASE_URL;
@@ -79,6 +82,12 @@ export interface IStorage {
   getNotificationsByUser(userId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number): Promise<boolean>;
+  
+  // Refresh token methods
+  createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken>;
+  getRefreshToken(token: string): Promise<RefreshToken | undefined>;
+  revokeRefreshToken(token: string): Promise<void>;
+  cleanupExpiredTokens(): Promise<void>;
   
   // Admin methods
   getUserCount(): Promise<number>;
@@ -297,6 +306,36 @@ export class DbStorage implements IStorage {
       .set({ isRead: true })
       .where(eq(notifications.id, id));
     return result.rowCount > 0;
+  }
+
+  // Refresh token methods
+  async createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken> {
+    const result = await db.insert(refreshTokens).values(token).returning();
+    return result[0];
+  }
+
+  async getRefreshToken(token: string): Promise<RefreshToken | undefined> {
+    const result = await db.select().from(refreshTokens)
+      .where(and(
+        eq(refreshTokens.token, token),
+        eq(refreshTokens.isRevoked, false)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async revokeRefreshToken(token: string): Promise<void> {
+    await db.update(refreshTokens)
+      .set({ isRevoked: true })
+      .where(eq(refreshTokens.token, token));
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
+    await db.delete(refreshTokens)
+      .where(or(
+        eq(refreshTokens.isRevoked, true),
+        lte(refreshTokens.expiresAt, new Date())
+      ));
   }
 
   // Admin methods

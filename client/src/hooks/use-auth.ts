@@ -20,7 +20,8 @@ export function useAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: ({ email, name }: { email: string; name: string }) => login(email, name),
+    mutationFn: ({ email, name, rememberMe = false }: { email: string; name: string; rememberMe?: boolean }) => 
+      login(email, name, rememberMe),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },

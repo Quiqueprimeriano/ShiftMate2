@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
@@ -10,12 +11,13 @@ import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const { login, isLoggingIn } = useAuth();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (email && name) {
-      login({ email, name });
+      login({ email, name, rememberMe });
     }
   };
 
@@ -58,6 +60,19 @@ export default function Login() {
                 onChange={(e) => setName(e.target.value)}
                 required
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="rememberMe" 
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              />
+              <Label 
+                htmlFor="rememberMe" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Remember me for 30 days
+              </Label>
             </div>
             <Button 
               type="submit" 
