@@ -309,6 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Shift routes - support both JWT and session auth
   app.get("/api/shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    console.log('GET /api/shifts - Starting request for user:', req.userId);
     try {
       const { startDate, endDate } = req.query;
       
@@ -319,6 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shifts = await storage.getShiftsByUser(req.userId);
       }
       
+      console.log('GET /api/shifts - Returning', shifts.length, 'shifts for user:', req.userId);
       res.json(shifts);
     } catch (error) {
       res.status(500).json({ message: "Failed to get shifts" });

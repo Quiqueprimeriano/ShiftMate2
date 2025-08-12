@@ -17,6 +17,7 @@ export function setAccessToken(token: string | null) {
 }
 
 export function getAccessToken(): string | null {
+  console.log('getAccessToken called, returning:', accessToken ? 'token present' : 'null');
   return accessToken;
 }
 
@@ -101,6 +102,8 @@ export const getQueryFn: <T>(options: {
       const headers: HeadersInit = {
         ...(token ? { "Authorization": `Bearer ${token}` } : {})
       };
+      
+      console.log(`Making query request to ${queryKey[0]} with headers:`, headers);
 
       return fetch(queryKey[0] as string, {
         headers,
@@ -109,8 +112,8 @@ export const getQueryFn: <T>(options: {
     };
 
     // First attempt with current token
-    let res = await makeRequest(accessToken || undefined);
     console.log(`Query Request: ${queryKey[0]} with token: ${accessToken ? 'present' : 'none'}`);
+    let res = await makeRequest(accessToken || undefined);
 
     // If 401 and we have a token, try to refresh
     if (res.status === 401 && accessToken) {
