@@ -1,0 +1,62 @@
+Title
+
+Implement Persistent Login (“Keep me signed in”) for Web Application
+
+⸻
+
+Objective
+
+Allow users to remain authenticated in the web application even after closing the browser or being inactive, as long as they have not explicitly logged out, following modern security best practices.
+
+⸻
+
+Functional Requirements
+	1.	When logging in, the user can optionally select “Remember me.”
+	2.	If “Remember me” is selected:
+	•	The session must persist for 30 days or until the user logs out.
+	3.	If “Remember me” is not selected:
+	•	The session must persist only while the browser/tab remains open.
+	4.	The user must be able to log out at any time, which will immediately invalidate associated tokens.
+	5.	Session persistence must not depend on the user’s IP address — it should rely on secure cookies.
+
+⸻
+
+Technical Requirements
+	1.	Authentication should use:
+	•	accessToken (JWT) with a short expiry (5–15 minutes).
+	•	refreshToken with a long expiry (30 days if “Remember me” is active, session-based if not).
+	2.	Token Storage:
+	•	accessToken: kept in client memory only.
+	•	refreshToken: stored in a secure cookie (HttpOnly, Secure in production, SameSite=Lax or Strict).
+	3.	Automatic Token Renewal:
+	•	The frontend should detect when the accessToken expires and call /auth/refresh.
+	•	The backend should validate, rotate, and return a new accessToken and refreshToken.
+	4.	Token Rotation:
+	•	Each new refreshToken invalidates the previous one in the server’s database.
+	5.	Security Measures:
+	•	CSRF protection using anti-CSRF tokens or a custom header.
+	•	Rate limiting for /auth/refresh and /auth/login.
+	•	HTTPS enforced in production.
+	6.	Logout:
+	•	/auth/logout endpoint must clear the cookie and mark the refreshToken as invalid in the database.
+
+⸻
+
+Endpoints
+	•	POST /auth/login
+	•	Body: { email, password, rememberMe }
+	•	Response: { accessToken } + refreshToken in secure cookie.
+	•	POST /auth/refresh
+	•	Reads refreshToken from cookie, validates, rotates, returns { accessToken } + updated cookie.
+	•	POST /auth/logout
+	•	Clears cookie, revokes token in DB, returns 204 No Content.
+
+⸻
+
+Acceptance Criteria
+	•	“Remember me” keeps the user logged in for 30 days unless they log out.
+	•	Without “Remember me,” session ends when browser is closed.
+	•	No session persistence is tied to IP addresses.
+	•	No tokens are stored in localStorage or sessionStorage — only in HttpOnly cookies.
+	•	HTTPS and correct cookie flags in production.
+	•	Functionality tested in Chrome, Firefox, Safari, and Edge.
