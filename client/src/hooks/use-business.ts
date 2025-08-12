@@ -6,9 +6,11 @@ export function useCompanyEmployees(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "employees"],
     queryFn: async () => {
-      const response = await fetch(`/api/companies/${companyId}/employees`);
-      if (!response.ok) throw new Error("Failed to fetch employees");
-      return response.json();
+      console.log('useCompanyEmployees queryFn called for company:', companyId);
+      const response = await apiRequest('GET', `/api/companies/${companyId}/employees`);
+      const data = await response.json();
+      console.log('useCompanyEmployees data received:', data.length, 'employees');
+      return data;
     },
     enabled: !!companyId,
   });
@@ -23,9 +25,11 @@ export function useCompanyShifts(companyId: number, startDate?: string, endDate?
   return useQuery({
     queryKey: ["/api/companies", companyId, "shifts", { startDate, endDate }],
     queryFn: async () => {
-      const response = await fetch(`/api/companies/${companyId}/shifts${queryString ? `?${queryString}` : ''}`);
-      if (!response.ok) throw new Error("Failed to fetch shifts");
-      return response.json();
+      console.log('useCompanyShifts queryFn called for company:', companyId, startDate ? `${startDate} to ${endDate}` : 'all shifts');
+      const response = await apiRequest('GET', `/api/companies/${companyId}/shifts${queryString ? `?${queryString}` : ''}`);
+      const data = await response.json();
+      console.log('useCompanyShifts data received:', data.length, 'shifts');
+      return data;
     },
     enabled: !!companyId,
   });
@@ -35,9 +39,11 @@ export function usePendingShifts(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "pending-shifts"],
     queryFn: async () => {
-      const response = await fetch(`/api/companies/${companyId}/pending-shifts`);
-      if (!response.ok) throw new Error("Failed to fetch pending shifts");
-      return response.json();
+      console.log('usePendingShifts queryFn called for company:', companyId);
+      const response = await apiRequest('GET', `/api/companies/${companyId}/pending-shifts`);
+      const data = await response.json();
+      console.log('usePendingShifts data received:', data.length, 'pending shifts');
+      return data;
     },
     enabled: !!companyId,
   });
@@ -47,10 +53,12 @@ export function useCompanyWeeklyHours(companyId: number, startDate: string, endD
   return useQuery({
     queryKey: ["/api/companies", companyId, "analytics", "weekly-hours", { startDate, endDate }],
     queryFn: async () => {
+      console.log('useCompanyWeeklyHours queryFn called for company:', companyId, `${startDate} to ${endDate}`);
       const params = new URLSearchParams({ startDate, endDate });
-      const response = await fetch(`/api/companies/${companyId}/analytics/weekly-hours?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch weekly hours");
-      return response.json();
+      const response = await apiRequest('GET', `/api/companies/${companyId}/analytics/weekly-hours?${params}`);
+      const data = await response.json();
+      console.log('useCompanyWeeklyHours data received:', data);
+      return data;
     },
     enabled: !!companyId && !!startDate && !!endDate,
   });
@@ -60,12 +68,7 @@ export function useCompanyWeeklyHours(companyId: number, startDate: string, endD
 export function useCreateCompany() {
   return useMutation({
     mutationFn: async (companyData: any) => {
-      const response = await fetch("/api/companies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(companyData),
-      });
-      if (!response.ok) throw new Error("Failed to create company");
+      const response = await apiRequest("POST", "/api/companies", companyData);
       return response.json();
     },
     onSuccess: () => {

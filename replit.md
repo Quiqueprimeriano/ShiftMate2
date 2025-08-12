@@ -120,6 +120,10 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - Environment-specific build optimization
 
 ## Changelog
+- August 12, 2025. MAJOR FIX: Resolved critical JWT authentication issue preventing shift data access across all dashboards
+- August 12, 2025. Updated all data hooks (individual and business) to use JWT-enabled apiRequest instead of basic fetch
+- August 12, 2025. Individual users can now access all 47+ shifts with proper authentication and analytics
+- August 12, 2025. Business dashboard now displays 105+ company shifts from 4 employees with real-time data
 - August 11, 2025. Fixed critical multi-tenant data integrity issue: Individual user shifts now automatically associate with their company, enabling real-time visibility in business dashboards
 - August 11, 2025. Resolved routing 404 errors for both business and individual users with proper wildcard catch-all routes
 - August 11, 2025. Updated 10 historical shifts to have proper company association, restoring business timeline data integrity
