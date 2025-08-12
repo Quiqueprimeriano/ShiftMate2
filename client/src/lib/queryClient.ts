@@ -73,16 +73,18 @@ export async function apiRequest(
   };
 
   // First attempt with current token
-  let res = await makeRequest(accessToken || undefined);
-  console.log(`API Request: ${method} ${url} with token: ${accessToken ? 'present' : 'none'}`);
+  const currentToken = getAccessToken();
+  let res = await makeRequest(currentToken || undefined);
+  console.log(`API Request: ${method} ${url} with token: ${currentToken ? 'present' : 'none'}`);
 
   // If 401 and we have a token, try to refresh
-  if (res.status === 401 && accessToken) {
+  if (res.status === 401 && currentToken) {
     console.log('401 error, attempting token refresh');
     const refreshed = await refreshAccessToken();
-    if (refreshed && accessToken) {
+    const newToken = getAccessToken();
+    if (refreshed && newToken) {
       console.log('Token refreshed, retrying request');
-      res = await makeRequest(accessToken);
+      res = await makeRequest(newToken);
     }
   } else if (res.status === 401) {
     console.log('401 error but no access token available');
@@ -111,18 +113,20 @@ export const getQueryFn: <T>(options: {
       });
     };
 
-    // First attempt with current token
-    console.log(`Query Request: ${queryKey[0]} with token: ${accessToken ? 'present' : 'none'}`);
-    let res = await makeRequest(accessToken || undefined);
+    // Ensure we have the latest access token
+    const currentToken = getAccessToken();
+    console.log(`Query Request: ${queryKey[0]} with token: ${currentToken ? 'present' : 'none'}`);
+    let res = await makeRequest(currentToken || undefined);
 
     // If 401 and we have a token, try to refresh
-    if (res.status === 401 && accessToken) {
+    if (res.status === 401 && currentToken) {
       console.log('Query 401 error, attempting token refresh');
       const refreshed = await refreshAccessToken();
-      if (refreshed && accessToken) {
+      const newToken = getAccessToken();
+      if (refreshed && newToken) {
         console.log('Token refreshed, retrying query');
-        res = await makeRequest(accessToken);
-        console.log(`Retry Query Request: ${queryKey[0]} with token: ${accessToken ? 'present' : 'none'}`);
+        res = await makeRequest(newToken);
+        console.log(`Retry Query Request: ${queryKey[0]} with token: ${newToken ? 'present' : 'none'}`);
       }
     } else if (res.status === 401) {
       console.log('Query 401 error but no access token available');
