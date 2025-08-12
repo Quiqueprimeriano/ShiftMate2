@@ -10,12 +10,14 @@ export function useShifts(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey,
     queryFn: async () => {
+      console.log('useShifts queryFn called for:', startDate && endDate ? `${startDate} to ${endDate}` : 'all shifts');
       const url = startDate && endDate 
         ? `/api/shifts?startDate=${startDate}&endDate=${endDate}`
         : "/api/shifts";
-      const response = await fetch(url, { credentials: "include" });
-      if (!response.ok) throw new Error("Failed to fetch shifts");
-      return response.json() as Promise<Shift[]>;
+      const response = await apiRequest('GET', url);
+      const data = await response.json();
+      console.log('useShifts data received:', data.length, 'shifts');
+      return data;
     },
   });
 }
@@ -93,11 +95,10 @@ export function useWeeklyHours(startDate: string, endDate: string) {
   return useQuery({
     queryKey: ["/api/analytics/weekly-hours", { startDate, endDate }],
     queryFn: async () => {
-      const response = await fetch(`/api/analytics/weekly-hours?startDate=${startDate}&endDate=${endDate}`, {
-        credentials: "include"
-      });
-      if (!response.ok) throw new Error("Failed to fetch weekly hours");
+      console.log('useWeeklyHours queryFn called for:', `${startDate} to ${endDate}`);
+      const response = await apiRequest('GET', `/api/analytics/weekly-hours?startDate=${startDate}&endDate=${endDate}`);
       const data = await response.json();
+      console.log('useWeeklyHours data received:', data);
       return data.hours as number;
     },
   });
@@ -107,10 +108,7 @@ export function useDailyAverage(startDate: string, endDate: string) {
   return useQuery({
     queryKey: ["/api/analytics/daily-average", { startDate, endDate }],
     queryFn: async () => {
-      const response = await fetch(`/api/analytics/daily-average?startDate=${startDate}&endDate=${endDate}`, {
-        credentials: "include"
-      });
-      if (!response.ok) throw new Error("Failed to fetch daily average");
+      const response = await apiRequest('GET', `/api/analytics/daily-average?startDate=${startDate}&endDate=${endDate}`);
       const data = await response.json();
       return data.average as number;
     },
@@ -121,10 +119,7 @@ export function useMissingEntries(startDate: string, endDate: string) {
   return useQuery({
     queryKey: ["/api/analytics/missing-entries", { startDate, endDate }],
     queryFn: async () => {
-      const response = await fetch(`/api/analytics/missing-entries?startDate=${startDate}&endDate=${endDate}`, {
-        credentials: "include"
-      });
-      if (!response.ok) throw new Error("Failed to fetch missing entries");
+      const response = await apiRequest('GET', `/api/analytics/missing-entries?startDate=${startDate}&endDate=${endDate}`);
       const data = await response.json();
       return data.missingDates as string[];
     },

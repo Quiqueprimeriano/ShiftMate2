@@ -105,7 +105,8 @@ export const getQueryFn: <T>(options: {
         ...(token ? { "Authorization": `Bearer ${token}` } : {})
       };
       
-      console.log(`Making query request to ${queryKey[0]} with headers:`, headers);
+      console.log(`Making query request to ${queryKey[0]} with token: ${token ? 'present' : 'none'}`);
+      console.log('Headers being sent:', JSON.stringify(headers));
 
       return fetch(queryKey[0] as string, {
         headers,
