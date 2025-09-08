@@ -914,8 +914,6 @@ export default function BusinessDashboard() {
                     </thead>
                     <tbody>
                       {Object.entries(dailyData).map(([date, employeeHours]) => {
-                        console.log('Daily Summary Table - Date:', date, 'Employee Hours:', employeeHours);
-                        console.log('Processed Employee List:', processedEmployeeList.map(emp => ({ id: emp.id, name: emp.name })));
                         const totalHours = Object.values(employeeHours).reduce((sum: number, hours: any) => sum + hours, 0);
                         return (
                           <tr key={date} className="border-b">
@@ -923,8 +921,7 @@ export default function BusinessDashboard() {
                               {format(parseISO(date), 'MMM dd, yyyy')}
                             </td>
                             {processedEmployeeList.map((employee: any) => {
-                              const hours = employeeHours[employee.id];
-                              console.log(`Employee ${employee.name} (ID: ${employee.id}): ${hours} hours`);
+                              const hours = employeeHours[employee.id] || 0;
                               return (
                                 <td key={employee.id} className="p-2">
                                   {hours > 0 ? `${hours.toFixed(1)}h` : '-'}
