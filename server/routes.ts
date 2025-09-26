@@ -397,6 +397,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // New endpoints to separate personal shifts from roster shifts
+  
+  // GET /api/personal-shifts - Get shifts created by the user themselves
+  app.get("/api/personal-shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    console.log('GET /api/personal-shifts - Starting request for user:', req.userId);
+    try {
+      const { startDate, endDate } = req.query;
+      
+      let shifts;
+      if (startDate && endDate) {
+        shifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate, endDate);
+      } else {
+        shifts = await storage.getShiftsByUser(req.userId);
+      }
+      
+      // Filter to only personal shifts (created by user themselves or createdBy is null)
+      const personalShifts = shifts.filter((shift: any) => 
+        !shift.createdBy || shift.createdBy === req.userId
+      );
+      
+      console.log('GET /api/personal-shifts - Returning', personalShifts.length, 'personal shifts for user:', req.userId);
+      res.json(personalShifts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get personal shifts" });
+    }
+  });
+
+  // GET /api/roster-shifts - Get shifts assigned to the user by managers
+  app.get("/api/roster-shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    console.log('GET /api/roster-shifts - Starting request for user:', req.userId);
+    try {
+      const { startDate, endDate } = req.query;
+      
+      let shifts;
+      if (startDate && endDate) {
+        shifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate, endDate);
+      } else {
+        shifts = await storage.getShiftsByUser(req.userId);
+      }
+      
+      // Filter to only roster shifts (created by someone else - managers)
+      const rosterShifts = shifts.filter((shift: any) => 
+        shift.createdBy && shift.createdBy !== req.userId
+      );
+      
+      console.log('GET /api/roster-shifts - Returning', rosterShifts.length, 'roster shifts for user:', req.userId);
+      res.json(rosterShifts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get roster shifts" });
+    }
+  });
+
   // Helper function to check if user is a manager
   const isManager = async (userId: number): Promise<boolean> => {
     try {
