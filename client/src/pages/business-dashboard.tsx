@@ -262,6 +262,19 @@ export default function BusinessDashboard() {
     }
   };
 
+  const handleAddShiftAtTime = (date: string, time: string) => {
+    setSelectedDate(date);
+    setSelectedEmployee(null);
+    setEditingShift({
+      startTime: time,
+      endTime: time.replace(/\d{2}:/, (match) => {
+        const hour = parseInt(match.slice(0, 2));
+        return `${(hour + 3).toString().padStart(2, '0')}:`;
+      })
+    });
+    setIsShiftModalOpen(true);
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -1387,17 +1400,17 @@ export default function BusinessDashboard() {
                 </Button>
               </div>
 
-              {/* Roster Grid */}
+              {/* Calendar Grid */}
               <div className="border rounded-lg overflow-hidden">
                 {/* Header Row - Days of the week */}
-                <div className="grid grid-cols-8 border-b bg-gray-50">
-                  <div className="p-4 font-medium text-sm border-r">Employee</div>
+                <div className="grid grid-cols-8 border-b bg-gray-50 sticky top-0 z-10">
+                  <div className="p-3 font-medium text-sm border-r bg-gray-50">Time</div>
                   {(() => {
                     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
                     return Array.from({ length: 7 }, (_, i) => {
                       const day = addDays(weekStart, i);
                       return (
-                        <div key={i} className="p-4 text-center font-medium text-sm border-r last:border-r-0">
+                        <div key={i} className="p-3 text-center font-medium text-sm border-r last:border-r-0 bg-gray-50">
                           <div>{format(day, 'EEE')}</div>
                           <div className="text-xs text-gray-500 mt-1">{format(day, 'MMM dd')}</div>
                         </div>
@@ -1406,87 +1419,131 @@ export default function BusinessDashboard() {
                   })()}
                 </div>
 
-                {/* Employee Rows */}
-                {employeeArray.map((employee: any) => (
-                  <div key={employee.id} className="grid grid-cols-8 border-b last:border-b-0">
-                    {/* Employee Name Column */}
-                    <div className="p-4 border-r bg-gray-50">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-blue-700">
-                            {employee.name?.charAt(0) || 'U'}
-                          </span>
+                {/* Hour Rows (7 AM - 11 PM) */}
+                <div className="max-h-[600px] overflow-y-auto">
+                  {Array.from({ length: 16 }, (_, hourIndex) => {
+                    const hour = 7 + hourIndex; // 7 AM to 11 PM (7 + 15 = 22)
+                    const timeDisplay = hour === 0 ? '12 AM' : 
+                                      hour < 12 ? `${hour} AM` : 
+                                      hour === 12 ? '12 PM' : 
+                                      `${hour - 12} PM`;
+                    
+                    return (
+                      <div key={hour} className="grid grid-cols-8 border-b last:border-b-0 relative">
+                        {/* Time Column */}
+                        <div className="p-3 border-r bg-gray-50 text-sm font-medium text-gray-700 sticky left-0 z-10">
+                          {timeDisplay}
                         </div>
-                        <div>
-                          <div className="font-medium text-sm">{employee.name}</div>
-                          <div className="text-xs text-gray-500">{employee.role || 'Employee'}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Day Columns */}
-                    {(() => {
-                      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-                      return Array.from({ length: 7 }, (_, dayIndex) => {
-                        const day = addDays(weekStart, dayIndex);
-                        const dateStr = format(day, 'yyyy-MM-dd');
                         
-                        // Find shifts for this employee on this day
-                        const dayShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => 
-                          shift.userId === employee.id && shift.date === dateStr
-                        ) : [];
+                        {/* Day Columns */}
+                        {(() => {
+                          const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+                          return Array.from({ length: 7 }, (_, dayIndex) => {
+                            const day = addDays(weekStart, dayIndex);
+                            const dateStr = format(day, 'yyyy-MM-dd');
+                            
+                            // Find shifts that overlap with this hour
+                            const hourShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
+                              if (shift.date !== dateStr) return false;
+                              
+                              const shiftStart = parseInt(shift.startTime?.split(':')[0] || '0');
+                              const shiftEnd = parseInt(shift.endTime?.split(':')[0] || '0');
+                              
+                              // Check if this hour falls within the shift time
+                              return hour >= shiftStart && hour < shiftEnd;
+                            }) : [];
 
-                        return (
-                          <div key={dayIndex} className="p-2 border-r last:border-r-0 min-h-[80px] bg-white hover:bg-gray-50 transition-colors">
-                            {/* Existing Shifts */}
-                            {dayShifts.map((shift: any) => (
-                              <div
-                                key={shift.id}
-                                className="mb-1 p-2 bg-blue-100 border border-blue-200 rounded text-xs"
+                            return (
+                              <div 
+                                key={dayIndex} 
+                                className="relative border-r last:border-r-0 min-h-[60px] bg-white hover:bg-gray-50 transition-colors cursor-pointer group"
+                                onClick={() => handleAddShiftAtTime(dateStr, `${hour.toString().padStart(2, '0')}:00`)}
+                                data-testid={`calendar-cell-${dateStr}-${hour}`}
                               >
-                                <div className="font-medium">
-                                  {shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}
-                                </div>
-                                <div className="text-gray-600 capitalize">{shift.shiftType}</div>
-                                {shift.location && (
-                                  <div className="text-gray-500 mt-1">{shift.location}</div>
-                                )}
-                                <div className="flex gap-1 mt-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-4 w-4 p-0 text-gray-400 hover:text-blue-600"
-                                    onClick={() => handleEditShift(shift)}
-                                  >
-                                    ✏️
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-4 w-4 p-0 text-gray-400 hover:text-red-600"
-                                    onClick={() => handleDeleteShift(shift.id)}
-                                  >
-                                    🗑️
-                                  </Button>
+                                {/* Shift blocks */}
+                                {hourShifts.map((shift: any) => {
+                                  const shiftStart = parseInt(shift.startTime?.split(':')[0] || '0');
+                                  const shiftStartMinutes = parseInt(shift.startTime?.split(':')[1] || '0');
+                                  const shiftEnd = parseInt(shift.endTime?.split(':')[0] || '0');
+                                  const shiftEndMinutes = parseInt(shift.endTime?.split(':')[1] || '0');
+                                  
+                                  // Only show the shift block on its starting hour
+                                  if (hour !== shiftStart) return null;
+                                  
+                                  // Calculate height based on duration
+                                  const durationInHours = (shiftEnd - shiftStart) + (shiftEndMinutes - shiftStartMinutes) / 60;
+                                  const blockHeight = Math.max(1, durationInHours) * 60; // 60px per hour
+                                  
+                                  // Get employee info
+                                  const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
+                                  
+                                  return (
+                                    <div
+                                      key={shift.id}
+                                      className="absolute left-1 right-1 bg-blue-100 border border-blue-200 rounded-md p-2 z-20 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                      style={{ 
+                                        height: `${blockHeight}px`,
+                                        top: `${(shiftStartMinutes / 60) * 60}px`
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditShift(shift);
+                                      }}
+                                    >
+                                      <div className="text-xs font-medium text-blue-900 truncate">
+                                        {employee?.name || 'Unknown'}
+                                      </div>
+                                      <div className="text-xs text-blue-700">
+                                        {shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}
+                                      </div>
+                                      <div className="text-xs text-blue-600 capitalize truncate">
+                                        {shift.shiftType}
+                                      </div>
+                                      {shift.location && (
+                                        <div className="text-xs text-blue-500 truncate mt-1">
+                                          {shift.location}
+                                        </div>
+                                      )}
+                                      <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-4 w-4 p-0 text-blue-400 hover:text-blue-600"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditShift(shift);
+                                          }}
+                                        >
+                                          ✏️
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-4 w-4 p-0 text-blue-400 hover:text-red-600"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteShift(shift.id);
+                                          }}
+                                        >
+                                          🗑️
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                
+                                {/* Add shift indicator on hover */}
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 bg-opacity-50">
+                                  <span className="text-xs text-blue-600 font-medium">+ Add Shift</span>
                                 </div>
                               </div>
-                            ))}
-                            
-                            {/* Add Shift Button */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="w-full h-8 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 border-dashed border border-gray-300 hover:border-blue-300"
-                              onClick={() => handleAddShift(employee, dateStr)}
-                            >
-                              + Add Shift
-                            </Button>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                ))}
+                            );
+                          });
+                        })()}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Legend */}
