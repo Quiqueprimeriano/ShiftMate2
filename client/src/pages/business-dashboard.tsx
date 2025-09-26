@@ -1716,7 +1716,8 @@ export default function BusinessDashboard() {
                                             endTime: shift.endTime,
                                             date: shift.date,
                                             notes: '',
-                                            location: ''
+                                            location: '',
+                                            isTemplate: true  // Mark as template to simplify form
                                           });
                                           setIsShiftModalOpen(true);
                                         }}
@@ -2142,27 +2143,44 @@ function ShiftForm({
           )}
         </div>
 
-        {/* Preset Templates */}
-        <div>
-          <Label className="text-sm font-medium mb-2 block">Quick Templates</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {shiftTemplates.map((template) => (
-              <Button
-                key={template.name}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-xs"
-                onClick={() => applyTemplate(template)}
-              >
-                {template.name}
-                <span className="ml-1 text-gray-500">
-                  {template.start}-{template.end}
-                </span>
-              </Button>
-            ))}
+        {/* Preset Templates - Only show when not using a template */}
+        {!initialData?.isTemplate && (
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Quick Templates</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {shiftTemplates.map((template) => (
+                <Button
+                  key={template.name}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => applyTemplate(template)}
+                >
+                  {template.name}
+                  <span className="ml-1 text-gray-500">
+                    {template.start}-{template.end}
+                  </span>
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Template Info - Show when using a template */}
+        {initialData?.isTemplate && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="text-sm font-medium text-blue-900 capitalize">
+              {initialData.shiftType} Shift
+            </div>
+            <div className="text-sm text-blue-700">
+              {initialData.startTime} - {initialData.endTime}
+            </div>
+            <div className="text-xs text-blue-600 mt-1">
+              Select an employee to assign this shift
+            </div>
+          </div>
+        )}
 
         {/* Employee Selection */}
         <FormField
@@ -2190,60 +2208,66 @@ function ShiftForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="shiftType"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Shift Type</FormLabel>
-              <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select shift type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Morning">Morning</SelectItem>
-                    <SelectItem value="Evening">Evening</SelectItem>
-                    <SelectItem value="Night">Night</SelectItem>
-                    <SelectItem value="Double">Double</SelectItem>
-                    <SelectItem value="Custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
+        {/* Shift Type - Only show when not using a template */}
+        {!initialData?.isTemplate && (
           <FormField
             control={form.control}
-            name="startTime"
+            name="shiftType"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Start Time</FormLabel>
+                <FormLabel>Shift Type</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select shift type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Morning">Morning</SelectItem>
+                      <SelectItem value="Evening">Evening</SelectItem>
+                      <SelectItem value="Night">Night</SelectItem>
+                      <SelectItem value="Double">Double</SelectItem>
+                      <SelectItem value="Custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+        )}
 
-          <FormField
-            control={form.control}
-            name="endTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>End Time</FormLabel>
-                <FormControl>
-                  <Input type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {/* Time Fields - Only show when not using a template */}
+        {!initialData?.isTemplate && (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="startTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start Time</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="endTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End Time</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         <FormField
           control={form.control}
