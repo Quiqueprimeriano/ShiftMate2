@@ -6,11 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
 import { Users, Clock, TrendingUp, DollarSign, Calendar as CalendarIcon, UserCheck, AlertTriangle, Building2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift } from "@/hooks/use-business";
+import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift } from "@/hooks/use-business";
 import { getDateRange, formatDuration } from "@/lib/time-utils";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, subDays, parseISO } from "date-fns";
 import type { User } from "@shared/schema";
@@ -43,6 +46,12 @@ export default function BusinessDashboard() {
   const [overviewEndDate, setOverviewEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [hoveredShift, setHoveredShift] = useState<any>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  
+  // Roster management state
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [editingShift, setEditingShift] = useState<any>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
   // Calculate date range based on view mode
   const getDateRangeForView = () => {
@@ -83,6 +92,14 @@ export default function BusinessDashboard() {
   
   // Fetch ALL shifts for calendar (not date filtered)
   const { data: allShifts = [], isLoading: allShiftsLoading } = useCompanyShifts(businessUser?.companyId || 0);
+
+  // Roster management hooks
+  const weekStart = format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const weekEnd = format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const { data: rosterShifts = [], isLoading: rosterLoading } = useRosterShifts(weekStart, weekEnd);
+  const createRosterShiftMutation = useCreateRosterShift();
+  const updateRosterShiftMutation = useUpdateRosterShift();
+  const deleteRosterShiftMutation = useDeleteRosterShift();
 
   const approveShiftMutation = useApproveShift();
 
@@ -191,6 +208,57 @@ export default function BusinessDashboard() {
   const handleApproveShift = (shiftId: number) => {
     if (businessUser?.id) {
       approveShiftMutation.mutate({ shiftId, approvedBy: businessUser.id });
+    }
+  };
+
+  // Roster management handlers
+  const handleAddShift = (employee: any, date: string) => {
+    setSelectedEmployee(employee);
+    setSelectedDate(date);
+    setEditingShift(null);
+    setIsShiftModalOpen(true);
+  };
+
+  const handleEditShift = (shift: any) => {
+    setEditingShift(shift);
+    setSelectedEmployee(null);
+    setSelectedDate("");
+    setIsShiftModalOpen(true);
+  };
+
+  const handleDeleteShift = async (shiftId: number) => {
+    if (confirm('Are you sure you want to delete this shift?')) {
+      try {
+        await deleteRosterShiftMutation.mutateAsync(shiftId);
+      } catch (error) {
+        console.error('Failed to delete shift:', error);
+      }
+    }
+  };
+
+  const handleSaveShift = async (shiftData: any) => {
+    try {
+      if (editingShift) {
+        // Update existing shift
+        await updateRosterShiftMutation.mutateAsync({
+          shiftId: editingShift.id,
+          shiftData
+        });
+      } else {
+        // Create new shift
+        await createRosterShiftMutation.mutateAsync({
+          ...shiftData,
+          userId: selectedEmployee?.id,
+          date: selectedDate,
+          status: 'scheduled'
+        });
+      }
+      setIsShiftModalOpen(false);
+      setEditingShift(null);
+      setSelectedEmployee(null);
+      setSelectedDate("");
+    } catch (error) {
+      console.error('Failed to save shift:', error);
     }
   };
 
@@ -350,10 +418,11 @@ export default function BusinessDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
           <TabsTrigger value="shifts">Shifts</TabsTrigger>
+          <TabsTrigger value="roster">Roster Planner</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
@@ -1278,7 +1347,321 @@ export default function BusinessDashboard() {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="roster" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Roster Planner</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Plan and assign shifts to your team members
+              </p>
+            </CardHeader>
+            <CardContent>
+              {/* Week Navigation */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <h2 className="text-lg font-semibold">
+                    Week of {format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM dd, yyyy')}
+                  </h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentDate(new Date())}
+                >
+                  This Week
+                </Button>
+              </div>
+
+              {/* Roster Grid */}
+              <div className="border rounded-lg overflow-hidden">
+                {/* Header Row - Days of the week */}
+                <div className="grid grid-cols-8 border-b bg-gray-50">
+                  <div className="p-4 font-medium text-sm border-r">Employee</div>
+                  {(() => {
+                    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+                    return Array.from({ length: 7 }, (_, i) => {
+                      const day = addDays(weekStart, i);
+                      return (
+                        <div key={i} className="p-4 text-center font-medium text-sm border-r last:border-r-0">
+                          <div>{format(day, 'EEE')}</div>
+                          <div className="text-xs text-gray-500 mt-1">{format(day, 'MMM dd')}</div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+
+                {/* Employee Rows */}
+                {employeeArray.map((employee: any) => (
+                  <div key={employee.id} className="grid grid-cols-8 border-b last:border-b-0">
+                    {/* Employee Name Column */}
+                    <div className="p-4 border-r bg-gray-50">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-medium text-blue-700">
+                            {employee.name?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">{employee.name}</div>
+                          <div className="text-xs text-gray-500">{employee.role || 'Employee'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Day Columns */}
+                    {(() => {
+                      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+                      return Array.from({ length: 7 }, (_, dayIndex) => {
+                        const day = addDays(weekStart, dayIndex);
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        
+                        // Find shifts for this employee on this day
+                        const dayShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => 
+                          shift.userId === employee.id && shift.date === dateStr
+                        ) : [];
+
+                        return (
+                          <div key={dayIndex} className="p-2 border-r last:border-r-0 min-h-[80px] bg-white hover:bg-gray-50 transition-colors">
+                            {/* Existing Shifts */}
+                            {dayShifts.map((shift: any) => (
+                              <div
+                                key={shift.id}
+                                className="mb-1 p-2 bg-blue-100 border border-blue-200 rounded text-xs"
+                              >
+                                <div className="font-medium">
+                                  {shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}
+                                </div>
+                                <div className="text-gray-600 capitalize">{shift.shiftType}</div>
+                                {shift.location && (
+                                  <div className="text-gray-500 mt-1">{shift.location}</div>
+                                )}
+                                <div className="flex gap-1 mt-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-4 w-4 p-0 text-gray-400 hover:text-blue-600"
+                                    onClick={() => handleEditShift(shift)}
+                                  >
+                                    ✏️
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-4 w-4 p-0 text-gray-400 hover:text-red-600"
+                                    onClick={() => handleDeleteShift(shift.id)}
+                                  >
+                                    🗑️
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {/* Add Shift Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="w-full h-8 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 border-dashed border border-gray-300 hover:border-blue-300"
+                              onClick={() => handleAddShift(employee, dateStr)}
+                            >
+                              + Add Shift
+                            </Button>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                ))}
+              </div>
+
+              {/* Legend */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-medium mb-2">Instructions</h4>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <p>• Click "+ Add Shift" to assign a new shift to an employee</p>
+                  <p>• Use the ✏️ icon to edit existing shifts</p>
+                  <p>• Use the 🗑️ icon to delete shifts</p>
+                  <p>• Navigate between weeks using the arrow buttons</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Shift Modal */}
+      <Dialog open={isShiftModalOpen} onOpenChange={setIsShiftModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingShift ? 'Edit Shift' : 'Add New Shift'}
+            </DialogTitle>
+          </DialogHeader>
+          <ShiftForm
+            initialData={editingShift}
+            employee={selectedEmployee}
+            date={selectedDate}
+            onSave={handleSaveShift}
+            onCancel={() => setIsShiftModalOpen(false)}
+            isLoading={createRosterShiftMutation.isPending || updateRosterShiftMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// Shift Form Component
+function ShiftForm({ 
+  initialData, 
+  employee, 
+  date, 
+  onSave, 
+  onCancel, 
+  isLoading 
+}: {
+  initialData?: any;
+  employee?: any;
+  date?: string;
+  onSave: (data: any) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  const form = useForm({
+    defaultValues: {
+      shiftType: initialData?.shiftType || 'Morning',
+      startTime: initialData?.startTime || '09:00',
+      endTime: initialData?.endTime || '17:00',
+      location: initialData?.location || '',
+      notes: initialData?.notes || ''
+    }
+  });
+
+  const onSubmit = (data: any) => {
+    onSave(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">
+            {employee ? `Employee: ${employee.name}` : 'Editing shift'}
+          </Label>
+          {date && (
+            <Label className="text-sm text-gray-500">
+              Date: {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+            </Label>
+          )}
+        </div>
+
+        <FormField
+          control={form.control}
+          name="shiftType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Shift Type</FormLabel>
+              <FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select shift type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Morning">Morning</SelectItem>
+                    <SelectItem value="Evening">Evening</SelectItem>
+                    <SelectItem value="Night">Night</SelectItem>
+                    <SelectItem value="Double">Double</SelectItem>
+                    <SelectItem value="Custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="startTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Start Time</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="endTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>End Time</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g. Store #1, Main Office" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="Additional notes" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading} data-testid="button-save-shift">
+            {isLoading ? 'Saving...' : 'Save Shift'}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
   );
 }

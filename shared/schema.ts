@@ -46,12 +46,15 @@ export const shifts = pgTable("shiftmate_shifts", {
   endTime: time("end_time").notNull(),
   shiftType: text("shift_type").notNull(), // morning, evening, night, double, custom
   notes: text("notes"),
-  status: text("status").default("completed"), // completed, pending_approval, approved, rejected
+  location: text("location"), // shift location for roster planning
+  status: text("status").default("completed"), // completed, pending_approval, approved, rejected, scheduled
+  createdBy: integer("created_by").references(() => users.id), // manager who assigned/created the shift
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
   isRecurring: boolean("is_recurring").default(false),
   recurringPattern: text("recurring_pattern"), // daily, weekly, custom
   recurringEndDate: date("recurring_end_date"),
+  templateId: integer("template_id"), // for future shift templates feature
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

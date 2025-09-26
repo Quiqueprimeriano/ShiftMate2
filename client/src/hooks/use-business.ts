@@ -95,3 +95,67 @@ export function useApproveShift() {
     },
   });
 }
+
+// Roster Management Hooks
+export function useRosterShifts(startDate?: string, endDate?: string) {
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  const queryString = params.toString();
+  
+  return useQuery({
+    queryKey: ["/api/roster", { startDate, endDate }],
+    queryFn: async () => {
+      console.log('useRosterShifts queryFn called for date range:', startDate ? `${startDate} to ${endDate}` : 'all shifts');
+      const response = await apiRequest('GET', `/api/roster${queryString ? `?${queryString}` : ''}`);
+      const data = await response.json();
+      console.log('useRosterShifts data received:', data.length, 'shifts');
+      return data;
+    },
+  });
+}
+
+export function useCreateRosterShift() {
+  return useMutation({
+    mutationFn: async (shiftData: any) => {
+      console.log('Creating roster shift:', shiftData);
+      const response = await apiRequest("POST", "/api/roster/shifts", shiftData);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate roster queries
+      queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useUpdateRosterShift() {
+  return useMutation({
+    mutationFn: async ({ shiftId, shiftData }: { shiftId: number; shiftData: any }) => {
+      console.log('Updating roster shift:', shiftId, shiftData);
+      const response = await apiRequest("PUT", `/api/roster/shifts/${shiftId}`, shiftData);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate roster queries
+      queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useDeleteRosterShift() {
+  return useMutation({
+    mutationFn: async (shiftId: number) => {
+      console.log('Deleting roster shift:', shiftId);
+      const response = await apiRequest("DELETE", `/api/roster/shifts/${shiftId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate roster queries
+      queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}

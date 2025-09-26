@@ -62,7 +62,9 @@ export interface IStorage {
   getCompanyEmployees(companyId: number): Promise<User[]>;
   
   // Shift methods
+  getShift(id: number): Promise<Shift | undefined>;
   getShiftsByUser(userId: number): Promise<Shift[]>;
+  getShiftsByUserAndDate(userId: number, date: string): Promise<Shift[]>;
   getShiftsByUserAndDateRange(userId: number, startDate: string, endDate: string): Promise<Shift[]>;
   getShiftsByCompany(companyId: number): Promise<Shift[]>;
   getShiftsByCompanyAndDateRange(companyId: number, startDate: string, endDate: string): Promise<Shift[]>;
@@ -151,8 +153,24 @@ export class DbStorage implements IStorage {
   }
 
   // Shift methods
+  async getShift(id: number): Promise<Shift | undefined> {
+    const result = await db.select().from(shifts).where(eq(shifts.id, id)).limit(1);
+    return result[0];
+  }
+
   async getShiftsByUser(userId: number): Promise<Shift[]> {
     return await db.select().from(shifts).where(eq(shifts.userId, userId)).orderBy(desc(shifts.date));
+  }
+
+  async getShiftsByUserAndDate(userId: number, date: string): Promise<Shift[]> {
+    return await db.select().from(shifts)
+      .where(
+        and(
+          eq(shifts.userId, userId),
+          eq(shifts.date, date)
+        )
+      )
+      .orderBy(shifts.startTime);
   }
 
   async getShiftsByUserAndDateRange(userId: number, startDate: string, endDate: string): Promise<Shift[]> {
@@ -305,7 +323,7 @@ export class DbStorage implements IStorage {
     const result = await db.update(notifications)
       .set({ isRead: true })
       .where(eq(notifications.id, id));
-    return result.rowCount > 0;
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   // Refresh token methods

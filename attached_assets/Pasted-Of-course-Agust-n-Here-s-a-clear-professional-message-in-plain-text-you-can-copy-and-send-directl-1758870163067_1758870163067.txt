@@ -1,0 +1,98 @@
+Of course, Agustín. Here’s a clear, professional message in plain text you can copy and send directly to your technical team (via Slack, Notion, email, etc.):
+
+⸻
+
+📌 Feature Request: Roster Planning Functionality for Managers
+
+Hi team —
+
+We’d like to implement a new feature that allows managers to plan and assign shifts to employees via a visual weekly calendar, and for employees to view their assigned shifts from their own dashboards.
+
+Here’s the scope of the request:
+
+⸻
+
+🎯 Goal
+
+Allow users with the manager role to create, edit, and assign shifts for their team members using a calendar-style interface. Employees will be able to view their assigned shifts but not modify them.
+
+⸻
+
+✅ Functional Requirements
+
+For Managers
+	•	Access a “Roster Planner” section under the Team tab
+	•	Weekly view: Rows = employees, Columns = days
+	•	For each employee/day cell:
+	•	Create new shift (start time, end time, optional notes, location, shift type/template)
+	•	Edit or delete existing shift
+	•	Duplicate shifts across days or weeks
+	•	Prevent overlapping shifts (same employee, same time)
+	•	All shifts are saved with:
+	•	employee_id
+	•	created_by (manager)
+	•	status: scheduled (default)
+	•	Optional: notes, location, template_id
+
+For Employees
+	•	In the My Shifts section:
+	•	View assigned shifts in weekly or monthly calendar
+	•	Each shift shows: date, time, notes, location
+	•	(Optional) Ability to confirm or reject assigned shifts
+
+⸻
+
+🧱 Database Notes
+
+Use or extend the shifts table with fields like:
+	•	id, employee_id, created_by, date, start_time, end_time, status, notes, location, template_id, created_at, updated_at
+
+⸻
+
+🧑‍💻 API Endpoints
+
+Manager
+	•	POST /api/roster/shifts – assign shifts (bulk or single)
+	•	PUT /api/roster/shifts/:id – edit shift
+	•	DELETE /api/roster/shifts/:id – delete shift
+	•	GET /api/roster?start=...&end=... – get full team shifts
+
+Employee
+	•	GET /api/my-shifts?start=...&end=... – get own shifts
+	•	(Optional) confirm/reject endpoints
+
+⸻
+
+🔐 Access Control
+
+Action	Employee	Manager
+View own shifts	✅	✅
+View all team shifts	❌	✅
+Assign/edit/delete shifts	❌	✅
+
+
+⸻
+
+🧑‍🎨 UI Requirements
+
+Manager view:
+	•	Weekly grid (rows = employees, columns = days)
+	•	Modal to assign/edit shifts per cell
+	•	Copy/paste or drag to assign multiple shifts
+	•	Use of templates (if available)
+
+Employee view:
+	•	Weekly or monthly calendar
+	•	List of upcoming shifts
+	•	Status: scheduled / confirmed / rejected (optional)
+
+⸻
+
+📲 Notifications (optional)
+	•	Notify employees when a new shift is assigned
+	•	Notify manager if a shift is rejected (if that flow is implemented)
+
+⸻
+
+Let me know if you need clarification or if you’d like this split into specific dev tasks.
+Thanks!

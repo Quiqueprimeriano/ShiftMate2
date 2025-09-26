@@ -396,6 +396,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to check if user is a manager
+  const isManager = async (userId: number): Promise<boolean> => {
+    try {
+      const user = await storage.getUser(userId);
+      return user?.role === 'manager' || user?.userType === 'business';
+    } catch {
+      return false;
+    }
+  };
+
+  // Roster Management Routes - Manager only
+  
+  // GET /api/roster - Get full team shifts for managers
+  app.get("/api/roster", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      if (!(await isManager(req.userId))) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+
+      const user = await storage.getUser(req.userId);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+
+      const { startDate, endDate } = req.query;
+      
+      let shifts;
+      if (startDate && endDate) {
+        shifts = await storage.getShiftsByCompanyAndDateRange(user.companyId, startDate, endDate);
+      } else {
+        shifts = await storage.getShiftsByCompany(user.companyId);
+      }
+      
+      res.json(shifts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get roster shifts" });
+    }
+  });
+
+  // POST /api/roster/shifts - Assign shifts to employees (bulk or single)
+  app.post("/api/roster/shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      if (!(await isManager(req.userId))) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+
+      const user = await storage.getUser(req.userId);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+
+      const { shifts: shiftsToCreate } = req.body;
+      
+      // Handle both single shift and bulk shifts
+      const shiftsArray = Array.isArray(shiftsToCreate) ? shiftsToCreate : [shiftsToCreate || req.body];
+      
+      const createdShifts = [];
+      
+      for (const shiftData of shiftsArray) {
+        // Validate employee belongs to same company
+        const employee = await storage.getUser(shiftData.userId);
+        if (!employee || employee.companyId !== user.companyId) {
+          return res.status(403).json({ 
+            message: `Employee ${shiftData.userId} not found or not in your company` 
+          });
+        }
+
+        // Check for overlapping shifts for this employee
+        const existingShifts = await storage.getShiftsByUserAndDate(shiftData.userId, shiftData.date);
+        const hasOverlap = existingShifts.some(existing => {
+          const newStart = new Date(`2000-01-01T${shiftData.startTime}`);
+          const newEnd = new Date(`2000-01-01T${shiftData.endTime}`);
+          const existingStart = new Date(`2000-01-01T${existing.startTime}`);
+          const existingEnd = new Date(`2000-01-01T${existing.endTime}`);
+          
+          return (newStart < existingEnd && newEnd > existingStart);
+        });
+
+        if (hasOverlap) {
+          return res.status(409).json({ 
+            message: `Shift overlaps with existing shift for employee ${employee.name} on ${shiftData.date}` 
+          });
+        }
+
+        const processedShiftData = insertShiftSchema.parse({
+          ...shiftData,
+          companyId: user.companyId,
+          createdBy: req.userId,
+          status: 'scheduled'
+        });
+
+        const shift = await storage.createShift(processedShiftData);
+        createdShifts.push(shift);
+      }
+
+      res.status(201).json(createdShifts.length === 1 ? createdShifts[0] : createdShifts);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid shift data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create roster shifts" });
+    }
+  });
+
+  // PUT /api/roster/shifts/:id - Edit assigned shift (manager only)
+  app.put("/api/roster/shifts/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      if (!(await isManager(req.userId))) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+
+      const user = await storage.getUser(req.userId);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      // Verify shift belongs to manager's company
+      const existingShift = await storage.getShift(id);
+      if (!existingShift || existingShift.companyId !== user.companyId) {
+        return res.status(404).json({ message: "Shift not found or access denied" });
+      }
+
+      const shiftData = insertShiftSchema.partial().parse({
+        ...req.body,
+        companyId: user.companyId,
+        createdBy: req.userId
+      });
+
+      const shift = await storage.updateShift(id, shiftData);
+      if (!shift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+      
+      res.json(shift);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid shift data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update roster shift" });
+    }
+  });
+
+  // DELETE /api/roster/shifts/:id - Delete assigned shift (manager only)
+  app.delete("/api/roster/shifts/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      if (!(await isManager(req.userId))) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+
+      const user = await storage.getUser(req.userId);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      // Verify shift belongs to manager's company
+      const existingShift = await storage.getShift(id);
+      if (!existingShift || existingShift.companyId !== user.companyId) {
+        return res.status(404).json({ message: "Shift not found or access denied" });
+      }
+
+      const success = await storage.deleteShift(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+      
+      res.json({ message: "Roster shift deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete roster shift" });
+    }
+  });
+
+  // GET /api/my-shifts - Get own assigned shifts for employees
+  app.get("/api/my-shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const { startDate, endDate, status } = req.query;
+      
+      let shifts;
+      if (startDate && endDate) {
+        shifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate, endDate);
+      } else {
+        shifts = await storage.getShiftsByUser(req.userId);
+      }
+      
+      // Filter by status if provided (e.g., only 'scheduled' shifts)
+      if (status) {
+        shifts = shifts.filter(shift => shift.status === status);
+      }
+      
+      res.json(shifts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get assigned shifts" });
+    }
+  });
+
   // Analytics routes - support both JWT and session auth
   app.get("/api/analytics/weekly-hours", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
