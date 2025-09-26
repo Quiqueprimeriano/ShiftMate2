@@ -317,9 +317,12 @@ export default function BusinessDashboard() {
         });
       } else {
         // Create new shift
+        console.log('Creating new shift with data:', shiftData); // Debug log
+        console.log('Selected employee:', selectedEmployee); // Debug log
+        console.log('Selected date:', selectedDate); // Debug log
         await createRosterShiftMutation.mutateAsync({
           ...shiftData,
-          userId: selectedEmployee?.id,
+          userId: parseInt(shiftData.employeeId) || selectedEmployee?.id,
           date: selectedDate,
           status: 'scheduled'
         });
