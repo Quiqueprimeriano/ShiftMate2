@@ -252,8 +252,56 @@ export default function BusinessDashboard() {
     }
   };
 
+  // Conflict detection helper
+  const checkForConflicts = (employeeId: number, date: string, startTime: string, endTime: string, excludeShiftId?: number) => {
+    const conflicts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
+      // Skip the shift being edited
+      if (excludeShiftId && shift.id === excludeShiftId) return false;
+      
+      // Only check shifts for the same employee and date
+      if (shift.userId !== employeeId || shift.date !== date) return false;
+      
+      // Parse times
+      const newStart = new Date(`2000-01-01T${startTime}:00`);
+      const newEnd = new Date(`2000-01-01T${endTime}:00`);
+      const existingStart = new Date(`2000-01-01T${shift.startTime}:00`);
+      const existingEnd = new Date(`2000-01-01T${shift.endTime}:00`);
+      
+      // Check for overlap: shifts overlap if new start < existing end AND new end > existing start
+      return newStart < existingEnd && newEnd > existingStart;
+    }) : [];
+    
+    return conflicts;
+  };
+
   const handleSaveShift = async (shiftData: any) => {
     try {
+      const employeeId = selectedEmployee?.id || editingShift?.userId;
+      const date = selectedDate || editingShift?.date;
+      
+      // Check for conflicts before saving
+      const conflicts = checkForConflicts(
+        employeeId,
+        date,
+        shiftData.startTime,
+        shiftData.endTime,
+        editingShift?.id
+      );
+      
+      if (conflicts.length > 0) {
+        const conflictTimes = conflicts.map((shift: any) => 
+          `${shift.startTime} - ${shift.endTime}`
+        ).join(', ');
+        
+        const shouldContinue = confirm(
+          `⚠️ Schedule Conflict Detected!\n\nThis employee already has shifts scheduled at:\n${conflictTimes}\n\nDo you want to proceed anyway?`
+        );
+        
+        if (!shouldContinue) {
+          return;
+        }
+      }
+
       if (editingShift) {
         // Update existing shift
         await updateRosterShiftMutation.mutateAsync({
@@ -1590,10 +1638,24 @@ export default function BusinessDashboard() {
                                   // Get employee info
                                   const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
                                   
+                                  // Check for conflicts with this shift
+                                  const shiftConflicts = checkForConflicts(
+                                    shift.userId,
+                                    shift.date,
+                                    shift.startTime,
+                                    shift.endTime,
+                                    shift.id
+                                  );
+                                  const hasConflict = shiftConflicts.length > 0;
+                                  
                                   return (
                                     <div
                                       key={shift.id}
-                                      className="shift-block absolute left-1 right-1 bg-blue-100 border border-blue-200 rounded-md p-2 z-20 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                      className={`shift-block absolute left-1 right-1 rounded-md p-2 z-20 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
+                                        hasConflict 
+                                          ? 'bg-red-100 border-2 border-red-400'
+                                          : 'bg-blue-100 border border-blue-200'
+                                      }`}
                                       style={{ 
                                         height: `${blockHeight}px`,
                                         top: `${(shiftStartMinutes / 60) * 60}px`
@@ -1602,14 +1664,18 @@ export default function BusinessDashboard() {
                                         e.stopPropagation();
                                         handleEditShift(shift);
                                       }}
+                                      title={hasConflict ? `⚠️ Conflict detected with ${shiftConflicts.length} other shift(s)` : ''}
                                     >
-                                      <div className="text-xs font-medium text-blue-900 truncate">
+                                      <div className={`text-xs font-medium truncate flex items-center gap-1 ${
+                                        hasConflict ? 'text-red-900' : 'text-blue-900'
+                                      }`}>
+                                        {hasConflict && <span title="Schedule conflict">⚠️</span>}
                                         {employee?.name || 'Unknown'}
                                       </div>
-                                      <div className="text-xs text-blue-700">
+                                      <div className={`text-xs ${hasConflict ? 'text-red-700' : 'text-blue-700'}`}>
                                         {shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}
                                       </div>
-                                      <div className="text-xs text-blue-600 capitalize truncate">
+                                      <div className={`text-xs capitalize truncate ${hasConflict ? 'text-red-600' : 'text-blue-600'}`}>
                                         {shift.shiftType}
                                       </div>
                                       {shift.location && (
@@ -1676,7 +1742,7 @@ export default function BusinessDashboard() {
               </div>
 
               {/* Employee Hours Summary */}
-              <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Weekly Hours Summary */}
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <h4 className="text-sm font-medium mb-3">Weekly Hours Summary</h4>
@@ -1745,6 +1811,77 @@ export default function BusinessDashboard() {
                         </span>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Schedule Conflicts Panel */}
+                <div className="p-4 bg-red-50 rounded-lg">
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    Schedule Conflicts
+                  </h4>
+                  <div className="space-y-2">
+                    {(() => {
+                      // Find all shifts with conflicts
+                      const shiftsWithConflicts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
+                        const conflicts = checkForConflicts(
+                          shift.userId,
+                          shift.date,
+                          shift.startTime,
+                          shift.endTime,
+                          shift.id
+                        );
+                        return conflicts.length > 0;
+                      }) : [];
+
+                      if (shiftsWithConflicts.length === 0) {
+                        return (
+                          <div className="text-center py-4">
+                            <div className="text-green-600 text-sm">✅ No conflicts detected</div>
+                            <div className="text-xs text-gray-500 mt-1">All shifts are properly scheduled</div>
+                          </div>
+                        );
+                      }
+
+                      return shiftsWithConflicts.map((shift: any) => {
+                        const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
+                        const conflicts = checkForConflicts(
+                          shift.userId,
+                          shift.date,
+                          shift.startTime,
+                          shift.endTime,
+                          shift.id
+                        );
+
+                        return (
+                          <div key={shift.id} className="p-2 bg-white rounded border border-red-200">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-xs font-medium text-red-900">
+                                  {employee?.name || 'Unknown Employee'}
+                                </div>
+                                <div className="text-xs text-red-700">
+                                  {format(parseISO(shift.date), 'EEE, MMM dd')} • {shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}
+                                </div>
+                              </div>
+                              <div className="text-xs text-red-600">
+                                {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            <div className="mt-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-xs border-red-300 text-red-700 hover:bg-red-100"
+                                onClick={() => handleEditShift(shift)}
+                              >
+                                Resolve Conflict
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
 
