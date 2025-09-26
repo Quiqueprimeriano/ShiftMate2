@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { Users, Clock, TrendingUp, DollarSign, Calendar as CalendarIcon, UserCheck, AlertTriangle, Building2, Filter, ChevronLeft, ChevronRight, Mail, Send } from "lucide-react";
@@ -236,9 +236,10 @@ export default function BusinessDashboard() {
   };
 
   const handleEditShift = (shift: any) => {
+    console.log('Editing shift:', shift); // Debug log
     setEditingShift(shift);
     setSelectedEmployee(null);
-    setSelectedDate("");
+    setSelectedDate(shift.date || "");
     setIsShiftModalOpen(true);
   };
 
@@ -302,11 +303,17 @@ export default function BusinessDashboard() {
         }
       }
 
-      if (editingShift) {
+      if (editingShift && editingShift.id) {
         // Update existing shift
+        console.log('Updating shift - editingShift:', editingShift); // Debug log
+        console.log('Shift ID for update:', editingShift.id); // Debug log
         await updateRosterShiftMutation.mutateAsync({
           shiftId: editingShift.id,
-          shiftData
+          shiftData: {
+            ...shiftData,
+            userId: parseInt(shiftData.employeeId),
+            date: editingShift.date
+          }
         });
       } else {
         // Create new shift
@@ -1936,6 +1943,9 @@ export default function BusinessDashboard() {
             <DialogTitle>
               {editingShift ? 'Edit Shift' : 'Add New Shift'}
             </DialogTitle>
+            <DialogDescription>
+              {editingShift ? 'Modify the shift details below.' : 'Create a new shift assignment for your team.'}
+            </DialogDescription>
           </DialogHeader>
           <ShiftForm
             initialData={editingShift}
@@ -1971,7 +1981,7 @@ function ShiftForm({
   
   const form = useForm({
     defaultValues: {
-      employeeId: employee?.id || initialData?.userId || '',
+      employeeId: (employee?.id || initialData?.userId || '').toString(),
       shiftType: initialData?.shiftType || 'Morning',
       startTime: initialData?.startTime || '09:00',
       endTime: initialData?.endTime || '17:00',
@@ -1979,6 +1989,29 @@ function ShiftForm({
       notes: initialData?.notes || ''
     }
   });
+
+  // Reset form when initialData changes (for editing)
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        employeeId: (initialData.userId || '').toString(),
+        shiftType: initialData.shiftType || 'Morning',
+        startTime: initialData.startTime || '09:00',
+        endTime: initialData.endTime || '17:00',
+        location: initialData.location || '',
+        notes: initialData.notes || ''
+      });
+    } else if (employee) {
+      form.reset({
+        employeeId: employee.id.toString(),
+        shiftType: 'Morning',
+        startTime: '09:00',
+        endTime: '17:00',
+        location: '',
+        notes: ''
+      });
+    }
+  }, [initialData, employee, form]);
 
   // Preset shift templates
   const shiftTemplates = [
@@ -1989,12 +2022,15 @@ function ShiftForm({
   ];
 
   const applyTemplate = (template: any) => {
+    console.log('Applying template:', template); // Debug log
     form.setValue('startTime', template.start);
     form.setValue('endTime', template.end);
     form.setValue('shiftType', template.type);
   };
 
   const onSubmit = (data: any) => {
+    console.log('Form submitted with data:', data); // Debug log
+    console.log('Initial data for editing:', initialData); // Debug log
     onSave({
       ...data,
       userId: data.employeeId
