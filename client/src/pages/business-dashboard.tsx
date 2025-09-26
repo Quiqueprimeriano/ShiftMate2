@@ -9,11 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { Users, Clock, TrendingUp, DollarSign, Calendar as CalendarIcon, UserCheck, AlertTriangle, Building2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Clock, TrendingUp, DollarSign, Calendar as CalendarIcon, UserCheck, AlertTriangle, Building2, Filter, ChevronLeft, ChevronRight, Mail, Send } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift } from "@/hooks/use-business";
+import { useSendRosterEmail, useSendAllRosterEmails } from "@/hooks/use-email";
 import { getDateRange, formatDuration } from "@/lib/time-utils";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, subDays, parseISO } from "date-fns";
 import type { User } from "@shared/schema";
@@ -58,6 +59,11 @@ export default function BusinessDashboard() {
   const [dragStart, setDragStart] = useState<{date: string, hour: number} | null>(null);
   const [dragEnd, setDragEnd] = useState<{date: string, hour: number} | null>(null);
   const [dragPreview, setDragPreview] = useState<{date: string, startHour: number, endHour: number} | null>(null);
+  
+  // Email notification state
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResults, setEmailResults] = useState<any>(null);
 
   // Calculate date range based on view mode
   const getDateRangeForView = () => {
@@ -108,6 +114,10 @@ export default function BusinessDashboard() {
   const deleteRosterShiftMutation = useDeleteRosterShift();
 
   const approveShiftMutation = useApproveShift();
+  
+  // Email mutations
+  const sendRosterEmailMutation = useSendRosterEmail(businessUser?.companyId || 0);
+  const sendAllRosterEmailsMutation = useSendAllRosterEmails(businessUser?.companyId || 0);
 
   // Process shift data for daily breakdown
   const processShiftData = () => {
@@ -1457,13 +1467,39 @@ export default function BusinessDashboard() {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentDate(new Date())}
-                >
-                  This Week
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentDate(new Date())}
+                  >
+                    This Week
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      sendAllRosterEmailsMutation.mutate({
+                        weekStart,
+                        weekEnd
+                      });
+                    }}
+                    disabled={sendAllRosterEmailsMutation.isPending}
+                    data-testid="button-send-all-roster-emails"
+                  >
+                    {sendAllRosterEmailsMutation.isPending ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Email Roster to All
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Calendar Grid */}

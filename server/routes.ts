@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { insertUserSchema, insertShiftSchema, insertNotificationSchema } from "@shared/schema";
 import { AuthUtils } from "./auth-utils";
 import { jwtAuth, optionalJwtAuth } from "./jwt-middleware";
+import { sendRosterEmail } from "./services/sendgrid";
 import { z } from "zod";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -818,6 +819,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error approving shift:", error);
       res.status(500).json({ message: "Failed to approve shift" });
+    }
+  });
+
+  // Email roster endpoints
+  app.post("/api/companies/:id/send-roster-email", optionalJwtAuth, requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const { employeeId, weekStart, weekEnd } = req.body;
+      
+      // Get employee details
+      const employees = await storage.getCompanyEmployees(companyId);
+      const employee = employees.find(emp => emp.id === employeeId);
+      
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      
+      // Get shifts for the employee for the specified week
+      const shifts = await storage.getShiftsByCompanyAndDateRange(companyId, weekStart, weekEnd);
+      const employeeShifts = shifts.filter(shift => shift.userId === employeeId);
+      
+      // Transform shifts to match email interface
+      const rosterShifts = employeeShifts.map(shift => ({
+        id: shift.id,
+        employeeId: shift.userId,
+        date: shift.date,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        type: shift.shiftType,
+        location: shift.location || undefined,
+        employeeName: employee.name,
+        employeeEmail: employee.email
+      }));
+      
+      // Send email
+      const success = await sendRosterEmail(
+        employee.email,
+        employee.name,
+        rosterShifts,
+        weekStart,
+        weekEnd,
+        "ShiftMate" // Could be made configurable per company
+      );
+      
+      if (success) {
+        res.json({ message: "Roster email sent successfully", employee: employee.name });
+      } else {
+        res.status(500).json({ message: "Failed to send roster email" });
+      }
+    } catch (error) {
+      console.error("Error sending roster email:", error);
+      res.status(500).json({ message: "Failed to send roster email" });
+    }
+  });
+
+  app.post("/api/companies/:id/send-all-roster-emails", optionalJwtAuth, requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const { weekStart, weekEnd } = req.body;
+      
+      // Get all employees
+      const employees = await storage.getCompanyEmployees(companyId);
+      
+      // Get all shifts for the week
+      const shifts = await storage.getShiftsByCompanyAndDateRange(companyId, weekStart, weekEnd);
+      
+      const results = [];
+      
+      // Send email to each employee with their shifts
+      for (const employee of employees) {
+        const employeeShifts = shifts.filter(shift => shift.userId === employee.id);
+        
+        // Transform shifts to match email interface
+        const rosterShifts = employeeShifts.map(shift => ({
+          id: shift.id,
+          employeeId: shift.userId,
+          date: shift.date,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          type: shift.shiftType,
+          location: shift.location || undefined,
+          employeeName: employee.name,
+          employeeEmail: employee.email
+        }));
+        
+        try {
+          const success = await sendRosterEmail(
+            employee.email,
+            employee.name,
+            rosterShifts,
+            weekStart,
+            weekEnd,
+            "ShiftMate"
+          );
+          
+          results.push({
+            employee: employee.name,
+            email: employee.email,
+            success,
+            shiftsCount: rosterShifts.length
+          });
+        } catch (error) {
+          console.error(`Failed to send email to ${employee.name}:`, error);
+          results.push({
+            employee: employee.name,
+            email: employee.email,
+            success: false,
+            shiftsCount: employeeShifts.length,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      const totalCount = results.length;
+      
+      res.json({
+        message: `Roster emails sent: ${successCount}/${totalCount} successful`,
+        results,
+        summary: {
+          total: totalCount,
+          successful: successCount,
+          failed: totalCount - successCount
+        }
+      });
+    } catch (error) {
+      console.error("Error sending roster emails:", error);
+      res.status(500).json({ message: "Failed to send roster emails" });
     }
   });
 
