@@ -199,7 +199,7 @@ export default function Calendar() {
           <CardContent className="p-0">
             <div className="grid grid-cols-8 border-b border-slate-200">
               {/* Time column header */}
-              <div className="p-2 text-xs text-slate-500 font-medium border-r border-slate-200 w-16">
+              <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200 w-16">
                 Time
               </div>
               {/* Day headers */}
@@ -208,14 +208,14 @@ export default function Calendar() {
                 return (
                   <div
                     key={index}
-                    className={`p-2 text-center border-r border-slate-200 last:border-r-0 ${
+                    className={`p-1 text-center border-r border-slate-200 last:border-r-0 ${
                       isToday ? 'bg-blue-50' : ''
                     }`}
                   >
                     <div className="text-xs text-slate-500 font-medium">
                       {date.toLocaleDateString('en-US', { weekday: 'short' })}
                     </div>
-                    <div className={`text-sm font-semibold ${
+                    <div className={`text-xs font-semibold ${
                       isToday ? 'text-blue-600' : 'text-slate-900'
                     }`}>
                       {date.getDate()}
@@ -242,7 +242,7 @@ export default function Calendar() {
                     return (
                       <div
                         key={dayIndex}
-                        className={`relative h-12 border-r border-slate-200 last:border-r-0 ${
+                        className={`relative h-8 border-r border-slate-200 last:border-r-0 ${
                           isToday ? 'bg-blue-50/30' : ''
                         }`}
                       >
@@ -262,7 +262,7 @@ export default function Calendar() {
                           // Only show shift in the first time slot it appears
                           if (shiftStartHour === slot.hour && shiftStart < shiftEnd) {
                             const duration = calculateDuration(shift.startTime, shift.endTime);
-                            const heightInPixels = Math.max(16, duration * 48); // 48px per hour (reduced from 64px)
+                            const heightInPixels = Math.max(12, duration * 32); // 32px per hour
                             
                             return (
                               <div
@@ -270,7 +270,7 @@ export default function Calendar() {
                                 className={`absolute left-1 right-1 rounded text-xs font-medium ${getShiftColor(shift.shiftType)} shadow-sm z-10 p-1 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity`}
                                 style={{ 
                                   height: `${heightInPixels}px`,
-                                  top: `${(shiftStartMinutes / 60) * 48}px`
+                                  top: `${(shiftStartMinutes / 60) * 32}px`
                                 }}
                                 onClick={() => setSelectedShift(shift)}
                               >
