@@ -22,6 +22,48 @@ export function useShifts(startDate?: string, endDate?: string) {
   });
 }
 
+// Hook for personal shifts (created by the user themselves)
+export function usePersonalShifts(startDate?: string, endDate?: string) {
+  const queryKey = startDate && endDate 
+    ? ["/api/personal-shifts", { startDate, endDate }]
+    : ["/api/personal-shifts"];
+
+  return useQuery({
+    queryKey,
+    queryFn: async () => {
+      console.log('usePersonalShifts queryFn called for:', startDate && endDate ? `${startDate} to ${endDate}` : 'all personal shifts');
+      const url = startDate && endDate 
+        ? `/api/personal-shifts?startDate=${startDate}&endDate=${endDate}`
+        : "/api/personal-shifts";
+      const response = await apiRequest('GET', url);
+      const data = await response.json();
+      console.log('usePersonalShifts data received:', data.length, 'personal shifts');
+      return data;
+    },
+  });
+}
+
+// Hook for roster shifts (assigned by managers)
+export function useIndividualRosterShifts(startDate?: string, endDate?: string) {
+  const queryKey = startDate && endDate 
+    ? ["/api/roster-shifts", { startDate, endDate }]
+    : ["/api/roster-shifts"];
+
+  return useQuery({
+    queryKey,
+    queryFn: async () => {
+      console.log('useIndividualRosterShifts queryFn called for date range:', startDate && endDate ? `${startDate} to ${endDate}` : 'all roster shifts');
+      const url = startDate && endDate 
+        ? `/api/roster-shifts?startDate=${startDate}&endDate=${endDate}`
+        : "/api/roster-shifts";
+      const response = await apiRequest('GET', url);
+      const data = await response.json();
+      console.log('useIndividualRosterShifts data received:', data.length, 'roster shifts');
+      return data;
+    },
+  });
+}
+
 export function useCreateShift() {
   return useMutation({
     mutationFn: async (shift: Omit<InsertShift, 'userId'>) => {
@@ -29,8 +71,15 @@ export function useCreateShift() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all shift-related queries
       queryClient.invalidateQueries({ predicate: (query) => 
         query.queryKey[0] === "/api/shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/personal-shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/roster-shifts" 
       });
       queryClient.invalidateQueries({ predicate: (query) => 
         query.queryKey[0] === "/api/analytics/weekly-hours" 
@@ -52,8 +101,15 @@ export function useUpdateShift() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all shift-related queries
       queryClient.invalidateQueries({ predicate: (query) => 
         query.queryKey[0] === "/api/shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/personal-shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/roster-shifts" 
       });
       queryClient.invalidateQueries({ predicate: (query) => 
         query.queryKey[0] === "/api/analytics/weekly-hours" 
@@ -75,8 +131,15 @@ export function useDeleteShift() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all shift-related queries
       queryClient.invalidateQueries({ predicate: (query) => 
         query.queryKey[0] === "/api/shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/personal-shifts" 
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === "/api/roster-shifts" 
       });
       queryClient.invalidateQueries({ predicate: (query) => 
         query.queryKey[0] === "/api/analytics/weekly-hours" 
