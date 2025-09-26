@@ -63,7 +63,7 @@ export default function Dashboard() {
   // Filter recent shifts by date range
   const filteredRecentShifts = useMemo(() => {
     if (!recentShifts) return [];
-    return recentShifts.filter(shift => 
+    return recentShifts.filter((shift: Shift) => 
       shift.date >= recentShiftsStartDate && shift.date <= recentShiftsEndDate
     );
   }, [recentShifts, recentShiftsStartDate, recentShiftsEndDate]);
@@ -74,7 +74,7 @@ export default function Dashboard() {
 
   // Calculate total hours for filtered recent shifts
   const filteredRecentShiftsTotalHours = useMemo(() => {
-    return filteredRecentShifts.reduce((total, shift) => 
+    return filteredRecentShifts.reduce((total: number, shift: Shift) => 
       total + calculateDuration(shift.startTime, shift.endTime), 0
     );
   }, [filteredRecentShifts]);
@@ -91,14 +91,14 @@ export default function Dashboard() {
     }
 
     // Group shifts by date
-    const shiftsByDate = filteredRecentShifts.reduce((acc, shift) => {
+    const shiftsByDate = filteredRecentShifts.reduce((acc: Record<string, Shift[]>, shift: Shift) => {
       const date = shift.date;
       if (!acc[date]) {
         acc[date] = [];
       }
       acc[date].push(shift);
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, Shift[]>);
 
     // Create chart data for each date in the range (including days with no shifts)
     return dateRange.map((currentDate) => {
@@ -109,7 +109,7 @@ export default function Dashboard() {
       const shifts = shiftsByDate[dateString] || [];
       
       // Calculate total hours and shift type breakdown
-      const totalHours = shifts.reduce((sum, shift) => 
+      const totalHours = shifts.reduce((sum: number, shift: Shift) => 
         sum + calculateDuration(shift.startTime, shift.endTime), 0);
       
       const shiftTypeHours = {
@@ -118,7 +118,7 @@ export default function Dashboard() {
         nightHours: 0
       };
       
-      shifts.forEach((shift) => {
+      shifts.forEach((shift: Shift) => {
         const duration = Number(calculateDuration(shift.startTime, shift.endTime).toFixed(2));
         switch (shift.shiftType) {
           case 'morning':
@@ -169,10 +169,10 @@ export default function Dashboard() {
       const actualDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
       
       // Filter shifts for this specific day
-      const dayShifts = recentShifts.filter(shift => shift.date === dateString);
+      const dayShifts = recentShifts.filter((shift: Shift) => shift.date === dateString);
       
       // Calculate total hours and create shift data for stacking
-      const totalHours = dayShifts.reduce((sum, shift) => 
+      const totalHours = dayShifts.reduce((sum: number, shift: Shift) => 
         sum + calculateDuration(shift.startTime, shift.endTime), 0);
       
       // Group shifts by type and calculate hours for each type
@@ -182,7 +182,7 @@ export default function Dashboard() {
         nightHours: 0
       };
       
-      dayShifts.forEach((shift) => {
+      dayShifts.forEach((shift: Shift) => {
         const duration = Number(calculateDuration(shift.startTime, shift.endTime).toFixed(2));
         switch (shift.shiftType) {
           case 'morning':
@@ -507,8 +507,8 @@ export default function Dashboard() {
     if (recentShifts && recentShifts.length > 0) {
       const today = new Date().toISOString().split('T')[0];
       const upcomingShifts = recentShifts
-        .filter(shift => shift.date >= today)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        .filter((shift: Shift) => shift.date >= today)
+        .sort((a: Shift, b: Shift) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
       if (upcomingShifts.length > 0) {
         const nextShift = upcomingShifts[0];
@@ -535,7 +535,7 @@ export default function Dashboard() {
 
     // Check for long shifts (12+ hours)
     if (recentShifts) {
-      const longShifts = recentShifts.filter(shift => 
+      const longShifts = recentShifts.filter((shift: Shift) => 
         calculateDuration(shift.startTime, shift.endTime) >= 12
       );
       
@@ -981,7 +981,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : recentShiftsToShow.length > 0 ? (
-                recentShiftsToShow.map((shift) => (
+                recentShiftsToShow.map((shift: Shift) => (
                   <div key={shift.id} className="p-6 flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className={`w-3 h-3 rounded-full ${

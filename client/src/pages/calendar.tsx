@@ -81,7 +81,7 @@ export default function Calendar() {
   // Group shifts by date
   const shiftsByDate = useMemo(() => {
     const grouped: Record<string, Shift[]> = {};
-    shifts.forEach(shift => {
+    shifts.forEach((shift: Shift) => {
       if (!grouped[shift.date]) {
         grouped[shift.date] = [];
       }
@@ -92,7 +92,7 @@ export default function Calendar() {
 
   // Calculate total hours for the week
   const totalHours = useMemo(() => {
-    return shifts.reduce((total, shift) => {
+    return shifts.reduce((total: number, shift: Shift) => {
       return total + calculateDuration(shift.startTime, shift.endTime);
     }, 0);
   }, [shifts]);
@@ -276,7 +276,7 @@ export default function Calendar() {
                                 onClick={() => setSelectedShift(shift)}
                               >
                                 <div className="flex items-center gap-1">
-                                  {shift.isRosterShift && <CalendarIcon className="h-3 w-3" />}
+                                  <CalendarIcon className="h-3 w-3" />
                                   <div className="font-semibold truncate">{shift.shiftType}</div>
                                 </div>
                                 <div className="text-xs opacity-90 truncate">
