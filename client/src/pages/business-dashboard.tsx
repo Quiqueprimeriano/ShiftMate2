@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,12 @@ export default function BusinessDashboard() {
   const [editingShift, setEditingShift] = useState<any>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  
+  // Drag selection state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{date: string, hour: number} | null>(null);
+  const [dragEnd, setDragEnd] = useState<{date: string, hour: number} | null>(null);
+  const [dragPreview, setDragPreview] = useState<{date: string, startHour: number, endHour: number} | null>(null);
 
   // Calculate date range based on view mode
   const getDateRangeForView = () => {
@@ -274,6 +280,66 @@ export default function BusinessDashboard() {
     });
     setIsShiftModalOpen(true);
   };
+
+  // Drag selection handlers
+  const handleMouseDown = (date: string, hour: number, event: any) => {
+    // Prevent drag if clicking on existing shift
+    if ((event.target as Element).closest('.shift-block')) {
+      return;
+    }
+    
+    event.preventDefault();
+    setIsDragging(true);
+    setDragStart({ date, hour });
+    setDragEnd({ date, hour });
+    setDragPreview({ date, startHour: hour, endHour: hour });
+  };
+
+  const handleMouseEnter = (date: string, hour: number) => {
+    if (isDragging && dragStart) {
+      // Only allow dragging within the same day
+      if (date === dragStart.date) {
+        const startHour = Math.min(dragStart.hour, hour);
+        const endHour = Math.max(dragStart.hour, hour);
+        setDragEnd({ date, hour });
+        setDragPreview({ date, startHour, endHour });
+      }
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging && dragStart && dragEnd && dragPreview) {
+      const startTime = `${dragPreview.startHour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(dragPreview.endHour + 1).toString().padStart(2, '0')}:00`;
+      
+      // Open shift creation modal with calculated times
+      setSelectedDate(dragPreview.date);
+      setSelectedEmployee(null);
+      setEditingShift({
+        startTime,
+        endTime
+      });
+      setIsShiftModalOpen(true);
+    }
+    
+    // Reset drag state
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+    setDragPreview(null);
+  };
+
+  // Add global mouse up listener
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        handleMouseUp();
+      }
+    };
+
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isDragging, dragStart, dragEnd, dragPreview]);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -1456,8 +1522,19 @@ export default function BusinessDashboard() {
                             return (
                               <div 
                                 key={dayIndex} 
-                                className="relative border-r last:border-r-0 min-h-[60px] bg-white hover:bg-gray-50 transition-colors cursor-pointer group"
-                                onClick={() => handleAddShiftAtTime(dateStr, `${hour.toString().padStart(2, '0')}:00`)}
+                                className={`relative border-r last:border-r-0 min-h-[60px] transition-colors cursor-pointer group select-none ${
+                                  dragPreview && dragPreview.date === dateStr && 
+                                  hour >= dragPreview.startHour && hour <= dragPreview.endHour
+                                    ? 'bg-blue-200 border-blue-300'
+                                    : 'bg-white hover:bg-gray-50'
+                                }`}
+                                onClick={() => {
+                                  if (!isDragging) {
+                                    handleAddShiftAtTime(dateStr, `${hour.toString().padStart(2, '0')}:00`);
+                                  }
+                                }}
+                                onMouseDown={(e) => handleMouseDown(dateStr, hour, e)}
+                                onMouseEnter={() => handleMouseEnter(dateStr, hour)}
                                 data-testid={`calendar-cell-${dateStr}-${hour}`}
                               >
                                 {/* Shift blocks */}
@@ -1480,7 +1557,7 @@ export default function BusinessDashboard() {
                                   return (
                                     <div
                                       key={shift.id}
-                                      className="absolute left-1 right-1 bg-blue-100 border border-blue-200 rounded-md p-2 z-20 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                      className="shift-block absolute left-1 right-1 bg-blue-100 border border-blue-200 rounded-md p-2 z-20 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                                       style={{ 
                                         height: `${blockHeight}px`,
                                         top: `${(shiftStartMinutes / 60) * 60}px`
@@ -1532,10 +1609,26 @@ export default function BusinessDashboard() {
                                   );
                                 })}
                                 
-                                {/* Add shift indicator on hover */}
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 bg-opacity-50">
-                                  <span className="text-xs text-blue-600 font-medium">+ Add Shift</span>
-                                </div>
+                                {/* Drag preview overlay */}
+                                {dragPreview && dragPreview.date === dateStr && 
+                                 hour >= dragPreview.startHour && hour <= dragPreview.endHour && (
+                                  <div className="absolute inset-0 bg-blue-300 bg-opacity-40 border-2 border-blue-400 flex items-center justify-center">
+                                    {hour === dragPreview.startHour && (
+                                      <div className="text-xs font-medium text-blue-800 bg-white bg-opacity-90 px-2 py-1 rounded shadow">
+                                        {dragPreview.endHour - dragPreview.startHour + 1}h shift
+                                        <br />
+                                        {`${dragPreview.startHour.toString().padStart(2, '0')}:00 - ${(dragPreview.endHour + 1).toString().padStart(2, '0')}:00`}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Add shift indicator on hover (only when not dragging) */}
+                                {!isDragging && (
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 bg-opacity-50">
+                                    <span className="text-xs text-blue-600 font-medium">+ Add Shift</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           });
