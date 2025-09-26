@@ -1561,15 +1561,15 @@ export default function BusinessDashboard() {
               <div className="border rounded-lg overflow-hidden">
                 {/* Header Row - Days of the week */}
                 <div className="grid grid-cols-8 border-b bg-gray-50 sticky top-0 z-10">
-                  <div className="p-3 font-medium text-sm border-r bg-gray-50">Time</div>
+                  <div className="p-2 font-medium text-xs border-r bg-gray-50">Time</div>
                   {(() => {
                     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
                     return Array.from({ length: 7 }, (_, i) => {
                       const day = addDays(weekStart, i);
                       return (
-                        <div key={i} className="p-3 text-center font-medium text-sm border-r last:border-r-0 bg-gray-50">
+                        <div key={i} className="p-2 text-center font-medium text-xs border-r last:border-r-0 bg-gray-50">
                           <div>{format(day, 'EEE')}</div>
-                          <div className="text-xs text-gray-500 mt-1">{format(day, 'MMM dd')}</div>
+                          <div className="text-xs text-gray-500">{format(day, 'MMM dd')}</div>
                         </div>
                       );
                     });
@@ -1588,7 +1588,7 @@ export default function BusinessDashboard() {
                     return (
                       <div key={hour} className="grid grid-cols-8 border-b last:border-b-0 relative">
                         {/* Time Column */}
-                        <div className="p-3 border-r bg-gray-50 text-sm font-medium text-gray-700 sticky left-0 z-10">
+                        <div className="p-2 border-r bg-gray-50 text-xs font-medium text-gray-700 sticky left-0 z-10">
                           {timeDisplay}
                         </div>
                         
@@ -1613,7 +1613,7 @@ export default function BusinessDashboard() {
                             return (
                               <div 
                                 key={dayIndex} 
-                                className={`relative border-r last:border-r-0 min-h-[40px] transition-colors cursor-pointer group select-none ${
+                                className={`relative border-r last:border-r-0 min-h-[30px] transition-colors cursor-pointer group select-none ${
                                   dragPreview && dragPreview.date === dateStr && 
                                   hour >= dragPreview.startHour && hour <= dragPreview.endHour
                                     ? 'bg-blue-200 border-blue-300'
@@ -1640,7 +1640,7 @@ export default function BusinessDashboard() {
                                   
                                   // Calculate height based on duration
                                   const durationInHours = (shiftEnd - shiftStart) + (shiftEndMinutes - shiftStartMinutes) / 60;
-                                  const blockHeight = Math.max(1, durationInHours) * 40; // 40px per hour
+                                  const blockHeight = Math.max(1, durationInHours) * 30; // 30px per hour
                                   
                                   // Get employee info
                                   const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
