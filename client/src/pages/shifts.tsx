@@ -10,24 +10,38 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Edit, Trash2, Check, Clock, Filter, Search, Calendar, FileText, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
-import { useShifts, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
+import { usePersonalShifts, useIndividualRosterShifts, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
 import { generateTimeOptions, formatTime, calculateDuration, formatDateRange, getWeekDates } from "@/lib/time-utils";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import { useToast } from "@/hooks/use-toast";
 import type { Shift } from "@shared/schema";
 
+// Extended type for shifts with roster indicator
+type ExtendedShift = Shift & { isRosterShift: boolean };
+
 export default function Shifts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [shiftToEdit, setShiftToEdit] = useState<Shift | null>(null);
+  const [shiftToEdit, setShiftToEdit] = useState<ExtendedShift | null>(null);
   
   // Date range filter state
   const currentWeek = getWeekDates(new Date());
   const [startDate, setStartDate] = useState(currentWeek.start);
   const [endDate, setEndDate] = useState(currentWeek.end);
   
-  const { data: allShifts, isLoading: shiftsLoading } = useShifts();
+  // Fetch both personal and roster shifts separately
+  const { data: personalShifts = [], isLoading: isLoadingPersonal } = usePersonalShifts();
+  const { data: rosterShifts = [], isLoading: isLoadingRoster } = useIndividualRosterShifts();
+  
+  const shiftsLoading = isLoadingPersonal || isLoadingRoster;
+  
+  // Combine shifts with type indicators
+  const allShifts = useMemo((): ExtendedShift[] => [
+    ...personalShifts.map((shift: Shift) => ({ ...shift, isRosterShift: false })),
+    ...rosterShifts.map((shift: Shift) => ({ ...shift, isRosterShift: true }))
+  ], [personalShifts, rosterShifts]);
+  
   const updateShiftMutation = useUpdateShift();
   const deleteShiftMutation = useDeleteShift();
   const { toast } = useToast();
@@ -171,7 +185,16 @@ export default function Shifts() {
     return filteredShifts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [filteredShifts]);
 
-  const handleEditShift = (shift: Shift) => {
+  const handleEditShift = (shift: ExtendedShift) => {
+    // Only allow editing personal shifts, not roster shifts
+    if (shift.isRosterShift) {
+      toast({
+        title: "Cannot Edit Roster Shift",
+        description: "This shift was assigned by your manager and cannot be edited.",
+        variant: "destructive",
+      });
+      return;
+    }
     setShiftToEdit(shift);
     setShowEditDialog(true);
   };
@@ -201,9 +224,19 @@ export default function Shifts() {
     }
   };
 
-  const handleDeleteShift = async (shiftId: number) => {
+  const handleDeleteShift = async (shift: ExtendedShift) => {
+    // Only allow deleting personal shifts, not roster shifts
+    if (shift.isRosterShift) {
+      toast({
+        title: "Cannot Delete Roster Shift",
+        description: "This shift was assigned by your manager and cannot be deleted.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
-      await deleteShiftMutation.mutateAsync(shiftId);
+      await deleteShiftMutation.mutateAsync(shift.id);
       toast({
         title: "Success",
         description: "Shift deleted successfully!",
@@ -544,23 +577,32 @@ export default function Shifts() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="touch-target h-8 w-8 p-0"
-                      onClick={() => handleEditShift(shift)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="touch-target h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => handleDeleteShift(shift.id)}
-                      disabled={deleteShiftMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {shift.isRosterShift ? (
+                      <div className="flex items-center gap-2 px-2 py-1 bg-blue-50 rounded-lg">
+                        <Calendar className="h-3 w-3 text-blue-600" />
+                        <span className="text-xs text-blue-800 font-medium">Roster Shift</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="touch-target h-8 w-8 p-0"
+                          onClick={() => handleEditShift(shift)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="touch-target h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteShift(shift)}
+                          disabled={deleteShiftMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
