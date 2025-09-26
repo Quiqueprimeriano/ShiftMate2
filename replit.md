@@ -119,7 +119,14 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - Port 5000 internal, port 80 external mapping
 - Environment-specific build optimization
 
+## Documentation
+
+### Product Requirements Document (PRD)
+- **PRODUCT_REQUIREMENTS_DOCUMENT.md**: Comprehensive PRD covering all product requirements, user stories, technical specifications, and success metrics for ShiftMate
+
 ## Changelog
+- September 26, 2025. DOCUMENTATION: Created comprehensive Product Requirements Document (PRD) with user stories, technical requirements, and success metrics
+- September 26, 2025. BUGFIX: Fixed Daily Summary Table in business dashboard to properly display employee hours by handling undefined values
 - August 12, 2025. MAJOR FIX: Resolved critical JWT authentication issue preventing shift data access across all dashboards
 - August 12, 2025. Updated all data hooks (individual and business) to use JWT-enabled apiRequest instead of basic fetch
 - August 12, 2025. Individual users can now access all 47+ shifts with proper authentication and analytics
