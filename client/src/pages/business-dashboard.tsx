@@ -317,9 +317,6 @@ export default function BusinessDashboard() {
         });
       } else {
         // Create new shift
-        console.log('Creating new shift with data:', shiftData); // Debug log
-        console.log('Selected employee:', selectedEmployee); // Debug log
-        console.log('Selected date:', selectedDate); // Debug log
         await createRosterShiftMutation.mutateAsync({
           ...shiftData,
           userId: parseInt(shiftData.employeeId) || selectedEmployee?.id,
@@ -1616,7 +1613,7 @@ export default function BusinessDashboard() {
                             return (
                               <div 
                                 key={dayIndex} 
-                                className={`relative border-r last:border-r-0 min-h-[60px] transition-colors cursor-pointer group select-none ${
+                                className={`relative border-r last:border-r-0 min-h-[40px] transition-colors cursor-pointer group select-none ${
                                   dragPreview && dragPreview.date === dateStr && 
                                   hour >= dragPreview.startHour && hour <= dragPreview.endHour
                                     ? 'bg-blue-200 border-blue-300'
@@ -1643,7 +1640,7 @@ export default function BusinessDashboard() {
                                   
                                   // Calculate height based on duration
                                   const durationInHours = (shiftEnd - shiftStart) + (shiftEndMinutes - shiftStartMinutes) / 60;
-                                  const blockHeight = Math.max(1, durationInHours) * 60; // 60px per hour
+                                  const blockHeight = Math.max(1, durationInHours) * 40; // 40px per hour
                                   
                                   // Get employee info
                                   const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
