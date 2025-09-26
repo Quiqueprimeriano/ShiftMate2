@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { usePersonalShifts, useIndividualRosterShifts } from "@/hooks/use-shifts";
+import { useIndividualRosterShifts } from "@/hooks/use-shifts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,9 +8,6 @@ import { Clock, Plus, ChevronLeft, ChevronRight, CalendarIcon, User } from "luci
 import { formatTime, calculateDuration } from "@/lib/time-utils";
 import { Link } from "wouter";
 import type { Shift } from "@shared/schema";
-
-// Extended type for shifts with roster indicator
-type ExtendedShift = Shift & { isRosterShift: boolean };
 
 // Helper function to get start of week (Monday)
 const getStartOfWeek = (date: Date): Date => {
@@ -33,17 +30,18 @@ const getWeekRange = (startDate: Date): Date[] => {
   return dates;
 };
 
-// Helper function to get shift color based on type and source
-const getShiftColor = (shiftType: string, isRosterShift: boolean = false): string => {
-  const baseColors = {
-    morning: isRosterShift ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500 text-white border-emerald-600',
-    afternoon: isRosterShift ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-blue-500 text-white border-blue-600',
-    night: isRosterShift ? 'bg-indigo-100 text-indigo-800 border-indigo-300' : 'bg-indigo-500 text-white border-indigo-600',
-    default: isRosterShift ? 'bg-gray-100 text-gray-800 border-gray-300' : 'bg-gray-500 text-white border-gray-600'
+// Helper function to get shift color based on type (roster shifts have light colors)
+const getShiftColor = (shiftType: string): string => {
+  const rosterColors = {
+    morning: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    afternoon: 'bg-blue-100 text-blue-800 border-blue-300',
+    evening: 'bg-blue-100 text-blue-800 border-blue-300', // Handle old 'evening' type
+    night: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+    default: 'bg-gray-100 text-gray-800 border-gray-300'
   };
 
-  const colorKey = shiftType.toLowerCase() as keyof typeof baseColors;
-  return baseColors[colorKey] || baseColors.default;
+  const colorKey = shiftType.toLowerCase() as keyof typeof rosterColors;
+  return rosterColors[colorKey] || rosterColors.default;
 };
 
 // Helper function to convert time string to minutes from midnight
@@ -69,29 +67,20 @@ const getShiftPosition = (startTime: string, endTime: string) => {
 
 export default function Calendar() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getStartOfWeek(new Date()));
-  const [selectedShift, setSelectedShift] = useState<ExtendedShift | null>(null);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   
   // Get week date range
   const weekDates = useMemo(() => getWeekRange(currentWeekStart), [currentWeekStart]);
   
-  // Get shifts for the week - fetch both personal and roster shifts separately
+  // Get roster shifts for the week (only manager-planned shifts)
   const startDate = weekDates[0].toISOString().split('T')[0];
   const endDate = weekDates[6].toISOString().split('T')[0];
   
-  const { data: personalShifts = [], isLoading: isLoadingPersonal } = usePersonalShifts(startDate, endDate);
-  const { data: rosterShifts = [], isLoading: isLoadingRoster } = useIndividualRosterShifts(startDate, endDate);
-  
-  const isLoading = isLoadingPersonal || isLoadingRoster;
-  
-  // Combine shifts with type indicators
-  const shifts = useMemo((): ExtendedShift[] => [
-    ...personalShifts.map((shift: Shift) => ({ ...shift, isRosterShift: false })),
-    ...rosterShifts.map((shift: Shift) => ({ ...shift, isRosterShift: true }))
-  ], [personalShifts, rosterShifts]);
+  const { data: shifts = [], isLoading } = useIndividualRosterShifts(startDate, endDate);
 
   // Group shifts by date
   const shiftsByDate = useMemo(() => {
-    const grouped: Record<string, ExtendedShift[]> = {};
+    const grouped: Record<string, Shift[]> = {};
     shifts.forEach(shift => {
       if (!grouped[shift.date]) {
         grouped[shift.date] = [];
@@ -163,9 +152,10 @@ export default function Calendar() {
         {/* Header with Navigation */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-semibold text-slate-900">
-              {formatWeekRange(weekDates)}
-            </h1>
+            <div>
+              <h1 className="text-xl font-semibold text-slate-900">My Roster</h1>
+              <p className="text-sm text-slate-600">{formatWeekRange(weekDates)}</p>
+            </div>
             <div className="flex items-center space-x-2">
               <Button
                 variant="outline"
@@ -278,9 +268,7 @@ export default function Calendar() {
                             return (
                               <div
                                 key={shift.id}
-                                className={`absolute left-1 right-1 rounded text-xs font-medium ${getShiftColor(shift.shiftType, shift.isRosterShift)} shadow-sm z-10 p-1 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity ${
-                                  shift.isRosterShift ? 'border-2 border-dashed' : ''
-                                }`}
+                                className={`absolute left-1 right-1 rounded text-xs font-medium ${getShiftColor(shift.shiftType)} shadow-sm z-10 p-1 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border-2 border-dashed`}
                                 style={{ 
                                   height: `${heightInPixels}px`,
                                   top: `${(shiftStartMinutes / 60) * 32}px`
@@ -320,15 +308,13 @@ export default function Calendar() {
             {selectedShift && (
               <div className="space-y-4">
                 {/* Roster Shift Indicator */}
-                {(selectedShift as ExtendedShift).isRosterShift && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-blue-600" />
-                    <div className="text-sm text-blue-800">
-                      <div className="font-medium">Roster Shift</div>
-                      <div className="text-xs">This shift was assigned by your manager</div>
-                    </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-blue-600" />
+                  <div className="text-sm text-blue-800">
+                    <div className="font-medium">Roster Shift</div>
+                    <div className="text-xs">This shift was assigned by your manager</div>
                   </div>
-                )}
+                </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

@@ -13,7 +13,7 @@ import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: BarChart3 },
-  { path: "/calendar", label: "Calendar", icon: Calendar },
+  { path: "/calendar", label: "My Roster", icon: Calendar },
   { path: "/add-shift", label: "Add Shift", icon: Plus },
   { path: "/reports", label: "Reports", icon: FileText },
 ];
