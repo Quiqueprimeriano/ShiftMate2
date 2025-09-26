@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3, Calendar, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
-import { useShifts, useWeeklyHours, useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
+import { usePersonalShifts, useIndividualRosterShifts, useWeeklyHours, useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
 import { getWeekDates, getLast7Days, formatTime, calculateDuration, generateTimeOptions, formatDateRange } from "@/lib/time-utils";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +16,10 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useTimer } from "@/hooks/use-timer";
+import type { Shift } from "@shared/schema";
+
+// Extended type for shifts with roster indicator
+type ExtendedShift = Shift & { isRosterShift: boolean };
 
 export default function Dashboard() {
   const currentWeek = getWeekDates(new Date());
@@ -40,13 +44,24 @@ export default function Dashboard() {
   
   // Edit shift modal state
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [shiftToEdit, setShiftToEdit] = useState<any>(null);
+  const [shiftToEdit, setShiftToEdit] = useState<ExtendedShift | null>(null);
   
   // Recent Shifts date range filter state
   const [recentShiftsStartDate, setRecentShiftsStartDate] = useState(currentWeek.start);
   const [recentShiftsEndDate, setRecentShiftsEndDate] = useState(currentWeek.end);
 
-  const { data: recentShifts, isLoading: shiftsLoading } = useShifts();
+  // Fetch both personal and roster shifts separately
+  const { data: personalShifts = [], isLoading: isLoadingPersonal } = usePersonalShifts();
+  const { data: rosterShifts = [], isLoading: isLoadingRoster } = useIndividualRosterShifts();
+  
+  const shiftsLoading = isLoadingPersonal || isLoadingRoster;
+  
+  // Combine shifts with type indicators
+  const recentShifts = useMemo((): ExtendedShift[] => [
+    ...personalShifts.map((shift: Shift) => ({ ...shift, isRosterShift: false })),
+    ...rosterShifts.map((shift: Shift) => ({ ...shift, isRosterShift: true }))
+  ], [personalShifts, rosterShifts]);
+  
   const { data: thisWeekHours, isLoading: thisWeekLoading } = useWeeklyHours(last7Days.start, last7Days.end);
   const { data: lastWeekHours, isLoading: lastWeekLoading } = useWeeklyHours(previousWeek.start, previousWeek.end);
   const createShiftMutation = useCreateShift();
@@ -415,7 +430,16 @@ export default function Dashboard() {
   const timeOptions = generateTimeOptions();
 
   // Handle opening edit modal
-  const handleEditShift = (shift: any) => {
+  const handleEditShift = (shift: ExtendedShift) => {
+    // Only allow editing personal shifts, not roster shifts
+    if (shift.isRosterShift) {
+      toast({
+        title: "Cannot Edit Roster Shift",
+        description: "This shift was assigned by your manager and cannot be edited.",
+        variant: "destructive",
+      });
+      return;
+    }
     setShiftToEdit(shift);
     setShowEditDialog(true);
   };
@@ -468,6 +492,16 @@ export default function Dashboard() {
   // Handle deleting existing shift from edit modal
   const handleDeleteExistingShift = async () => {
     if (!shiftToEdit) return;
+    
+    // Only allow deleting personal shifts, not roster shifts
+    if (shiftToEdit.isRosterShift) {
+      toast({
+        title: "Cannot Delete Roster Shift",
+        description: "This shift was assigned by your manager and cannot be deleted.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       await deleteShiftMutation.mutateAsync(shiftToEdit.id);
@@ -976,15 +1010,25 @@ export default function Dashboard() {
                 ))
               ) : recentShiftsToShow.length > 0 ? (
                 recentShiftsToShow.map((shift) => (
-                  <div key={shift.id} className="p-6 flex items-center justify-between">
+                  <div key={shift.id} className={`p-6 flex items-center justify-between ${
+                    shift.isRosterShift ? 'bg-blue-50/50 border-l-4 border-blue-200' : ''
+                  }`}>
                     <div className="flex items-center space-x-4">
                       <div className={`w-3 h-3 rounded-full ${
                         shiftTypeColors[shift.shiftType as keyof typeof shiftTypeColors] || 'bg-gray-500'
-                      }`}></div>
+                      } ${shift.isRosterShift ? 'opacity-70' : ''}`}></div>
                       <div>
-                        <p className="font-medium text-slate-900 capitalize">
-                          {shift.shiftType} Shift
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900 capitalize">
+                            {shift.shiftType} Shift
+                          </p>
+                          {shift.isRosterShift && (
+                            <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 rounded-md">
+                              <Calendar className="h-3 w-3 text-blue-600" />
+                              <span className="text-xs text-blue-800 font-medium">Roster</span>
+                            </div>
+                          )}
+                        </div>
                         <p className="text-sm text-slate-500">
                           {new Date(shift.date).toLocaleDateString('en-US', { 
                             month: 'short', 
@@ -1003,14 +1047,16 @@ export default function Dashboard() {
                           {calculateDuration(shift.startTime, shift.endTime).toFixed(2)} hours
                         </p>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="touch-target"
-                        onClick={() => handleEditShift(shift)}
-                      >
-                        <Edit className="h-5 w-5" />
-                      </Button>
+                      {!shift.isRosterShift && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="touch-target"
+                          onClick={() => handleEditShift(shift)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
