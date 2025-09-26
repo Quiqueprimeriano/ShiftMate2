@@ -1546,14 +1546,116 @@ export default function BusinessDashboard() {
                 </div>
               </div>
 
-              {/* Legend */}
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="text-sm font-medium mb-2">Instructions</h4>
-                <div className="text-xs text-gray-600 space-y-1">
-                  <p>• Click "+ Add Shift" to assign a new shift to an employee</p>
-                  <p>• Use the ✏️ icon to edit existing shifts</p>
-                  <p>• Use the 🗑️ icon to delete shifts</p>
-                  <p>• Navigate between weeks using the arrow buttons</p>
+              {/* Employee Hours Summary */}
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Weekly Hours Summary */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="text-sm font-medium mb-3">Weekly Hours Summary</h4>
+                  <div className="space-y-2">
+                    {employeeArray.map((employee: any) => {
+                      // Calculate total hours for this employee this week
+                      const employeeShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => 
+                        shift.userId === employee.id
+                      ) : [];
+                      
+                      const totalHours = employeeShifts.reduce((sum: number, shift: any) => {
+                        if (!shift.startTime || !shift.endTime) return sum;
+                        
+                        const [startHour, startMinute] = shift.startTime.split(':').map(Number);
+                        const [endHour, endMinute] = shift.endTime.split(':').map(Number);
+                        
+                        const startDecimal = startHour + startMinute / 60;
+                        const endDecimal = endHour + endMinute / 60;
+                        const duration = endDecimal - startDecimal;
+                        
+                        return sum + Math.max(0, duration);
+                      }, 0);
+
+                      return (
+                        <div key={employee.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-blue-700">
+                                {employee.name?.charAt(0) || 'U'}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">{employee.name}</div>
+                              <div className="text-xs text-gray-500">{employee.role || 'Employee'}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-blue-600">
+                              {totalHours.toFixed(1)}h
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {employeeShifts.length} shifts
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Total Summary */}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700">Total Week Hours</span>
+                        <span className="text-lg font-bold text-blue-600">
+                          {Array.isArray(rosterShifts) ? rosterShifts.reduce((sum: number, shift: any) => {
+                            if (!shift.startTime || !shift.endTime) return sum;
+                            
+                            const [startHour, startMinute] = shift.startTime.split(':').map(Number);
+                            const [endHour, endMinute] = shift.endTime.split(':').map(Number);
+                            
+                            const startDecimal = startHour + startMinute / 60;
+                            const endDecimal = endHour + endMinute / 60;
+                            const duration = endDecimal - startDecimal;
+                            
+                            return sum + Math.max(0, duration);
+                          }, 0).toFixed(1) : '0.0'}h
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="text-sm font-medium mb-3">How to Use Calendar</h4>
+                  <div className="text-xs text-gray-600 space-y-2">
+                    <div className="flex items-start space-x-2">
+                      <span className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center mt-0.5">
+                        <span className="text-blue-600 text-xs">+</span>
+                      </span>
+                      <div>
+                        <p className="font-medium">Click any time slot to create a shift</p>
+                        <p className="text-gray-500">Select employee and set shift details</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="w-4 h-4 bg-green-100 rounded flex items-center justify-center mt-0.5">
+                        <span className="text-green-600 text-xs">✏️</span>
+                      </span>
+                      <div>
+                        <p className="font-medium">Click shift blocks to edit</p>
+                        <p className="text-gray-500">Modify times, employee, or location</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="w-4 h-4 bg-red-100 rounded flex items-center justify-center mt-0.5">
+                        <span className="text-red-600 text-xs">🗑️</span>
+                      </span>
+                      <div>
+                        <p className="font-medium">Delete shifts with trash icon</p>
+                        <p className="text-gray-500">Removes shift from schedule</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        <span className="font-medium">Time Range:</span> 7:00 AM - 11:00 PM daily
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -1599,8 +1701,11 @@ function ShiftForm({
   onCancel: () => void;
   isLoading: boolean;
 }) {
+  const { data: employees = [] } = useCompanyEmployees(1); // Replace with dynamic company ID
+  
   const form = useForm({
     defaultValues: {
+      employeeId: employee?.id || initialData?.userId || '',
       shiftType: initialData?.shiftType || 'Morning',
       startTime: initialData?.startTime || '09:00',
       endTime: initialData?.endTime || '17:00',
@@ -1609,23 +1714,85 @@ function ShiftForm({
     }
   });
 
+  // Preset shift templates
+  const shiftTemplates = [
+    { name: 'Morning', start: '08:00', end: '11:00', type: 'Morning' },
+    { name: 'Afternoon', start: '12:30', end: '17:00', type: 'Afternoon' },
+    { name: 'Night', start: '17:30', end: '23:00', type: 'Night' },
+    { name: 'Full Day', start: '09:00', end: '17:00', type: 'Full Day' }
+  ];
+
+  const applyTemplate = (template: any) => {
+    form.setValue('startTime', template.start);
+    form.setValue('endTime', template.end);
+    form.setValue('shiftType', template.type);
+  };
+
   const onSubmit = (data: any) => {
-    onSave(data);
+    onSave({
+      ...data,
+      userId: data.employeeId
+    });
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-sm font-medium">
-            {employee ? `Employee: ${employee.name}` : 'Editing shift'}
-          </Label>
           {date && (
             <Label className="text-sm text-gray-500">
               Date: {format(new Date(date), 'EEEE, MMMM d, yyyy')}
             </Label>
           )}
         </div>
+
+        {/* Preset Templates */}
+        <div>
+          <Label className="text-sm font-medium mb-2 block">Quick Templates</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {shiftTemplates.map((template) => (
+              <Button
+                key={template.name}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => applyTemplate(template)}
+              >
+                {template.name}
+                <span className="ml-1 text-gray-500">
+                  {template.start}-{template.end}
+                </span>
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Employee Selection */}
+        <FormField
+          control={form.control}
+          name="employeeId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Employee</FormLabel>
+              <FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((emp: any) => (
+                      <SelectItem key={emp.id} value={emp.id.toString()}>
+                        {emp.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
