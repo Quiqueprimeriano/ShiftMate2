@@ -1599,8 +1599,39 @@ export default function BusinessDashboard() {
                             const day = addDays(weekStart, dayIndex);
                             const dateStr = format(day, 'yyyy-MM-dd');
                             
-                            // Find shifts that overlap with this hour
-                            const hourShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
+                            // Create template shifts for each day
+                            const templateShifts = [
+                              {
+                                id: `template-morning-${dateStr}`,
+                                type: 'template',
+                                shiftType: 'morning',
+                                startTime: '08:00',
+                                endTime: '11:00',
+                                date: dateStr,
+                                name: 'Morning Shift'
+                              },
+                              {
+                                id: `template-afternoon-${dateStr}`,
+                                type: 'template',
+                                shiftType: 'afternoon',
+                                startTime: '12:30',
+                                endTime: '17:00',
+                                date: dateStr,
+                                name: 'Afternoon Shift'
+                              },
+                              {
+                                id: `template-night-${dateStr}`,
+                                type: 'template',
+                                shiftType: 'night',
+                                startTime: '17:30',
+                                endTime: '23:00',
+                                date: dateStr,
+                                name: 'Night Shift'
+                              }
+                            ];
+
+                            // Find actual shifts that overlap with this hour
+                            const actualShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
                               if (shift.date !== dateStr) return false;
                               
                               const shiftStart = parseInt(shift.startTime?.split(':')[0] || '0');
@@ -1609,6 +1640,28 @@ export default function BusinessDashboard() {
                               // Check if this hour falls within the shift time
                               return hour >= shiftStart && hour < shiftEnd;
                             }) : [];
+
+                            // Find template shifts that overlap with this hour (and don't have actual shifts)
+                            const templateShiftsForHour = templateShifts.filter(template => {
+                              const templateStart = parseInt(template.startTime.split(':')[0]);
+                              const templateEnd = parseInt(template.endTime.split(':')[0]);
+                              
+                              // Check if this hour falls within template time
+                              if (hour < templateStart || hour >= templateEnd) return false;
+                              
+                              // Don't show template if there's already an actual shift covering this time
+                              const hasActualShift = actualShifts.some(actualShift => {
+                                const actualStart = parseInt(actualShift.startTime?.split(':')[0] || '0');
+                                const actualEnd = parseInt(actualShift.endTime?.split(':')[0] || '0');
+                                
+                                // Check if template overlaps with actual shift
+                                return (templateStart < actualEnd && templateEnd > actualStart);
+                              });
+                              
+                              return !hasActualShift;
+                            });
+
+                            const hourShifts = [...actualShifts, ...templateShiftsForHour];
 
                             return (
                               <div 
@@ -1642,7 +1695,48 @@ export default function BusinessDashboard() {
                                   const durationInHours = (shiftEnd - shiftStart) + (shiftEndMinutes - shiftStartMinutes) / 60;
                                   const blockHeight = Math.max(1, durationInHours) * 30; // 30px per hour
                                   
-                                  // Get employee info
+                                  // Handle template shifts vs actual shifts
+                                  if (shift.type === 'template') {
+                                    return (
+                                      <div
+                                        key={shift.id}
+                                        className="shift-block absolute left-1 right-1 rounded-md p-2 z-10 border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                                        style={{ 
+                                          height: `${blockHeight}px`,
+                                          top: `${(shiftStartMinutes / 60) * 30}px`
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Open modal to assign employee to this template
+                                          setSelectedDate(shift.date);
+                                          setSelectedEmployee(null);
+                                          setEditingShift({
+                                            shiftType: shift.shiftType,
+                                            startTime: shift.startTime,
+                                            endTime: shift.endTime,
+                                            date: shift.date,
+                                            notes: '',
+                                            location: ''
+                                          });
+                                          setIsShiftModalOpen(true);
+                                        }}
+                                        title={`Click to assign employee to ${shift.name}`}
+                                        data-testid={`template-shift-${shift.shiftType}-${dateStr}`}
+                                      >
+                                        <div className="text-xs font-medium text-gray-700 text-center">
+                                          {shift.name}
+                                        </div>
+                                        <div className="text-xs text-gray-600 text-center">
+                                          {shift.startTime.slice(0, 5)} - {shift.endTime.slice(0, 5)}
+                                        </div>
+                                        <div className="text-xs text-gray-500 text-center mt-1">
+                                          Click to assign
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  // Handle actual shifts
                                   const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
                                   
                                   // Check for conflicts with this shift
@@ -1665,7 +1759,7 @@ export default function BusinessDashboard() {
                                       }`}
                                       style={{ 
                                         height: `${blockHeight}px`,
-                                        top: `${(shiftStartMinutes / 60) * 60}px`
+                                        top: `${(shiftStartMinutes / 60) * 30}px`
                                       }}
                                       onClick={(e) => {
                                         e.stopPropagation();
