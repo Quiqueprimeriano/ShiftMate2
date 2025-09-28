@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { rateTiers, publicHolidays } from "@shared/schema";
+import { rateTiers, publicHolidays, employeeRates } from "@shared/schema";
 import { eq, and, or, gte, lte, isNull } from "drizzle-orm";
 
 // Use same database connection as storage.ts
@@ -47,15 +47,16 @@ export interface ShiftBilling {
 }
 
 /**
- * Determine the day type for billing purposes
+ * Determine the rate type for employee billing purposes
+ * Supports: weekday, weeknight, saturday, sunday, publicHoliday
  */
-export function getDayType(date: string, holidays: string[]): string {
+export function getEmployeeRateType(date: string, startTime: string, holidays: string[]): string {
   const shiftDate = new Date(date);
   const dayOfWeek = shiftDate.getDay(); // 0 = Sunday, 6 = Saturday
   
   // Check if it's a holiday first
   if (holidays.includes(date)) {
-    return "holiday";
+    return "publicHoliday";
   }
   
   // Check day of week
@@ -64,8 +65,56 @@ export function getDayType(date: string, holidays: string[]): string {
   } else if (dayOfWeek === 6) {
     return "saturday";
   } else {
-    return "weekday";
+    // Weekdays (Monday-Friday) - differentiate between day and night
+    const [hour] = startTime.split(':').map(Number);
+    
+    // Define night shift as starting between 18:00 (6 PM) and 05:59 (5:59 AM)
+    if (hour >= 18 || hour < 6) {
+      return "weeknight";
+    } else {
+      return "weekday";
+    }
   }
+}
+
+/**
+ * Get employee-specific rates
+ */
+export async function getEmployeeRates(
+  userId: number,
+  date: string
+): Promise<{
+  weekdayRate: number;
+  weeknightRate: number;
+  saturdayRate: number;
+  sundayRate: number;
+  publicHolidayRate: number;
+} | null> {
+  const rates = await db
+    .select({
+      weekdayRate: employeeRates.weekdayRate,
+      weeknightRate: employeeRates.weeknightRate,
+      saturdayRate: employeeRates.saturdayRate,
+      sundayRate: employeeRates.sundayRate,
+      publicHolidayRate: employeeRates.publicHolidayRate,
+    })
+    .from(employeeRates)
+    .where(
+      and(
+        eq(employeeRates.userId, userId),
+        or(
+          isNull(employeeRates.validFrom),
+          lte(employeeRates.validFrom, date)
+        ),
+        or(
+          isNull(employeeRates.validTo),
+          gte(employeeRates.validTo, date)
+        )
+      )
+    )
+    .limit(1);
+
+  return rates.length > 0 ? rates[0] : null;
 }
 
 /**
@@ -141,11 +190,11 @@ export async function getPublicHolidays(): Promise<string[]> {
 }
 
 /**
- * Calculate tiered billing for a shift
+ * Calculate employee-based billing for a shift
  */
 export async function calculateShiftBilling(
   shiftId: string | number,
-  companyId: number,
+  userId: number,
   date: string,
   startTime: string,
   endTime: string,
@@ -157,21 +206,21 @@ export async function calculateShiftBilling(
   // Get holidays
   const holidays = await getPublicHolidays();
   
-  // Determine day type
-  const dayType = getDayType(date, holidays);
+  // Determine rate type for employee billing
+  const rateType = getEmployeeRateType(date, startTime, holidays);
   
-  // Get applicable rate tiers
-  const tiers = await getRateTiers(companyId, shiftType, dayType, date);
+  // Get employee rates
+  const employeeRates = await getEmployeeRates(userId, date);
   
-  // If no rate tiers found, use fallback rate (could be from user's hourlyRate)
-  if (tiers.length === 0) {
-    const fallbackRate = 2500; // $25.00 per hour in cents - this should come from config or user's rate
+  // If no employee rates found, use fallback rate
+  if (!employeeRates) {
+    const fallbackRate = 2500; // $25.00 per hour in cents - fallback rate
     return {
       shift_id: shiftId,
       total_hours: totalHours,
       total_amount: Math.round(totalHours * fallbackRate),
       date,
-      day_type: dayType,
+      day_type: rateType,
       shift_type: shiftType,
       billing: [
         {
@@ -184,42 +233,46 @@ export async function calculateShiftBilling(
     };
   }
   
-  // Apply tiered billing
-  const billingTiers: BillingTier[] = [];
-  let remainingHours = totalHours;
-  let totalAmount = 0;
-  
-  for (let i = 0; i < tiers.length; i++) {
-    if (remainingHours <= 0) break;
-    
-    const tier = tiers[i];
-    const tierHours = tier.hoursInTier ? Math.min(remainingHours, parseFloat(tier.hoursInTier)) : remainingHours;
-    const subtotal = Math.round(tierHours * tier.ratePerHour);
-    
-    billingTiers.push({
-      tier: tier.tierOrder,
-      rate: tier.ratePerHour,
-      hours: tierHours,
-      subtotal
-    });
-    
-    totalAmount += subtotal;
-    remainingHours -= tierHours;
-    
-    // If this tier has no hour limit (hoursInTier is null), it handles all remaining hours
-    if (!tier.hoursInTier) {
+  // Get the appropriate rate based on rate type
+  let hourlyRate: number;
+  switch (rateType) {
+    case 'weekday':
+      hourlyRate = employeeRates.weekdayRate;
       break;
-    }
+    case 'weeknight':
+      hourlyRate = employeeRates.weeknightRate;
+      break;
+    case 'saturday':
+      hourlyRate = employeeRates.saturdayRate;
+      break;
+    case 'sunday':
+      hourlyRate = employeeRates.sundayRate;
+      break;
+    case 'publicHoliday':
+      hourlyRate = employeeRates.publicHolidayRate;
+      break;
+    default:
+      hourlyRate = employeeRates.weekdayRate; // fallback to weekday rate
   }
+  
+  // Calculate simple hourly billing (no tiers for employee rates)
+  const totalAmount = Math.round(totalHours * hourlyRate);
   
   return {
     shift_id: shiftId,
     total_hours: totalHours,
     total_amount: totalAmount,
     date,
-    day_type: dayType,
+    day_type: rateType,
     shift_type: shiftType,
-    billing: billingTiers
+    billing: [
+      {
+        tier: 1,
+        rate: hourlyRate,
+        hours: totalHours,
+        subtotal: totalAmount
+      }
+    ]
   };
 }
 
@@ -235,12 +288,12 @@ export function formatCurrency(amountInCents: number, currency: string = "AUD"):
 }
 
 /**
- * Batch calculate billing for multiple shifts
+ * Batch calculate billing for multiple shifts using employee rates
  */
 export async function calculateMultipleShiftsBilling(
   shifts: Array<{
     id: string | number;
-    companyId: number;
+    userId: number;
     date: string;
     startTime: string;
     endTime: string;
@@ -251,7 +304,7 @@ export async function calculateMultipleShiftsBilling(
     shifts.map(shift => 
       calculateShiftBilling(
         shift.id,
-        shift.companyId,
+        shift.userId,
         shift.date,
         shift.startTime,
         shift.endTime,
