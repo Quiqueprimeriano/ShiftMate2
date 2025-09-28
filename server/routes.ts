@@ -777,14 +777,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const companyId = user.companyId || 1; // fallback for individual users
       
-      // Use raw query since we don't have rate tier methods in storage yet
-      const result = await storage.executeRawQuery(`
-        SELECT * FROM shiftmate_rate_tiers 
-        WHERE company_id = ${companyId} 
-        ORDER BY shift_type, day_type, tier_order
-      `);
+      const rateTiers = await storage.getRateTiersByCompany(companyId);
       
-      res.json(result.rows);
+      res.json(rateTiers);
     } catch (error) {
       console.error("Error fetching rate tiers:", error);
       res.status(500).json({ message: "Failed to fetch rate tiers" });
@@ -808,14 +803,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyId: user.companyId || 1
       });
       
-      const result = await storage.executeRawQuery(`
-        INSERT INTO shiftmate_rate_tiers 
-        (company_id, shift_type, tier_order, hours_in_tier, rate_per_hour, day_type, currency, valid_from, valid_to)
-        VALUES (${rateTierData.companyId}, '${rateTierData.shiftType}', ${rateTierData.tierOrder}, ${rateTierData.hoursInTier}, ${rateTierData.ratePerHour}, '${rateTierData.dayType}', '${rateTierData.currency}', '${rateTierData.validFrom}', '${rateTierData.validTo}')
-        RETURNING *
-      `);
+      const result = await storage.createRateTier(rateTierData);
       
-      res.status(201).json(result.rows[0]);
+      res.status(201).json(result);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid rate tier data", errors: error.errors });
@@ -827,12 +817,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/public-holidays", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
-      const result = await storage.executeRawQuery(`
-        SELECT * FROM shiftmate_public_holidays 
-        ORDER BY date ASC
-      `);
+      const holidays = await storage.getAllPublicHolidays();
       
-      res.json(result.rows);
+      res.json(holidays);
     } catch (error) {
       console.error("Error fetching public holidays:", error);
       res.status(500).json({ message: "Failed to fetch public holidays" });
@@ -853,13 +840,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const holidayData = insertPublicHolidaySchema.parse(req.body);
       
-      const result = await storage.executeRawQuery(`
-        INSERT INTO shiftmate_public_holidays (date, description)
-        VALUES ('${holidayData.date}', '${holidayData.description}')
-        RETURNING *
-      `);
+      const result = await storage.createPublicHoliday(holidayData);
       
-      res.status(201).json(result.rows[0]);
+      res.status(201).json(result);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid holiday data", errors: error.errors });

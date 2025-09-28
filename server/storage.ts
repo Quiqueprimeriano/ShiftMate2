@@ -7,6 +7,8 @@ import {
   notifications,
   companies,
   refreshTokens,
+  rateTiers,
+  publicHolidays,
   type User, 
   type InsertUser, 
   type Shift, 
@@ -16,7 +18,11 @@ import {
   type Company,
   type InsertCompany,
   type RefreshToken,
-  type InsertRefreshToken
+  type InsertRefreshToken,
+  type RateTier,
+  type InsertRateTier,
+  type PublicHoliday,
+  type InsertPublicHoliday
 } from "@shared/schema";
 
 const connectionString = process.env.DATABASE_URL;
