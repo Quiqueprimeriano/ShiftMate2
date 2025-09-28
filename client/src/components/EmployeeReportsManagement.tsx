@@ -521,6 +521,101 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
             </CardContent>
           </Card>
 
+          {/* Preview Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Invoice Preview
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Summary of daily hours, rates, and totals before generating the detailed invoice.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-200 rounded-lg">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold">Date</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Hours</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Rate Type</th>
+                      <th className="border border-gray-200 px-4 py-3 text-right font-semibold">Daily Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      // Group shifts by date
+                      const dailySummary = reportData.shifts.reduce((acc, shift) => {
+                        const date = shift.date;
+                        if (!acc[date]) {
+                          acc[date] = {
+                            date,
+                            totalHours: 0,
+                            totalAmount: 0,
+                            rateTypes: new Set(),
+                            shifts: []
+                          };
+                        }
+                        acc[date].totalHours += shift.total_hours;
+                        acc[date].totalAmount += shift.total_amount;
+                        acc[date].rateTypes.add(shift.day_type);
+                        acc[date].shifts.push(shift);
+                        return acc;
+                      }, {} as Record<string, any>);
+
+                      return Object.values(dailySummary).map((day: any) => (
+                        <tr key={day.date} className="hover:bg-gray-50">
+                          <td className="border border-gray-200 px-4 py-3">
+                            <div className="font-medium">
+                              {format(new Date(day.date), 'EEEE, MMM dd, yyyy')}
+                            </div>
+                          </td>
+                          <td className="border border-gray-200 px-4 py-3 text-center">
+                            <span className="font-semibold text-blue-600">
+                              {day.totalHours.toFixed(1)}h
+                            </span>
+                          </td>
+                          <td className="border border-gray-200 px-4 py-3 text-center">
+                            <div className="flex flex-wrap gap-1 justify-center">
+                              {Array.from(day.rateTypes).map((rateType: string) => (
+                                <Badge 
+                                  key={rateType} 
+                                  className={`${getRateTypeBadgeColor(rateType)} text-xs`}
+                                >
+                                  {formatRateType(rateType)}
+                                </Badge>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="border border-gray-200 px-4 py-3 text-right">
+                            <span className="font-bold text-green-600 text-lg">
+                              {formatCurrency(day.totalAmount)}
+                            </span>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-green-50 border-t-2 border-green-200">
+                      <td className="border border-gray-200 px-4 py-3 font-bold">TOTAL</td>
+                      <td className="border border-gray-200 px-4 py-3 text-center font-bold text-blue-600">
+                        {reportData.summary.totalHours.toFixed(1)}h
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center">
+                        <span className="text-sm text-gray-600">All Types</span>
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-right font-bold text-green-600 text-xl">
+                        {formatCurrency(reportData.summary.totalAmount)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Detailed Shift List */}
           <Card>
             <CardHeader>
