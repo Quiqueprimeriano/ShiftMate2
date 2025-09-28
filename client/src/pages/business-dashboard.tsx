@@ -17,6 +17,7 @@ import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShif
 import { useSendRosterEmail, useSendAllRosterEmails } from "@/hooks/use-email";
 import { BillingManagement } from "@/components/BillingManagement";
 import { EmployeeRatesManagement } from "@/components/EmployeeRatesManagement";
+import { EmployeeReportsManagement } from "@/components/EmployeeReportsManagement";
 import { getDateRange, formatDuration } from "@/lib/time-utils";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, subDays, parseISO } from "date-fns";
 import type { User } from "@shared/schema";
@@ -2039,13 +2040,18 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
 
         <TabsContent value="billing" className="space-y-6">
           <Tabs defaultValue="employee-rates" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="employee-rates" data-testid="tab-employee-rates">Employee Rates</TabsTrigger>
+              <TabsTrigger value="employee-reports" data-testid="tab-employee-reports">Employee Reports</TabsTrigger>
               <TabsTrigger value="legacy-tiers" data-testid="tab-legacy-tiers">Legacy Rate Tiers</TabsTrigger>
             </TabsList>
             
             <TabsContent value="employee-rates">
               <EmployeeRatesManagement companyId={businessUser?.companyId || 1} />
+            </TabsContent>
+            
+            <TabsContent value="employee-reports">
+              <EmployeeReportsManagement companyId={businessUser?.companyId || 1} />
             </TabsContent>
             
             <TabsContent value="legacy-tiers">
