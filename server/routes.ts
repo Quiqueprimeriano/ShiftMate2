@@ -768,6 +768,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Employee billing report endpoint for managers
+  app.get("/api/billing/employee-report", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const { employeeId, startDate, endDate } = req.query;
+      
+      if (!employeeId || !startDate || !endDate) {
+        return res.status(400).json({ message: "employeeId, startDate and endDate are required" });
+      }
+      
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Only business users, managers and business owners can generate employee reports
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+      
+      // Get employee details
+      const employee = await storage.getUser(parseInt(employeeId));
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      
+      // Verify employee belongs to same company
+      if (employee.companyId !== user.companyId) {
+        return res.status(403).json({ message: "Access denied to employee in different company" });
+      }
+      
+      // Get employee shifts for date range
+      const shifts = await storage.getShiftsByUserAndDateRange(parseInt(employeeId), startDate, endDate);
+      
+      if (shifts.length === 0) {
+        return res.json({
+          employee: {
+            id: employee.id,
+            name: employee.name,
+            email: employee.email
+          },
+          period: { startDate, endDate },
+          shifts: [],
+          summary: {
+            totalHours: 0,
+            weekdayHours: 0,
+            weeknightHours: 0,
+            saturdayHours: 0,
+            sundayHours: 0,
+            publicHolidayHours: 0,
+            totalAmount: 0,
+            weekdayAmount: 0,
+            weeknightAmount: 0,
+            saturdayAmount: 0,
+            sundayAmount: 0,
+            publicHolidayAmount: 0
+          }
+        });
+      }
+      
+      // Calculate detailed billing for each shift
+      const billingData = await calculateMultipleShiftsBilling(
+        shifts.map(shift => ({
+          id: shift.id,
+          userId: shift.userId,
+          date: shift.date,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          shiftType: shift.shiftType
+        }))
+      );
+      
+      // Calculate summary by rate type
+      let summary = {
+        totalHours: 0,
+        weekdayHours: 0,
+        weeknightHours: 0,
+        saturdayHours: 0,
+        sundayHours: 0,
+        publicHolidayHours: 0,
+        totalAmount: 0,
+        weekdayAmount: 0,
+        weeknightAmount: 0,
+        saturdayAmount: 0,
+        sundayAmount: 0,
+        publicHolidayAmount: 0
+      };
+      
+      billingData.forEach(billing => {
+        summary.totalHours += billing.total_hours;
+        summary.totalAmount += billing.total_amount;
+        
+        // Add to specific rate type totals
+        switch (billing.day_type) {
+          case 'weekday':
+            summary.weekdayHours += billing.total_hours;
+            summary.weekdayAmount += billing.total_amount;
+            break;
+          case 'weeknight':
+            summary.weeknightHours += billing.total_hours;
+            summary.weeknightAmount += billing.total_amount;
+            break;
+          case 'saturday':
+            summary.saturdayHours += billing.total_hours;
+            summary.saturdayAmount += billing.total_amount;
+            break;
+          case 'sunday':
+            summary.sundayHours += billing.total_hours;
+            summary.sundayAmount += billing.total_amount;
+            break;
+          case 'publicHoliday':
+            summary.publicHolidayHours += billing.total_hours;
+            summary.publicHolidayAmount += billing.total_amount;
+            break;
+        }
+      });
+      
+      res.json({
+        employee: {
+          id: employee.id,
+          name: employee.name,
+          email: employee.email
+        },
+        period: { startDate, endDate },
+        shifts: billingData,
+        summary
+      });
+    } catch (error) {
+      console.error("Error generating employee billing report:", error);
+      res.status(500).json({ message: "Failed to generate employee billing report" });
+    }
+  });
+
   app.get("/api/rate-tiers", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.userId);
