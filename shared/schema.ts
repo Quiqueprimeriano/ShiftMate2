@@ -101,6 +101,23 @@ export const publicHolidays = pgTable("shiftmate_public_holidays", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Employee-specific rates for the 5 rate types
+export const employeeRates = pgTable("shiftmate_employee_rates", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  weekdayRate: integer("weekday_rate").notNull(), // in cents (e.g. 2500 = $25.00)
+  weeknightRate: integer("weeknight_rate").notNull(), // in cents
+  saturdayRate: integer("saturday_rate").notNull(), // in cents
+  sundayRate: integer("sunday_rate").notNull(), // in cents
+  publicHolidayRate: integer("public_holiday_rate").notNull(), // in cents
+  currency: text("currency").default("AUD"),
+  validFrom: date("valid_from"),
+  validTo: date("valid_to"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertCompanySchema = createInsertSchema(companies).omit({
   id: true,
   createdAt: true,
@@ -138,6 +155,12 @@ export const insertPublicHolidaySchema = createInsertSchema(publicHolidays).omit
   createdAt: true,
 });
 
+export const insertEmployeeRateSchema = createInsertSchema(employeeRates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -152,3 +175,5 @@ export type InsertRateTier = z.infer<typeof insertRateTierSchema>;
 export type RateTier = typeof rateTiers.$inferSelect;
 export type InsertPublicHoliday = z.infer<typeof insertPublicHolidaySchema>;
 export type PublicHoliday = typeof publicHolidays.$inferSelect;
+export type InsertEmployeeRate = z.infer<typeof insertEmployeeRateSchema>;
+export type EmployeeRate = typeof employeeRates.$inferSelect;
