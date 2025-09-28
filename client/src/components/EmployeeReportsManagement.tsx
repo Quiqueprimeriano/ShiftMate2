@@ -540,6 +540,7 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                       <th className="border border-gray-200 px-4 py-3 text-left font-semibold">Date</th>
                       <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Hours</th>
                       <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Rate Type</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Rates</th>
                       <th className="border border-gray-200 px-4 py-3 text-right font-semibold">Daily Total</th>
                     </tr>
                   </thead>
@@ -553,13 +554,22 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                             date,
                             totalHours: 0,
                             totalAmount: 0,
-                            rateTypes: new Set(),
+                            rateTypes: new Set<string>(),
+                            rates: new Map<string, number>(),
                             shifts: []
                           };
                         }
                         acc[date].totalHours += shift.total_hours;
                         acc[date].totalAmount += shift.total_amount;
                         acc[date].rateTypes.add(shift.day_type);
+                        
+                        // Extract rate from billing data
+                        if (shift.billing && shift.billing.length > 0) {
+                          shift.billing.forEach(billing => {
+                            acc[date].rates.set(shift.day_type, billing.rate);
+                          });
+                        }
+                        
                         acc[date].shifts.push(shift);
                         return acc;
                       }, {} as Record<string, any>);
@@ -578,13 +588,27 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-center">
                             <div className="flex flex-wrap gap-1 justify-center">
-                              {Array.from(day.rateTypes).map((rateType: string) => (
+                              {Array.from(day.rateTypes as Set<string>).map((rateType: string) => (
                                 <Badge 
                                   key={rateType} 
                                   className={`${getRateTypeBadgeColor(rateType)} text-xs`}
                                 >
                                   {formatRateType(rateType)}
                                 </Badge>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="border border-gray-200 px-4 py-3 text-center">
+                            <div className="flex flex-col gap-1">
+                              {Array.from(day.rates as Map<string, number>).map(([rateType, rate]) => (
+                                <div key={rateType} className="text-sm">
+                                  <span className="font-medium text-gray-700">
+                                    {formatCurrency(rate)}/hr
+                                  </span>
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    ({formatRateType(rateType)})
+                                  </span>
+                                </div>
                               ))}
                             </div>
                           </td>
@@ -605,6 +629,9 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                       </td>
                       <td className="border border-gray-200 px-4 py-3 text-center">
                         <span className="text-sm text-gray-600">All Types</span>
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center">
+                        <span className="text-sm text-gray-600">Various</span>
                       </td>
                       <td className="border border-gray-200 px-4 py-3 text-right font-bold text-green-600 text-xl">
                         {formatCurrency(reportData.summary.totalAmount)}
