@@ -224,126 +224,213 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Billing Report - ${reportData.employee.name}</title>
+        <title>Invoice - ${reportData.employee.name}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-          .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-          .employee-info { margin-bottom: 20px; }
-          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-          .summary-item { text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px; }
-          .summary-item .value { font-size: 24px; font-weight: bold; color: #2563eb; }
-          .summary-item .label { font-size: 12px; color: #666; margin-top: 5px; }
-          .rate-breakdown { margin-bottom: 30px; }
-          .rate-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px; }
-          .rate-item { text-align: center; padding: 10px; background: #f1f5f9; border-radius: 6px; }
-          .rate-item .hours { font-size: 16px; font-weight: 600; }
-          .rate-item .amount { font-size: 14px; color: #059669; font-weight: 500; }
-          .shifts-section { margin-top: 30px; }
-          .shift-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-          .shift-header { display: flex; justify-content: between; align-items: center; margin-bottom: 10px; }
-          .shift-meta { display: flex; gap: 15px; align-items: center; }
-          .shift-amount { text-align: right; }
-          .shift-amount .total { font-size: 18px; font-weight: bold; color: #059669; }
-          .shift-amount .hours { font-size: 12px; color: #666; }
-          .rate-calc { background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px; }
-          .rate-calc-title { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px; }
-          .rate-calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-          .rate-calc-item { font-size: 11px; display: flex; justify-content: space-between; }
-          .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-          .badge-weekday { background: #dbeafe; color: #1d4ed8; }
-          .badge-weeknight { background: #ede9fe; color: #7c3aed; }
-          .badge-saturday { background: #dcfce7; color: #16a34a; }
-          .badge-sunday { background: #fed7aa; color: #ea580c; }
-          .badge-publicHoliday { background: #fee2e2; color: #dc2626; }
+          * { box-sizing: border-box; }
+          body { 
+            font-family: 'Courier New', monospace; 
+            margin: 0; 
+            padding: 40px; 
+            color: #000; 
+            background: white;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          .invoice-container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white;
+            padding: 40px;
+            border: 2px solid #000;
+          }
+          .invoice-title { 
+            text-align: center; 
+            font-size: 28px; 
+            font-weight: bold; 
+            margin-bottom: 40px;
+            letter-spacing: 3px;
+          }
+          .billing-header { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 40px; 
+            margin-bottom: 40px; 
+          }
+          .billing-to h3 { 
+            font-weight: bold; 
+            margin: 0 0 10px 0; 
+            font-size: 14px;
+          }
+          .billing-to div { 
+            margin-bottom: 5px; 
+          }
+          .invoice-details { 
+            text-align: right; 
+          }
+          .invoice-details div { 
+            margin-bottom: 5px; 
+          }
+          .items-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 40px 0; 
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+          }
+          .items-table th { 
+            text-align: left; 
+            padding: 15px 10px; 
+            font-weight: bold; 
+            border-bottom: 1px solid #000;
+          }
+          .items-table th:nth-child(2) { 
+            text-align: right; 
+            width: 120px; 
+          }
+          .items-table th:nth-child(3) { 
+            text-align: right; 
+            width: 120px; 
+          }
+          .items-table td { 
+            padding: 20px 10px; 
+            vertical-align: top; 
+          }
+          .items-table td:nth-child(2) { 
+            text-align: right; 
+          }
+          .items-table td:nth-child(3) { 
+            text-align: right; 
+            font-weight: bold; 
+          }
+          .item-description { 
+            font-weight: bold; 
+            margin-bottom: 8px; 
+          }
+          .item-period { 
+            color: #666; 
+            font-size: 11px; 
+          }
+          .totals-section { 
+            margin: 40px 0; 
+          }
+          .totals-row { 
+            display: grid; 
+            grid-template-columns: 1fr auto; 
+            gap: 20px; 
+            margin-bottom: 10px; 
+            padding: 8px 0; 
+          }
+          .totals-row:last-child { 
+            border-top: 2px solid #000; 
+            padding-top: 15px; 
+            font-weight: bold; 
+            font-size: 16px; 
+          }
+          .payment-info { 
+            margin-top: 50px; 
+            padding-top: 30px; 
+            border-top: 2px solid #000; 
+          }
+          .payment-info h3 { 
+            font-weight: bold; 
+            margin: 0 0 20px 0; 
+            font-size: 14px;
+          }
+          .payment-details { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 40px; 
+          }
+          .payment-left div, .payment-right div { 
+            margin-bottom: 8px; 
+          }
+          .payment-right { 
+            text-align: right; 
+          }
+          .employee-name { 
+            font-weight: bold; 
+          }
           @media print {
-            body { margin: 0; }
+            body { padding: 20px; }
             .no-print { display: none; }
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h1>Employee Billing Report</h1>
-          <div class="employee-info">
-            <h2>${reportData.employee.name}</h2>
-            <p>${reportData.employee.email}</p>
-            <p><strong>Period:</strong> ${formatDateRange(reportData.period.startDate, reportData.period.endDate)}</p>
-          </div>
-        </div>
-        
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="value">${reportData.shifts.length}</div>
-            <div class="label">Total Shifts</div>
-          </div>
-          <div class="summary-item">
-            <div class="value">${reportData.summary.totalHours.toFixed(1)}</div>
-            <div class="label">Total Hours</div>
-          </div>
-          <div class="summary-item">
-            <div class="value">${formatCurrency(reportData.summary.totalAmount)}</div>
-            <div class="label">Total Amount</div>
-          </div>
-          <div class="summary-item">
-            <div class="value">${reportData.summary.totalHours > 0 ? formatCurrency(reportData.summary.totalAmount / reportData.summary.totalHours * 100) : '$0.00'}</div>
-            <div class="label">Avg Rate/Hour</div>
-          </div>
-        </div>
-
-        <div class="rate-breakdown">
-          <h3>Rate Type Breakdown</h3>
-          <div class="rate-grid">
-            ${[
-              { type: 'weekday', label: 'Weekday', hours: reportData.summary.weekdayHours, amount: reportData.summary.weekdayAmount },
-              { type: 'weeknight', label: 'Weeknight', hours: reportData.summary.weeknightHours, amount: reportData.summary.weeknightAmount },
-              { type: 'saturday', label: 'Saturday', hours: reportData.summary.saturdayHours, amount: reportData.summary.saturdayAmount },
-              { type: 'sunday', label: 'Sunday', hours: reportData.summary.sundayHours, amount: reportData.summary.sundayAmount },
-              { type: 'publicHoliday', label: 'Public Holiday', hours: reportData.summary.publicHolidayHours, amount: reportData.summary.publicHolidayAmount },
-            ].filter(item => item.hours > 0).map(item => `
-              <div class="rate-item">
-                <div class="badge badge-${item.type}">${item.label}</div>
-                <div class="hours">${item.hours.toFixed(1)}h</div>
-                <div class="amount">${formatCurrency(item.amount)}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <div class="shifts-section">
-          <h3>Detailed Shift Breakdown</h3>
-          ${reportData.shifts.map((shift, index) => `
-            <div class="shift-item">
-              <div class="shift-header">
-                <div class="shift-meta">
-                  <span><strong>Shift #${index + 1}</strong></span>
-                  <span class="badge badge-${shift.day_type}">${formatRateType(shift.day_type)}</span>
-                  <span>${format(new Date(shift.date), 'MMM dd, yyyy')}</span>
-                </div>
-                <div class="shift-amount">
-                  <div class="total">${formatCurrency(shift.total_amount)}</div>
-                  <div class="hours">${shift.total_hours.toFixed(1)} hours</div>
-                </div>
-              </div>
-              ${shift.billing.length > 0 ? `
-                <div class="rate-calc">
-                  <div class="rate-calc-title">Rate Calculation</div>
-                  <div class="rate-calc-grid">
-                    ${shift.billing.map(tier => `
-                      <div class="rate-calc-item">
-                        <span>${tier.hours.toFixed(1)}h × ${formatCurrency(tier.rate)}/h</span>
-                        <span><strong>${formatCurrency(tier.subtotal)}</strong></span>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
-              ` : ''}
+        <div class="invoice-container">
+          <div class="invoice-title">INVOICE</div>
+          
+          <div class="billing-header">
+            <div class="billing-to">
+              <h3>BILLED TO:</h3>
+              <div class="employee-name">[OWNERS NAME]</div>
+              <div>[ADDRESS FROM OWNER]</div>
             </div>
-          `).join('')}
-        </div>
-
-        <div class="no-print" style="margin-top: 30px; text-align: center;">
-          <button onclick="window.print()">Print Report</button>
-          <button onclick="window.close()" style="margin-left: 10px;">Close</button>
+            <div class="invoice-details">
+              <div>Invoice No. ${reportData.employee.id.toString().padStart(3, '0')}</div>
+              <div>${format(new Date(), 'MMMM dd, yyyy').toUpperCase()}</div>
+            </div>
+          </div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="item-description">Support hours for ${reportData.employee.name} -</div>
+                  <div class="item-period">${formatDateRange(reportData.period.startDate, reportData.period.endDate)}</div>
+                </td>
+                <td>
+                  ${reportData.summary.totalHours > 0 
+                    ? formatCurrency(Math.round(reportData.summary.totalAmount / reportData.summary.totalHours * 100))
+                    : formatCurrency(0)
+                  }/hr
+                </td>
+                <td>${formatCurrency(reportData.summary.totalAmount)}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="totals-section">
+            <div class="totals-row">
+              <div>Subtotal</div>
+              <div>${formatCurrency(reportData.summary.totalAmount)}</div>
+            </div>
+            <div class="totals-row">
+              <div>GST (0%)</div>
+              <div>$0</div>
+            </div>
+            <div class="totals-row">
+              <div>Total</div>
+              <div>${formatCurrency(reportData.summary.totalAmount)}</div>
+            </div>
+          </div>
+          
+          <div class="payment-info">
+            <h3>PAYMENT INFORMATION</h3>
+            <div class="payment-details">
+              <div class="payment-left">
+                <div>Account Name: ${reportData.employee.name}</div>
+                <div>Account No: [EMPLOYEE NUMBER]</div>
+                <div>BSB: [EMPLOYEE BSB]</div>
+              </div>
+              <div class="payment-right">
+                <div class="employee-name">${reportData.employee.name}</div>
+                <div>[EMPLOYEE ADDRESS]</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="no-print" style="margin-top: 40px; text-align: center;">
+            <button onclick="window.print()" style="padding: 10px 20px; margin-right: 10px; font-size: 14px;">Print Invoice</button>
+            <button onclick="window.close()" style="padding: 10px 20px; font-size: 14px;">Close</button>
+          </div>
         </div>
       </body>
       </html>
@@ -356,7 +443,7 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
     setTimeout(() => {
       printWindow.print();
       toast({
-        title: "PDF Export Ready",
+        title: "Professional Invoice Ready",
         description: "Use your browser's print dialog to save as PDF",
       });
     }, 500);
@@ -573,8 +660,8 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                         }
                         
                         // Add time range for this shift
-                        if (shift.start_time && shift.end_time) {
-                          acc[date].times.push(`${shift.start_time} - ${shift.end_time}`);
+                        if ((shift as any).start_time && (shift as any).end_time) {
+                          acc[date].times.push(`${(shift as any).start_time} - ${(shift as any).end_time}`);
                         }
                         
                         acc[date].shifts.push(shift);
