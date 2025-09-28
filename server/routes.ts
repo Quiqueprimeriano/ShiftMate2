@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate tokens
-      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+      const accessToken = await AuthUtils.generateAccessToken(user.id, user.email);
       const refreshToken = AuthUtils.generateRefreshToken();
 
       // Store refresh token
@@ -918,8 +918,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Only managers and business owners can create employee rates
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      // Only business users and managers can create employee rates
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager access required" });
       }
       
@@ -948,8 +948,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Only managers and business owners can update employee rates
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      // Only business users and managers can update employee rates
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager access required" });
       }
       

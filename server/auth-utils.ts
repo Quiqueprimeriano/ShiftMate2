@@ -8,6 +8,8 @@ const JWT_ISSUER = 'shiftmate-app';
 export interface JWTPayload {
   userId: number;
   email: string;
+  userType?: string;
+  role?: string;
   iat: number;
   exp: number;
   iss: string;
@@ -20,11 +22,16 @@ export interface RefreshTokenData {
 
 export class AuthUtils {
   // Generate access token (short-lived: 15 minutes)
-  static generateAccessToken(userId: number, email: string): string {
+  static async generateAccessToken(userId: number, email: string): Promise<string> {
+    // Fetch user details to include userType and role in token
+    const user = await storage.getUser(userId);
+    
     return jwt.sign(
       {
         userId,
         email,
+        userType: user?.userType,
+        role: user?.role,
         iss: JWT_ISSUER
       },
       JWT_SECRET,
@@ -94,7 +101,7 @@ export class AuthUtils {
       await storage.revokeRefreshToken(refreshToken);
 
       // Generate new tokens
-      const newAccessToken = this.generateAccessToken(user.id, user.email);
+      const newAccessToken = await this.generateAccessToken(user.id, user.email);
       const newRefreshToken = this.generateRefreshToken();
 
       // Determine if it was a "remember me" session (based on original expiry)

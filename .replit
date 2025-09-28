@@ -43,5 +43,9 @@ externalPort = 3001
 localPort = 43733
 externalPort = 3000
 
+[[ports]]
+localPort = 44591
+externalPort = 3002
+
 [agent]
 integrations = ["javascript_supabase:1.0.0", "javascript_websocket:1.0.0", "javascript_sendgrid:1.0.0"]
