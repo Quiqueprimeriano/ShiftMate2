@@ -862,8 +862,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Only managers and business owners can view employee rates
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      // Only business users, managers and business owners can view employee rates
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager access required" });
       }
       
@@ -889,8 +889,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Only managers and business owners can view employee rates
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      // Only business users, managers and business owners can view employee rates
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager access required" });
       }
       
