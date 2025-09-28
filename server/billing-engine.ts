@@ -43,8 +43,8 @@ export interface ShiftBilling {
   date: string;
   day_type: string;
   shift_type: string;
-  start_time: string;
-  end_time: string;
+  start_time?: string;
+  end_time?: string;
   billing: BillingTier[];
 }
 

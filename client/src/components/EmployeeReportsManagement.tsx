@@ -662,13 +662,13 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
             </CardContent>
           </Card>
 
-          {/* Detailed Shift List */}
+          {/* Professional Invoice */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Invoice Breakdown
+                  <FileText className="h-5 w-5" />
+                  Professional Invoice
                 </CardTitle>
                 <div className="flex gap-2">
                   <Button 
@@ -693,105 +693,89 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {reportData.shifts.map((shift, index) => (
-                  <div key={shift.shift_id} className="bg-white border-2 border-gray-100 rounded-lg p-6 shadow-sm">
-                    {/* Shift Header */}
-                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-blue-50 rounded-full px-3 py-1">
-                          <span className="text-sm font-semibold text-blue-700">
-                            Shift #{index + 1}
-                          </span>
-                        </div>
-                        <Badge className={`${getRateTypeBadgeColor(shift.day_type)} text-sm px-3 py-1`}>
-                          {formatRateType(shift.day_type)}
-                        </Badge>
-                        <div className="text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded">
-                          📅 {format(new Date(shift.date), 'EEEE, MMM dd, yyyy')}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-green-600">
-                          {formatCurrency(shift.total_amount)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          ⏱️ {shift.total_hours.toFixed(1)} hours worked
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Rate Calculation Details */}
-                    {shift.billing.length > 0 && (
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                          💰 Payment Calculation
-                        </h4>
-                        <div className="space-y-3">
-                          {shift.billing.map((tier, tierIndex) => (
-                            <div key={tierIndex} className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-100">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <span className="text-xs font-bold text-blue-600">{tierIndex + 1}</span>
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-800">
-                                    {tier.hours.toFixed(1)} hours × {formatCurrency(tier.rate)}/hour
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {formatRateType(shift.day_type)} rate applied
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-lg font-bold text-green-600">
-                                  {formatCurrency(tier.subtotal)}
-                                </div>
-                                <div className="text-xs text-gray-500">subtotal</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Total for this shift */}
-                        <div className="mt-4 pt-3 border-t border-gray-200">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-600">Shift Total:</span>
-                            <span className="text-xl font-bold text-green-600">
-                              {formatCurrency(shift.total_amount)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="bg-white p-8 border border-gray-200 rounded-lg font-mono text-sm space-y-6">
+                {/* Invoice Header */}
+                <div className="text-center text-2xl font-bold mb-8">
+                  INVOICE
+                </div>
                 
-                {/* Grand Total Section */}
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 rounded-lg p-6 mt-6">
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                      📋 Invoice Summary
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {reportData.shifts.length}
-                        </div>
-                        <div className="text-sm text-gray-600">Total Shifts</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {reportData.summary.totalHours.toFixed(1)}
-                        </div>
-                        <div className="text-sm text-gray-600">Total Hours</div>
-                      </div>
+                {/* Billing Information */}
+                <div className="grid grid-cols-2 gap-8 mb-8">
+                  <div>
+                    <div className="font-bold mb-2">BILLED TO:</div>
+                    <div className="space-y-1">
+                      <div className="font-semibold">[OWNERS NAME]</div>
+                      <div>[ADDRESS FROM OWNER]</div>
                     </div>
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="text-sm text-gray-600 mb-1">Total Amount Due</div>
-                      <div className="text-4xl font-bold text-green-600">
-                        {formatCurrency(reportData.summary.totalAmount)}
-                      </div>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <div>Invoice No. {reportData.employee.id.toString().padStart(3, '0')}</div>
+                    <div>{format(new Date(), 'MMMM dd, yyyy').toUpperCase()}</div>
+                  </div>
+                </div>
+                
+                {/* Invoice Items */}
+                <div className="border-t border-b border-gray-300 py-4">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2">Item</th>
+                        <th className="text-right py-2 w-32">Unit Price</th>
+                        <th className="text-right py-2 w-32">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="py-4 pr-4">
+                          <div>Support hours for {reportData.employee.name} -</div>
+                          <div className="text-gray-600 mt-1">
+                            {formatDateRange(reportData.period.startDate, reportData.period.endDate)}
+                          </div>
+                        </td>
+                        <td className="text-right py-4">
+                          {reportData.summary.totalHours > 0 
+                            ? formatCurrency(Math.round(reportData.summary.totalAmount / reportData.summary.totalHours * 100))
+                            : formatCurrency(0)
+                          }/hr
+                        </td>
+                        <td className="text-right py-4 font-semibold">
+                          {formatCurrency(reportData.summary.totalAmount)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Totals Section */}
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span className="font-semibold">{formatCurrency(reportData.summary.totalAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>GST (0%)</span>
+                    <span className="font-semibold">$0</span>
+                  </div>
+                  <div className="border-t border-gray-300 pt-3">
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total</span>
+                      <span>{formatCurrency(reportData.summary.totalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Payment Information */}
+                <div className="mt-8 pt-6 border-t border-gray-300">
+                  <div className="font-bold mb-4">PAYMENT INFORMATION</div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-1">
+                      <div>Account Name: {reportData.employee.name}</div>
+                      <div>Account No: [EMPLOYEE NUMBER]</div>
+                      <div>BSB: [EMPLOYEE BSB]</div>
+                    </div>
+                    <div className="text-right space-y-1">
+                      <div className="font-semibold">{reportData.employee.name}</div>
+                      <div>[EMPLOYEE ADDRESS]</div>
                     </div>
                   </div>
                 </div>
