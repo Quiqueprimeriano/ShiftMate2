@@ -538,6 +538,7 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="border border-gray-200 px-4 py-3 text-left font-semibold">Date</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Time</th>
                       <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Hours</th>
                       <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Rate Type</th>
                       <th className="border border-gray-200 px-4 py-3 text-center font-semibold">Rates</th>
@@ -556,6 +557,7 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                             totalAmount: 0,
                             rateTypes: new Set<string>(),
                             rates: new Map<string, number>(),
+                            times: [],
                             shifts: []
                           };
                         }
@@ -570,6 +572,11 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                           });
                         }
                         
+                        // Add time range for this shift
+                        if (shift.start_time && shift.end_time) {
+                          acc[date].times.push(`${shift.start_time} - ${shift.end_time}`);
+                        }
+                        
                         acc[date].shifts.push(shift);
                         return acc;
                       }, {} as Record<string, any>);
@@ -579,6 +586,15 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                           <td className="border border-gray-200 px-4 py-3">
                             <div className="font-medium">
                               {format(new Date(day.date), 'EEEE, MMM dd, yyyy')}
+                            </div>
+                          </td>
+                          <td className="border border-gray-200 px-4 py-3 text-center">
+                            <div className="flex flex-col gap-1">
+                              {day.times.map((timeRange: string, index: number) => (
+                                <div key={index} className="text-sm font-mono text-gray-700">
+                                  {timeRange}
+                                </div>
+                              ))}
                             </div>
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-center">
@@ -624,6 +640,9 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                   <tfoot>
                     <tr className="bg-green-50 border-t-2 border-green-200">
                       <td className="border border-gray-200 px-4 py-3 font-bold">TOTAL</td>
+                      <td className="border border-gray-200 px-4 py-3 text-center">
+                        <span className="text-sm text-gray-600">All Times</span>
+                      </td>
                       <td className="border border-gray-200 px-4 py-3 text-center font-bold text-blue-600">
                         {reportData.summary.totalHours.toFixed(1)}h
                       </td>

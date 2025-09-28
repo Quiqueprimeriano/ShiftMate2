@@ -43,6 +43,8 @@ export interface ShiftBilling {
   date: string;
   day_type: string;
   shift_type: string;
+  start_time: string;
+  end_time: string;
   billing: BillingTier[];
 }
 
@@ -265,6 +267,8 @@ export async function calculateShiftBilling(
     date,
     day_type: rateType,
     shift_type: shiftType,
+    start_time: startTime,
+    end_time: endTime,
     billing: [
       {
         tier: 1,
