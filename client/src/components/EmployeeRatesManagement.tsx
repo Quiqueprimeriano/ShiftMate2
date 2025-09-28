@@ -56,6 +56,11 @@ export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementPr
   // Fetch employee rates for all employees
   const { data: allEmployeeRates = [], isLoading: ratesLoading, refetch: refetchRates } = useQuery<EmployeeRate[]>({
     queryKey: ['/api/companies', companyId, 'employee-rates'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/companies/${companyId}/employee-rates`);
+      return response.json();
+    },
+    enabled: !!companyId,
   });
 
   // Create a map for easy lookup of rates by userId
