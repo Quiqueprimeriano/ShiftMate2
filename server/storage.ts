@@ -471,6 +471,59 @@ export class DbStorage implements IStorage {
       throw error;
     }
   }
+
+  // Rate Tier Methods
+  async getRateTiersByCompany(companyId: number): Promise<any[]> {
+    try {
+      return await db
+        .select()
+        .from(rateTiers)
+        .where(eq(rateTiers.companyId, companyId))
+        .orderBy(rateTiers.shiftType, rateTiers.dayType, rateTiers.tierOrder);
+    } catch (error) {
+      console.error('Error fetching rate tiers:', error);
+      throw error;
+    }
+  }
+
+  async createRateTier(data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(rateTiers)
+        .values(data)
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating rate tier:', error);
+      throw error;
+    }
+  }
+
+  // Public Holiday Methods
+  async getAllPublicHolidays(): Promise<any[]> {
+    try {
+      return await db
+        .select()
+        .from(publicHolidays)
+        .orderBy(publicHolidays.date);
+    } catch (error) {
+      console.error('Error fetching public holidays:', error);
+      throw error;
+    }
+  }
+
+  async createPublicHoliday(data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(publicHolidays)
+        .values(data)
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating public holiday:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DbStorage();

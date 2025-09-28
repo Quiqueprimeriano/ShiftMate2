@@ -780,9 +780,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use raw query since we don't have rate tier methods in storage yet
       const result = await storage.executeRawQuery(`
         SELECT * FROM shiftmate_rate_tiers 
-        WHERE company_id = $1 
+        WHERE company_id = ${companyId} 
         ORDER BY shift_type, day_type, tier_order
-      `, [companyId]);
+      `);
       
       res.json(result.rows);
     } catch (error) {
@@ -811,19 +811,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.executeRawQuery(`
         INSERT INTO shiftmate_rate_tiers 
         (company_id, shift_type, tier_order, hours_in_tier, rate_per_hour, day_type, currency, valid_from, valid_to)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES (${rateTierData.companyId}, '${rateTierData.shiftType}', ${rateTierData.tierOrder}, ${rateTierData.hoursInTier}, ${rateTierData.ratePerHour}, '${rateTierData.dayType}', '${rateTierData.currency}', '${rateTierData.validFrom}', '${rateTierData.validTo}')
         RETURNING *
-      `, [
-        rateTierData.companyId,
-        rateTierData.shiftType,
-        rateTierData.tierOrder,
-        rateTierData.hoursInTier,
-        rateTierData.ratePerHour,
-        rateTierData.dayType,
-        rateTierData.currency,
-        rateTierData.validFrom,
-        rateTierData.validTo
-      ]);
+      `);
       
       res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -865,9 +855,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await storage.executeRawQuery(`
         INSERT INTO shiftmate_public_holidays (date, description)
-        VALUES ($1, $2)
+        VALUES ('${holidayData.date}', '${holidayData.description}')
         RETURNING *
-      `, [holidayData.date, holidayData.description]);
+      `);
       
       res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -876,6 +866,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating public holiday:", error);
       res.status(500).json({ message: "Failed to create public holiday" });
+    }
+  });
+
+  app.post("/api/billing/preview", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Validate preview data
+      const previewSchema = z.object({
+        shiftType: z.string(),
+        date: z.string(),
+        startTime: z.string(),
+        endTime: z.string(),
+        hoursWorked: z.number().positive()
+      });
+      
+      const previewData = previewSchema.parse(req.body);
+      const companyId = user.companyId || 1; // fallback for individual users
+      
+      // Use the billing engine to calculate preview
+      const billing = await calculateShiftBilling(
+        -1, // Mock ID for preview
+        companyId,
+        previewData.date,
+        previewData.startTime,
+        previewData.endTime,
+        previewData.shiftType
+      );
+      
+      res.json(billing);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid preview data", errors: error.errors });
+      }
+      console.error("Error calculating billing preview:", error);
+      res.status(500).json({ message: "Failed to calculate billing preview" });
     }
   });
 
