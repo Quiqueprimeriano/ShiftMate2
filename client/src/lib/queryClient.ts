@@ -7,16 +7,43 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// Storage for JWT tokens
+// Storage for JWT tokens with persistence
 let accessToken: string | null = null;
 let refreshPromise: Promise<void> | null = null;
+let isInitialized = false;
+
+// Initialize token from localStorage on first access
+function initializeToken() {
+  if (!isInitialized) {
+    try {
+      const stored = localStorage.getItem('shiftmate_access_token');
+      accessToken = stored;
+      isInitialized = true;
+      console.log('Token initialized from localStorage:', accessToken ? 'token present' : 'null');
+    } catch (error) {
+      console.error('Failed to initialize token from localStorage:', error);
+      isInitialized = true;
+    }
+  }
+}
 
 export function setAccessToken(token: string | null) {
+  initializeToken();
   accessToken = token;
+  try {
+    if (token) {
+      localStorage.setItem('shiftmate_access_token', token);
+    } else {
+      localStorage.removeItem('shiftmate_access_token');
+    }
+  } catch (error) {
+    console.error('Failed to store token in localStorage:', error);
+  }
   console.log('setAccessToken called with:', token ? 'token present' : 'null');
 }
 
 export function getAccessToken(): string | null {
+  initializeToken();
   console.log('getAccessToken called, returning:', accessToken ? 'token present' : 'null');
   return accessToken;
 }
@@ -72,22 +99,31 @@ export async function apiRequest(
     });
   };
 
-  // First attempt with current token
-  const currentToken = getAccessToken();
+  // Ensure we have an access token, refresh if null
+  let currentToken = getAccessToken();
+  
+  // If no token available, try to refresh first
+  if (!currentToken) {
+    console.log('No access token available for API request, attempting refresh');
+    const refreshed = await refreshAccessToken();
+    currentToken = getAccessToken();
+    console.log('After refresh attempt, token:', currentToken ? 'present' : 'still null');
+  }
+  
   let res = await makeRequest(currentToken || undefined);
   console.log(`API Request: ${method} ${url} with token: ${currentToken ? 'present' : 'none'}`);
 
-  // If 401 and we have a token, try to refresh
-  if (res.status === 401 && currentToken) {
+  // If 401, try to refresh (whether we had a token or not)
+  if (res.status === 401) {
     console.log('401 error, attempting token refresh');
     const refreshed = await refreshAccessToken();
     const newToken = getAccessToken();
     if (refreshed && newToken) {
-      console.log('Token refreshed, retrying request');
+      console.log('Token refreshed automatically, retrying request');
       res = await makeRequest(newToken);
+    } else {
+      console.log('Token refresh failed or no new token received');
     }
-  } else if (res.status === 401) {
-    console.log('401 error but no access token available');
   }
 
   await throwIfResNotOk(res);
@@ -114,13 +150,22 @@ export const getQueryFn: <T>(options: {
       });
     };
 
-    // Ensure we have the latest access token
-    const currentToken = getAccessToken();
+    // Ensure we have the latest access token, refresh if null
+    let currentToken = getAccessToken();
+    
+    // If no token available, try to refresh first
+    if (!currentToken) {
+      console.log('No access token available, attempting refresh');
+      const refreshed = await refreshAccessToken();
+      currentToken = getAccessToken();
+      console.log('After refresh attempt, token:', currentToken ? 'present' : 'still null');
+    }
+    
     console.log(`Query Request: ${queryKey[0]} with token: ${currentToken ? 'present' : 'none'}`);
     let res = await makeRequest(currentToken || undefined);
 
-    // If 401 and we have a token, try to refresh
-    if (res.status === 401 && currentToken) {
+    // If 401, try to refresh (whether we had a token or not)
+    if (res.status === 401) {
       console.log('Query 401 error, attempting token refresh');
       const refreshed = await refreshAccessToken();
       const newToken = getAccessToken();
@@ -128,9 +173,9 @@ export const getQueryFn: <T>(options: {
         console.log('Token refreshed, retrying query');
         res = await makeRequest(newToken);
         console.log(`Retry Query Request: ${queryKey[0]} with token: ${newToken ? 'present' : 'none'}`);
+      } else {
+        console.log('Token refresh failed or no new token received');
       }
-    } else if (res.status === 401) {
-      console.log('Query 401 error but no access token available');
     }
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

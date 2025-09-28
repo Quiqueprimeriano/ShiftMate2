@@ -234,6 +234,7 @@ function Router() {
         <Route path="/" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
         <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><BusinessDashboard /></AppLayout>} />
         <Route path="/business-dashboard" component={() => <AppLayout location="/business-dashboard"><BusinessDashboard /></AppLayout>} />
+        <Route path="/billing" component={() => <AppLayout location="/billing"><BusinessDashboard defaultTab="billing" /></AppLayout>} />
         <Route path="/calendar" component={() => <AppLayout location="/calendar"><BusinessDashboard /></AppLayout>} />
         <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
         <Route path="*" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />

@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift } from "@/hooks/use-business";
 import { useSendRosterEmail, useSendAllRosterEmails } from "@/hooks/use-email";
 import { BillingManagement } from "@/components/BillingManagement";
+import { EmployeeRatesManagement } from "@/components/EmployeeRatesManagement";
 import { getDateRange, formatDuration } from "@/lib/time-utils";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, subDays, parseISO } from "date-fns";
 import type { User } from "@shared/schema";
@@ -37,7 +38,11 @@ const mockDepartmentData = [
   { name: "Management", value: 25, color: "#6366f1" },
 ];
 
-export default function BusinessDashboard() {
+interface BusinessDashboardProps {
+  defaultTab?: string;
+}
+
+export default function BusinessDashboard({ defaultTab = "overview" }: BusinessDashboardProps) {
   const { user, isLoading: userLoading } = useAuth();
   const [selectedTimeframe, setSelectedTimeframe] = useState("week");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -562,7 +567,7 @@ export default function BusinessDashboard() {
       )}
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
@@ -2033,7 +2038,20 @@ export default function BusinessDashboard() {
         </TabsContent>
 
         <TabsContent value="billing" className="space-y-6">
-          <BillingManagement companyId={businessUser?.companyId || 1} />
+          <Tabs defaultValue="employee-rates" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="employee-rates" data-testid="tab-employee-rates">Employee Rates</TabsTrigger>
+              <TabsTrigger value="legacy-tiers" data-testid="tab-legacy-tiers">Legacy Rate Tiers</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="employee-rates">
+              <EmployeeRatesManagement companyId={businessUser?.companyId || 1} />
+            </TabsContent>
+            
+            <TabsContent value="legacy-tiers">
+              <BillingManagement companyId={businessUser?.companyId || 1} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 
