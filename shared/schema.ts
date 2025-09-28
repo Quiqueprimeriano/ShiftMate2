@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, time, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, time, varchar, jsonb, index, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -77,6 +77,30 @@ export const refreshTokens = pgTable("shiftmate_refresh_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Rate tiers for tiered billing system
+export const rateTiers = pgTable("shiftmate_rate_tiers", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  shiftType: text("shift_type").notNull(), // 'Day', 'Night', 'Weekend', 'Holiday', 'Custom'
+  tierOrder: integer("tier_order").notNull(), // 1, 2, 3, etc.
+  hoursInTier: decimal("hours_in_tier", { precision: 5, scale: 2 }), // NULL for "remaining hours"
+  ratePerHour: integer("rate_per_hour").notNull(), // in cents (e.g. 5000 = $50.00)
+  dayType: text("day_type").notNull(), // 'weekday', 'saturday', 'sunday', 'holiday'
+  currency: text("currency").default("AUD"),
+  validFrom: date("valid_from"),
+  validTo: date("valid_to"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Public holidays for holiday rate calculations
+export const publicHolidays = pgTable("shiftmate_public_holidays", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull().unique(),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertCompanySchema = createInsertSchema(companies).omit({
   id: true,
   createdAt: true,
@@ -103,6 +127,17 @@ export const insertRefreshTokenSchema = createInsertSchema(refreshTokens).omit({
   createdAt: true,
 });
 
+export const insertRateTierSchema = createInsertSchema(rateTiers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPublicHolidaySchema = createInsertSchema(publicHolidays).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -113,3 +148,7 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertRefreshToken = z.infer<typeof insertRefreshTokenSchema>;
 export type RefreshToken = typeof refreshTokens.$inferSelect;
+export type InsertRateTier = z.infer<typeof insertRateTierSchema>;
+export type RateTier = typeof rateTiers.$inferSelect;
+export type InsertPublicHoliday = z.infer<typeof insertPublicHolidaySchema>;
+export type PublicHoliday = typeof publicHolidays.$inferSelect;
