@@ -168,8 +168,9 @@ export default function Calendar() {
   }
 
   return (
-    <div className="p-4 lg:p-8">
-      <div className="space-y-6">
+    <>
+      <div className="p-4 lg:p-8">
+        <div className="space-y-6">
         {/* Header with Navigation */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -323,78 +324,6 @@ export default function Calendar() {
           </Card>
         </div>
 
-        {/* Shift Details Dialog */}
-        <Dialog open={!!selectedShift} onOpenChange={() => setSelectedShift(null)}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Shift Details</DialogTitle>
-            </DialogHeader>
-            {selectedShift && (
-              <div className="space-y-4">
-                {/* Roster Shift Indicator */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-blue-600" />
-                  <div className="text-sm text-blue-800">
-                    <div className="font-medium">Roster Shift</div>
-                    <div className="text-xs">This shift was assigned by your manager</div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-slate-600">Date</label>
-                    <div className="text-sm text-slate-900">
-                      {new Date(selectedShift.date).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-600">Shift Type</label>
-                    <div className="text-sm text-slate-900">{selectedShift.shiftType}</div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-slate-600">Start Time</label>
-                    <div className="text-sm text-slate-900">{formatTime(selectedShift.startTime)}</div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-600">End Time</label>
-                    <div className="text-sm text-slate-900">{formatTime(selectedShift.endTime)}</div>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-600">Duration</label>
-                  <div className="text-sm text-slate-900">
-                    {calculateDuration(selectedShift.startTime, selectedShift.endTime).toFixed(1)} hours
-                  </div>
-                </div>
-                
-                {selectedShift.notes && (
-                  <div>
-                    <label className="text-sm font-medium text-slate-600">Notes</label>
-                    <div className="text-sm text-slate-900 bg-slate-50 p-3 rounded-lg mt-1">
-                      {selectedShift.notes}
-                    </div>
-                  </div>
-                )}
-                
-                {!selectedShift.notes && (
-                  <div className="text-sm text-slate-500 italic">
-                    No notes added for this shift.
-                  </div>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -434,6 +363,77 @@ export default function Calendar() {
           </Card>
         </div>
       </div>
-    </div>
+
+      <Dialog open={!!selectedShift} onOpenChange={() => setSelectedShift(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Shift Details</DialogTitle>
+          </DialogHeader>
+          {selectedShift && (
+            <div className="space-y-4">
+              {/* Roster Shift Indicator */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-blue-600" />
+                <div className="text-sm text-blue-800">
+                  <div className="font-medium">Roster Shift</div>
+                  <div className="text-xs">This shift was assigned by your manager</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-600">Date</label>
+                  <div className="text-sm text-slate-900">
+                    {new Date(selectedShift.date).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-600">Shift Type</label>
+                  <div className="text-sm text-slate-900">{selectedShift.shiftType}</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-600">Start Time</label>
+                  <div className="text-sm text-slate-900">{formatTime(selectedShift.startTime)}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-600">End Time</label>
+                  <div className="text-sm text-slate-900">{formatTime(selectedShift.endTime)}</div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-slate-600">Duration</label>
+                <div className="text-sm text-slate-900">
+                  {calculateDuration(selectedShift.startTime, selectedShift.endTime).toFixed(1)} hours
+                </div>
+              </div>
+              
+              {selectedShift.notes && (
+                <div>
+                  <label className="text-sm font-medium text-slate-600">Notes</label>
+                  <div className="text-sm text-slate-900 bg-slate-50 p-3 rounded-lg mt-1">
+                    {selectedShift.notes}
+                  </div>
+                </div>
+              )}
+              
+              {!selectedShift.notes && (
+                <div className="text-sm text-slate-500 italic">
+                  No notes added for this shift.
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
