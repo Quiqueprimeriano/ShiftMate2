@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, Plus, ChevronLeft, ChevronRight, CalendarIcon, User } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Clock, Plus, ChevronLeft, ChevronRight, CalendarIcon, User, ChevronDown } from "lucide-react";
 import { formatTime, calculateDuration } from "@/lib/time-utils";
 import { Link } from "wouter";
 import type { Shift } from "@shared/schema";
@@ -63,6 +64,128 @@ const getShiftPosition = (startTime: string, endTime: string) => {
   const height = Math.max(20, (endMinutes - startMinutes) * pixelsPerMinute);
   
   return { top, height };
+};
+
+// Mobile agenda view components
+const MobileAgendaView = ({ 
+  weekDates, 
+  shiftsByDate, 
+  onShiftClick 
+}: { 
+  weekDates: Date[]; 
+  shiftsByDate: Record<string, Shift[]>; 
+  onShiftClick: (shift: Shift) => void;
+}) => {
+  const [openDays, setOpenDays] = useState<Set<string>>(new Set());
+
+  const toggleDay = (dateStr: string) => {
+    const newOpenDays = new Set(openDays);
+    if (newOpenDays.has(dateStr)) {
+      newOpenDays.delete(dateStr);
+    } else {
+      newOpenDays.add(dateStr);
+    }
+    setOpenDays(newOpenDays);
+  };
+
+  return (
+    <div className="space-y-2">
+      {weekDates.map(date => {
+        const dateStr = date.toISOString().split('T')[0];
+        const dayShifts = shiftsByDate[dateStr] || [];
+        const isToday = dateStr === new Date().toISOString().split('T')[0];
+        const isOpen = openDays.has(dateStr);
+        
+        return (
+          <Card key={dateStr} className={`${isToday ? 'ring-2 ring-blue-200 bg-blue-50/30' : ''}`}>
+            <Collapsible open={isOpen} onOpenChange={() => toggleDay(dateStr)}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="pb-3 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`text-center ${isToday ? 'text-blue-600' : 'text-slate-600'}`}>
+                        <div className="text-xs font-medium uppercase tracking-wide">
+                          {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                        </div>
+                        <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-slate-900'}`}>
+                          {date.getDate()}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className={`font-medium ${isToday ? 'text-blue-900' : 'text-slate-900'}`}>
+                          {date.toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}
+                        </h3>
+                        <p className="text-sm text-slate-600">
+                          {dayShifts.length === 0 ? 'No shifts' : `${dayShifts.length} shift${dayShifts.length !== 1 ? 's' : ''}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {dayShifts.length > 0 && (
+                        <div className="text-sm font-medium text-slate-600">
+                          {dayShifts.reduce((total, shift) => total + calculateDuration(shift.startTime, shift.endTime), 0).toFixed(1)}h
+                        </div>
+                      )}
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              
+              {dayShifts.length > 0 && (
+                <CollapsibleContent>
+                  <CardContent className="pt-0 space-y-3">
+                    {dayShifts.map(shift => {
+                      const duration = calculateDuration(shift.startTime, shift.endTime);
+                      return (
+                        <div
+                          key={shift.id}
+                          data-testid={`mobile-shift-${shift.id}`}
+                          className={`p-4 rounded-lg cursor-pointer transition-all hover:shadow-md border-2 border-dashed ${getShiftColor(shift.shiftType)}`}
+                          onClick={() => onShiftClick(shift)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3 flex-1">
+                              <CalendarIcon className="h-5 w-5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-base capitalize">
+                                  {shift.shiftType} Shift
+                                </div>
+                                <div className="text-sm opacity-90 font-medium">
+                                  {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                                </div>
+                                {shift.notes && (
+                                  <div className="text-sm opacity-75 mt-1 truncate">
+                                    {shift.notes}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-bold">
+                                {duration.toFixed(1)}h
+                              </div>
+                              <div className="text-xs opacity-75">
+                                Roster
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </CollapsibleContent>
+              )}
+            </Collapsible>
+          </Card>
+        );
+      })}
+    </div>
+  );
 };
 
 export default function Calendar() {
@@ -148,156 +271,202 @@ export default function Calendar() {
 
   return (
     <div className="p-4 lg:p-8">
-      <div className="space-y-6">
-        {/* Header with Navigation */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="space-y-4 md:space-y-6">
+        {/* Mobile Summary Bar */}
+        <div className="md:hidden bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+          <div className="grid grid-cols-3 gap-4 text-center">
             <div>
+              <div className="text-xs text-slate-600 mb-1">Total Hours</div>
+              <div className="text-lg font-bold text-slate-900">{totalHours.toFixed(1)}h</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-600 mb-1">Total Shifts</div>
+              <div className="text-lg font-bold text-slate-900">{shifts.length}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-600 mb-1">Avg per Day</div>
+              <div className="text-lg font-bold text-slate-900">
+                {shifts.length > 0 ? (totalHours / 7).toFixed(1) : 0}h
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Header with Navigation */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
+            <div className="mb-3 md:mb-0">
               <h1 className="text-xl font-semibold text-slate-900">My Roster</h1>
               <p className="text-sm text-slate-600">{formatWeekRange(weekDates)}</p>
             </div>
-            <div className="flex items-center space-x-2">
+            
+            {/* Navigation - Larger buttons for mobile */}
+            <div className="flex items-center space-x-3">
               <Button
                 variant="outline"
-                size="sm"
+                size="default"
+                data-testid="button-prev-week"
                 onClick={() => navigateWeeks('prev')}
+                className="min-h-[44px] px-4"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="ml-2 md:hidden">Previous</span>
               </Button>
               <Button
                 variant="outline"
-                size="sm"
+                size="default"
+                data-testid="button-next-week"
                 onClick={() => navigateWeeks('next')}
+                className="min-h-[44px] px-4"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="ml-2 md:hidden">Next</span>
               </Button>
               {!isCurrentWeek() && (
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="default"
+                  data-testid="button-today"
                   onClick={goToCurrentWeek}
+                  className="min-h-[44px] px-4"
                 >
                   Today
                 </Button>
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-slate-600">
+          
+          {/* Desktop Summary and Add Button */}
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 gap-3 md:gap-0">
+            <div className="hidden md:block text-sm text-slate-600">
               Total Hours: <span className="font-semibold">{totalHours.toFixed(1)}h</span>
             </div>
             <Link href="/add-shift">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button size="default" className="min-h-[44px] w-full md:w-auto" data-testid="button-add-shift">
+                <Plus className="h-5 w-5 md:h-4 md:w-4 mr-2" />
                 Add Shift
               </Button>
             </Link>
           </div>
         </div>
 
-        {/* Google Calendar Style Weekly View */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="grid grid-cols-8 border-b border-slate-200">
-              {/* Time column header */}
-              <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200 w-16">
-                Time
-              </div>
-              {/* Day headers */}
-              {weekDates.map((date, index) => {
-                const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
-                return (
-                  <div
-                    key={index}
-                    className={`p-1 text-center border-r border-slate-200 last:border-r-0 ${
-                      isToday ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="text-xs text-slate-500 font-medium">
-                      {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                    </div>
-                    <div className={`text-xs font-semibold ${
-                      isToday ? 'text-blue-600' : 'text-slate-900'
-                    }`}>
-                      {date.getDate()}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Responsive Calendar Views */}
+        
+        {/* Mobile Agenda View (< md breakpoint) */}
+        <div className="block md:hidden">
+          <MobileAgendaView 
+            weekDates={weekDates}
+            shiftsByDate={shiftsByDate}
+            onShiftClick={setSelectedShift}
+          />
+        </div>
 
-            {/* Time grid */}
-            <div className="relative">
-              {timeSlots.map((slot, timeIndex) => (
-                <div key={slot.hour} className="grid grid-cols-8 border-b border-slate-100 last:border-b-0">
-                  {/* Time label */}
-                  <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200 bg-slate-50 w-16">
-                    {slot.display}
-                  </div>
-                  {/* Day columns */}
-                  {weekDates.map((date, dayIndex) => {
-                    const dateStr = date.toISOString().split('T')[0];
-                    const dayShifts = shiftsByDate[dateStr] || [];
-                    const isToday = dateStr === new Date().toISOString().split('T')[0];
-                    
-                    return (
-                      <div
-                        key={dayIndex}
-                        className={`relative h-8 border-r border-slate-200 last:border-r-0 ${
-                          isToday ? 'bg-blue-50/30' : ''
-                        }`}
-                      >
-                        {/* Render shifts that overlap with this time slot */}
-                        {dayShifts.map(shift => {
-                          const shiftStartHour = parseInt(shift.startTime.split(':')[0]);
-                          const shiftEndHour = parseInt(shift.endTime.split(':')[0]);
-                          const shiftStartMinutes = parseInt(shift.startTime.split(':')[1]);
-                          const shiftEndMinutes = parseInt(shift.endTime.split(':')[1]);
-                          
-                          // Check if shift overlaps with this time slot
-                          const slotStart = slot.hour * 60;
-                          const slotEnd = (slot.hour + 1) * 60;
-                          const shiftStart = shiftStartHour * 60 + shiftStartMinutes;
-                          const shiftEnd = shiftEndHour * 60 + shiftEndMinutes;
-                          
-                          // Only show shift in the first time slot it appears
-                          if (shiftStartHour === slot.hour && shiftStart < shiftEnd) {
-                            const duration = calculateDuration(shift.startTime, shift.endTime);
-                            const heightInPixels = Math.max(12, duration * 32); // 32px per hour
-                            
-                            return (
-                              <div
-                                key={shift.id}
-                                className={`absolute left-1 right-1 rounded text-xs font-medium ${getShiftColor(shift.shiftType)} shadow-sm z-10 p-1 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border-2 border-dashed`}
-                                style={{ 
-                                  height: `${heightInPixels}px`,
-                                  top: `${(shiftStartMinutes / 60) * 32}px`
-                                }}
-                                onClick={() => setSelectedShift(shift)}
-                              >
-                                <div className="flex items-center gap-1">
-                                  <CalendarIcon className="h-3 w-3" />
-                                  <div className="font-semibold truncate">{shift.shiftType}</div>
-                                </div>
-                                <div className="text-xs opacity-90 truncate">
-                                  {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
-                                </div>
-                                <div className="text-xs font-bold">
-                                  {duration.toFixed(1)}h
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })}
-                      </div>
-                    );
-                  })}
+        {/* Desktop Grid View (>= md breakpoint) */}
+        <div className="hidden md:block">
+          <Card>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-8 border-b border-slate-200">
+                {/* Time column header */}
+                <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200 w-16">
+                  Time
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                {/* Day headers */}
+                {weekDates.map((date, index) => {
+                  const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+                  return (
+                    <div
+                      key={index}
+                      className={`p-1 text-center border-r border-slate-200 last:border-r-0 ${
+                        isToday ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <div className="text-xs text-slate-500 font-medium">
+                        {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                      </div>
+                      <div className={`text-xs font-semibold ${
+                        isToday ? 'text-blue-600' : 'text-slate-900'
+                      }`}>
+                        {date.getDate()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Time grid */}
+              <div className="relative">
+                {timeSlots.map((slot, timeIndex) => (
+                  <div key={slot.hour} className="grid grid-cols-8 border-b border-slate-100 last:border-b-0">
+                    {/* Time label */}
+                    <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200 bg-slate-50 w-16">
+                      {slot.display}
+                    </div>
+                    {/* Day columns */}
+                    {weekDates.map((date, dayIndex) => {
+                      const dateStr = date.toISOString().split('T')[0];
+                      const dayShifts = shiftsByDate[dateStr] || [];
+                      const isToday = dateStr === new Date().toISOString().split('T')[0];
+                      
+                      return (
+                        <div
+                          key={dayIndex}
+                          className={`relative h-8 border-r border-slate-200 last:border-r-0 ${
+                            isToday ? 'bg-blue-50/30' : ''
+                          }`}
+                        >
+                          {/* Render shifts that overlap with this time slot */}
+                          {dayShifts.map(shift => {
+                            const shiftStartHour = parseInt(shift.startTime.split(':')[0]);
+                            const shiftEndHour = parseInt(shift.endTime.split(':')[0]);
+                            const shiftStartMinutes = parseInt(shift.startTime.split(':')[1]);
+                            const shiftEndMinutes = parseInt(shift.endTime.split(':')[1]);
+                            
+                            // Check if shift overlaps with this time slot
+                            const slotStart = slot.hour * 60;
+                            const slotEnd = (slot.hour + 1) * 60;
+                            const shiftStart = shiftStartHour * 60 + shiftStartMinutes;
+                            const shiftEnd = shiftEndHour * 60 + shiftEndMinutes;
+                            
+                            // Only show shift in the first time slot it appears
+                            if (shiftStartHour === slot.hour && shiftStart < shiftEnd) {
+                              const duration = calculateDuration(shift.startTime, shift.endTime);
+                              const heightInPixels = Math.max(12, duration * 32); // 32px per hour
+                              
+                              return (
+                                <div
+                                  key={shift.id}
+                                  data-testid={`desktop-shift-${shift.id}`}
+                                  className={`absolute left-1 right-1 rounded text-xs font-medium ${getShiftColor(shift.shiftType)} shadow-sm z-10 p-1 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border-2 border-dashed`}
+                                  style={{ 
+                                    height: `${heightInPixels}px`,
+                                    top: `${(shiftStartMinutes / 60) * 32}px`
+                                  }}
+                                  onClick={() => setSelectedShift(shift)}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    <CalendarIcon className="h-3 w-3" />
+                                    <div className="font-semibold truncate">{shift.shiftType}</div>
+                                  </div>
+                                  <div className="text-xs opacity-90 truncate">
+                                    {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                                  </div>
+                                  <div className="text-xs font-bold">
+                                    {duration.toFixed(1)}h
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Shift Details Dialog */}
         <Dialog open={!!selectedShift} onOpenChange={() => setSelectedShift(null)}>
@@ -371,8 +540,8 @@ export default function Calendar() {
           </DialogContent>
         </Dialog>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Desktop Summary Stats (hidden on mobile - mobile has summary bar at top) */}
+        <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center">
