@@ -110,7 +110,14 @@ export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementPr
   const handleEditClick = (employeeId: number) => {
     const existingRates = ratesMap[employeeId];
     setEditingEmployeeId(employeeId);
-    setEditingRates(existingRates || {
+    // Convert cents to dollars for display
+    setEditingRates(existingRates ? {
+      weekdayRate: existingRates.weekdayRate / 100,
+      weeknightRate: existingRates.weeknightRate / 100,
+      saturdayRate: existingRates.saturdayRate / 100,
+      sundayRate: existingRates.sundayRate / 100,
+      publicHolidayRate: existingRates.publicHolidayRate / 100
+    } : {
       weekdayRate: 25,
       weeknightRate: 30,
       saturdayRate: 35,
@@ -121,13 +128,14 @@ export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementPr
 
   const handleSaveClick = (employeeId: number) => {
     const existingRates = ratesMap[employeeId];
+    // Convert dollars to cents for storage
     const finalRates = {
       userId: employeeId,
-      weekdayRate: editingRates.weekdayRate || 25,
-      weeknightRate: editingRates.weeknightRate || 30,
-      saturdayRate: editingRates.saturdayRate || 35,
-      sundayRate: editingRates.sundayRate || 40,
-      publicHolidayRate: editingRates.publicHolidayRate || 50
+      weekdayRate: Math.round((editingRates.weekdayRate || 25) * 100),
+      weeknightRate: Math.round((editingRates.weeknightRate || 30) * 100),
+      saturdayRate: Math.round((editingRates.saturdayRate || 35) * 100),
+      sundayRate: Math.round((editingRates.sundayRate || 40) * 100),
+      publicHolidayRate: Math.round((editingRates.publicHolidayRate || 50) * 100)
     };
 
     if (existingRates) {
@@ -287,7 +295,9 @@ export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementPr
                           <div className="flex items-center gap-1 text-sm">
                             <DollarSign className="h-3 w-3 text-muted-foreground" />
                             <span className="font-medium" data-testid={`text-${rateType}-${employee.id}`}>
-                              {displayRates?.[rateType as keyof EmployeeRate]?.toFixed(2) || '0.00'}
+                              {displayRates?.[rateType as keyof EmployeeRate] 
+                                ? ((displayRates[rateType as keyof EmployeeRate] || 0) / 100).toFixed(2)
+                                : '0.00'}
                             </span>
                             <span className="text-muted-foreground">/hr</span>
                           </div>

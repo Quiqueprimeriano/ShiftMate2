@@ -527,7 +527,7 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Detailed Shift Breakdown
+                  Invoice Breakdown
                 </CardTitle>
                 <div className="flex gap-2">
                   <Button 
@@ -546,52 +546,114 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                     data-testid="button-export-pdf"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export PDF
+                    Print Invoice
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {reportData.shifts.map((shift, index) => (
-                  <div key={shift.shift_id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="text-sm font-medium">
-                          Shift #{index + 1}
+                  <div key={shift.shift_id} className="bg-white border-2 border-gray-100 rounded-lg p-6 shadow-sm">
+                    {/* Shift Header */}
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-blue-50 rounded-full px-3 py-1">
+                          <span className="text-sm font-semibold text-blue-700">
+                            Shift #{index + 1}
+                          </span>
                         </div>
-                        <Badge className={getRateTypeBadgeColor(shift.day_type)}>
+                        <Badge className={`${getRateTypeBadgeColor(shift.day_type)} text-sm px-3 py-1`}>
                           {formatRateType(shift.day_type)}
                         </Badge>
-                        <div className="text-sm text-muted-foreground">
-                          {format(new Date(shift.date), 'MMM dd, yyyy')}
+                        <div className="text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded">
+                          📅 {format(new Date(shift.date), 'EEEE, MMM dd, yyyy')}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-semibold text-green-600">
+                        <div className="text-2xl font-bold text-green-600">
                           {formatCurrency(shift.total_amount)}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {shift.total_hours.toFixed(1)} hours
+                        <div className="text-sm text-gray-500">
+                          ⏱️ {shift.total_hours.toFixed(1)} hours worked
                         </div>
                       </div>
                     </div>
                     
+                    {/* Rate Calculation Details */}
                     {shift.billing.length > 0 && (
-                      <div className="bg-gray-50 rounded p-3 mt-3">
-                        <div className="text-xs font-medium text-gray-600 mb-2">Rate Calculation</div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          💰 Payment Calculation
+                        </h4>
+                        <div className="space-y-3">
                           {shift.billing.map((tier, tierIndex) => (
-                            <div key={tierIndex} className="flex justify-between">
-                              <span>{tier.hours.toFixed(1)}h × {formatCurrency(tier.rate)}/h</span>
-                              <span className="font-medium">{formatCurrency(tier.subtotal)}</span>
+                            <div key={tierIndex} className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-100">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <span className="text-xs font-bold text-blue-600">{tierIndex + 1}</span>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-800">
+                                    {tier.hours.toFixed(1)} hours × {formatCurrency(tier.rate)}/hour
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {formatRateType(shift.day_type)} rate applied
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-lg font-bold text-green-600">
+                                  {formatCurrency(tier.subtotal)}
+                                </div>
+                                <div className="text-xs text-gray-500">subtotal</div>
+                              </div>
                             </div>
                           ))}
+                        </div>
+                        
+                        {/* Total for this shift */}
+                        <div className="mt-4 pt-3 border-t border-gray-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-600">Shift Total:</span>
+                            <span className="text-xl font-bold text-green-600">
+                              {formatCurrency(shift.total_amount)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}
                   </div>
                 ))}
+                
+                {/* Grand Total Section */}
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 rounded-lg p-6 mt-6">
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                      📋 Invoice Summary
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {reportData.shifts.length}
+                        </div>
+                        <div className="text-sm text-gray-600">Total Shifts</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {reportData.summary.totalHours.toFixed(1)}
+                        </div>
+                        <div className="text-sm text-gray-600">Total Hours</div>
+                      </div>
+                    </div>
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="text-sm text-gray-600 mb-1">Total Amount Due</div>
+                      <div className="text-4xl font-bold text-green-600">
+                        {formatCurrency(reportData.summary.totalAmount)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
