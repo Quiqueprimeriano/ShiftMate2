@@ -1,0 +1,173 @@
+Absolutely. Here’s the full combined technical + UX/UI prompt you can send directly to your development/design team. It includes everything: data models, backend logic, API responses, admin tools, employee views, UX principles, and testing.
+
+⸻
+
+✅ Full Feature Request Prompt – Tiered Shift Billing System
+
+🧠 Goal
+
+We want to implement a tiered billing engine for calculating shift payments based on:
+	•	Shift type (e.g. Night, Day, Holiday)
+	•	Time-based rate tiers (e.g., first 2 hours @ $X, rest @ $Y)
+	•	Day of the week (Weekday, Saturday, Sunday)
+	•	Public holidays
+	•	Flexible logic (different rate tiers per shift/day combination)
+
+This will allow managers/admins to define complex billing structures, and employees to see exactly how their pay is calculated for each shift.
+
+⸻
+
+🔧 TECHNICAL SCOPE
+
+1. 🗃️ Database – Rate Tiers
+
+Create a new table to store rate tier configurations:
+
+CREATE TABLE rate_tiers (
+  id UUID PRIMARY KEY,
+  shift_type TEXT NOT NULL,           -- e.g., 'Night', 'Weekend'
+  tier_order INT NOT NULL,            -- 1, 2, etc.
+  hours_in_tier DECIMAL,              -- NULL for “remaining”
+  rate_per_hour DECIMAL NOT NULL,
+  day_type TEXT NOT NULL,             -- 'weekday', 'saturday', 'sunday', 'holiday'
+  currency TEXT DEFAULT 'AUD',
+  valid_from DATE,
+  valid_to DATE,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+Also create a public_holidays table:
+
+CREATE TABLE public_holidays (
+  id UUID PRIMARY KEY,
+  date DATE UNIQUE NOT NULL,
+  description TEXT
+);
+
+
+⸻
+
+2. ⚙️ Billing Engine Logic
+
+For each shift:
+	•	Determine shift duration (e.g., 20:00–02:00 = 6 hours)
+	•	Classify day type:
+	•	public_holidays → “holiday”
+	•	Saturday/Sunday → accordingly
+	•	Fetch matching rate_tiers
+	•	Apply tier logic:
+	•	Tier 1 = X hours @ $rate
+	•	Remaining = Tier 2 @ $rate
+	•	Calculate total
+
+Support shift types: Day, Night, Weekend, Holiday, Custom
+
+⸻
+
+3. 📡 API Output (Sample Response)
+
+{
+  "shift_id": "uuid-123",
+  "total_hours": 6,
+  "total_amount": 240,
+  "date": "2025-10-10",
+  "day_type": "friday",
+  "shift_type": "Night",
+  "billing": [
+    {
+      "tier": 1,
+      "rate": 50,
+      "hours": 2,
+      "subtotal": 100
+    },
+    {
+      "tier": 2,
+      "rate": 35,
+      "hours": 4,
+      "subtotal": 140
+    }
+  ]
+}
+
+
+⸻
+
+4. 🧑‍💼 Admin/Manager Interface
+
+New tab in the Admin Panel:
+Payroll → Rate Tiers
+
+Features:
+	•	View all rate tiers (table view)
+	•	Add new rule (modal):
+	•	Shift type dropdown
+	•	Day type selector
+	•	Tiered rate inputs (hrs + $rate)
+	•	Valid from / to
+	•	Preview pay simulation
+
+Permissions:
+	•	Only Admin/Manager can add/edit rate tiers
+
+⸻
+
+🎨 UX/UI REQUIREMENTS
+
+A. Manager - Add/Edit Rate Tiers
+	•	Location: Admin Panel → “Rate Tiers”
+	•	Modal with:
+	•	Shift Type (dropdown)
+	•	Day Type (weekday/saturday/etc.)
+	•	Tier blocks (first X hours @ rate; rest @ rate)
+	•	Validity (optional)
+	•	Add/Remove tier rows
+	•	Save + cancel buttons
+
+💡 Add live simulator preview (e.g. 6h Night Shift = $240)
+
+⸻
+
+B. Employee - View Pay Breakdown
+	•	Location: Dashboard → My Shifts → [Shift Detail]
+
+Display:
+	•	Date, hours, total pay (bold)
+	•	Expandable section or modal:
+
+🌙 20:00–22:00 → $50/hr → $100  
+🌙 22:00–02:00 → $35/hr → $140  
+──────────────
+Total: 6 hrs → $240
+
+Icons: 🌙 Night / 🎉 Weekend / 🎌 Holiday
+Responsive: Support mobile and web with collapsible sections
+
+⸻
+
+🧪 QA TEST CASES
+
+Test	Description
+✅	Weekday Night shift → 2+4 hrs tiered
+✅	Saturday shift → single tier
+✅	Holiday shift → match holiday rate
+✅	Unknown config → default fallback
+✅	Cross-day shifts (e.g. 10pm–6am)
+✅	No rate rule → warning & fallback
+✅	Preview calculation accurate
+
+
+⸻
+
+✅ Developer Tasks Summary
+	•	Create rate_tiers and public_holidays tables
+	•	Build billing engine to allocate hours by tier
+	•	Add API to fetch pay breakdown per shift
+	•	Admin UI to manage rate tiers
+	•	Employee UI to view pay per shift
+	•	Write unit + integration tests
+	•	Add fallback logic if no tier is defined
+
+⸻
+
+Let me know if you’d like this in PDF, Notion, or Figma-ready format.
