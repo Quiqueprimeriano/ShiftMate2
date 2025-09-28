@@ -14,6 +14,7 @@ import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 // Pages
 import Dashboard from "@/pages/dashboard";
 import Calendar from "@/pages/calendar";
+import MyRoster from "@/pages/my-roster";
 import AddShift from "@/pages/add-shift";
 import Shifts from "@/pages/shifts";
 import Reports from "@/pages/reports";
@@ -28,6 +29,7 @@ const PAGE_TITLES = {
   "/dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
   "/business-dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
   "/calendar": { title: "Calendar", subtitle: "View and manage your shifts on the calendar." },
+  "/my-roster": { title: "My Roster", subtitle: "View your assigned shifts in mobile-optimized agenda format." },
   "/add-shift": { title: "Add Shift", subtitle: "Log a new work shift." },
   "/shifts": { title: "All Shifts", subtitle: "View, edit, and manage your shift history." },
   "/reports": { title: "Reports", subtitle: "Generate and download shift reports." },
@@ -40,6 +42,7 @@ function MobileSidebar({ onClose }: { onClose: () => void }) {
   const navItems = [
     { path: "/", label: "Dashboard", icon: "BarChart3" },
     { path: "/calendar", label: "Calendar", icon: "Calendar" },
+    { path: "/my-roster", label: "My Roster", icon: "CalendarDays" },
     { path: "/add-shift", label: "Add Shift", icon: "Plus" },
     { path: "/reports", label: "Reports", icon: "FileText" },
   ];
@@ -126,7 +129,8 @@ function MobileSidebar({ onClose }: { onClose: () => void }) {
 function getIconForNavItem(iconName: string) {
   const icons: Record<string, string> = {
     BarChart3: "📊",
-    Calendar: "📅", 
+    Calendar: "📅",
+    CalendarDays: "🗓️",
     Plus: "➕",
     FileText: "📄"
   };
@@ -242,6 +246,7 @@ function Router() {
       <Route path="/" component={() => <AppLayout location="/"><Dashboard /></AppLayout>} />
       <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><Dashboard /></AppLayout>} />
       <Route path="/calendar" component={() => <AppLayout location="/calendar"><Calendar /></AppLayout>} />
+      <Route path="/my-roster" component={() => <AppLayout location="/my-roster"><MyRoster /></AppLayout>} />
       <Route path="/add-shift" component={() => <AppLayout location="/add-shift"><AddShift /></AppLayout>} />
       <Route path="/shifts" component={() => <AppLayout location="/shifts"><Shifts /></AppLayout>} />
       <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
