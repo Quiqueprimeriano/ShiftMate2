@@ -11,6 +11,12 @@ import { sendRosterEmail } from "./services/sendgrid";
 import { z } from "zod";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import { 
+  calculateShiftBilling, 
+  calculateMultipleShiftsBilling,
+  formatCurrency 
+} from "./billing-engine";
+import { rateTiers, publicHolidays, insertRateTierSchema, insertPublicHolidaySchema } from "@shared/schema";
 
 // Extend the Request interface to include session
 interface AuthenticatedRequest extends Request {
@@ -691,6 +697,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ missingDates });
     } catch (error) {
       res.status(500).json({ message: "Failed to get missing entries" });
+    }
+  });
+
+  // Billing routes - support both JWT and session auth
+  app.get("/api/billing/shift/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const shiftId = parseInt(req.params.id);
+      const shift = await storage.getShift(shiftId);
+      
+      if (!shift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+      
+      // Verify user owns this shift or is a manager in the same company
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      if (shift.userId !== req.userId && shift.companyId !== user.companyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const billing = await calculateShiftBilling(
+        shift.id,
+        shift.companyId || 1, // fallback for individual users
+        shift.date,
+        shift.startTime,
+        shift.endTime,
+        shift.shiftType
+      );
+      
+      res.json(billing);
+    } catch (error) {
+      console.error("Error calculating shift billing:", error);
+      res.status(500).json({ message: "Failed to calculate shift billing" });
+    }
+  });
+
+  app.get("/api/billing/shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      
+      const shifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate, endDate);
+      
+      if (shifts.length === 0) {
+        return res.json([]);
+      }
+      
+      const billingData = await calculateMultipleShiftsBilling(
+        shifts.map(shift => ({
+          id: shift.id,
+          companyId: shift.companyId || 1,
+          date: shift.date,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          shiftType: shift.shiftType
+        }))
+      );
+      
+      res.json(billingData);
+    } catch (error) {
+      console.error("Error calculating shifts billing:", error);
+      res.status(500).json({ message: "Failed to calculate shifts billing" });
+    }
+  });
+
+  app.get("/api/rate-tiers", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const companyId = user.companyId || 1; // fallback for individual users
+      
+      // Use raw query since we don't have rate tier methods in storage yet
+      const result = await storage.executeRawQuery(`
+        SELECT * FROM shiftmate_rate_tiers 
+        WHERE company_id = $1 
+        ORDER BY shift_type, day_type, tier_order
+      `, [companyId]);
+      
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching rate tiers:", error);
+      res.status(500).json({ message: "Failed to fetch rate tiers" });
+    }
+  });
+
+  app.post("/api/rate-tiers", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Only managers and business owners can create rate tiers
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Only managers can create rate tiers" });
+      }
+      
+      const rateTierData = insertRateTierSchema.parse({
+        ...req.body,
+        companyId: user.companyId || 1
+      });
+      
+      const result = await storage.executeRawQuery(`
+        INSERT INTO shiftmate_rate_tiers 
+        (company_id, shift_type, tier_order, hours_in_tier, rate_per_hour, day_type, currency, valid_from, valid_to)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+      `, [
+        rateTierData.companyId,
+        rateTierData.shiftType,
+        rateTierData.tierOrder,
+        rateTierData.hoursInTier,
+        rateTierData.ratePerHour,
+        rateTierData.dayType,
+        rateTierData.currency,
+        rateTierData.validFrom,
+        rateTierData.validTo
+      ]);
+      
+      res.status(201).json(result.rows[0]);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid rate tier data", errors: error.errors });
+      }
+      console.error("Error creating rate tier:", error);
+      res.status(500).json({ message: "Failed to create rate tier" });
+    }
+  });
+
+  app.get("/api/public-holidays", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const result = await storage.executeRawQuery(`
+        SELECT * FROM shiftmate_public_holidays 
+        ORDER BY date ASC
+      `);
+      
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching public holidays:", error);
+      res.status(500).json({ message: "Failed to fetch public holidays" });
+    }
+  });
+
+  app.post("/api/public-holidays", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Only managers and business owners can add public holidays
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Only managers can add public holidays" });
+      }
+      
+      const holidayData = insertPublicHolidaySchema.parse(req.body);
+      
+      const result = await storage.executeRawQuery(`
+        INSERT INTO shiftmate_public_holidays (date, description)
+        VALUES ($1, $2)
+        RETURNING *
+      `, [holidayData.date, holidayData.description]);
+      
+      res.status(201).json(result.rows[0]);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid holiday data", errors: error.errors });
+      }
+      console.error("Error creating public holiday:", error);
+      res.status(500).json({ message: "Failed to create public holiday" });
     }
   });
 
