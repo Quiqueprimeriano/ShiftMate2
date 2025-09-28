@@ -8,6 +8,7 @@ import { Clock, Plus, ChevronLeft, ChevronRight, CalendarIcon, User } from "luci
 import { formatTime, calculateDuration } from "@/lib/time-utils";
 import { Link } from "wouter";
 import type { Shift } from "@shared/schema";
+import { PayBreakdown } from "@/components/PayBreakdown";
 
 // Helper function to get start of week (Monday)
 const getStartOfWeek = (date: Date): Date => {
@@ -415,6 +416,9 @@ export default function Calendar() {
                   {calculateDuration(selectedShift.startTime, selectedShift.endTime).toFixed(1)} hours
                 </div>
               </div>
+              
+              {/* Pay Breakdown Section */}
+              <PayBreakdown shift={selectedShift} />
               
               {selectedShift.notes && (
                 <div>
