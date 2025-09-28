@@ -68,8 +68,8 @@ export function getEmployeeRateType(date: string, startTime: string, holidays: s
     // Weekdays (Monday-Friday) - differentiate between day and night
     const [hour] = startTime.split(':').map(Number);
     
-    // Define night shift as starting between 18:00 (6 PM) and 05:59 (5:59 AM)
-    if (hour >= 18 || hour < 6) {
+    // Define night shift as starting between 21:00 (9 PM) and 23:59 (11:59 PM)
+    if (hour >= 21 && hour <= 23) {
       return "weeknight";
     } else {
       return "weekday";
