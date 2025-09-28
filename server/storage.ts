@@ -9,6 +9,7 @@ import {
   refreshTokens,
   rateTiers,
   publicHolidays,
+  employeeRates,
   type User, 
   type InsertUser, 
   type Shift, 
@@ -22,7 +23,9 @@ import {
   type RateTier,
   type InsertRateTier,
   type PublicHoliday,
-  type InsertPublicHoliday
+  type InsertPublicHoliday,
+  type EmployeeRate,
+  type InsertEmployeeRate
 } from "@shared/schema";
 
 const connectionString = process.env.DATABASE_URL;
@@ -527,6 +530,90 @@ export class DbStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Error creating public holiday:', error);
+      throw error;
+    }
+  }
+
+  // Employee Rate Methods
+  async getEmployeeRates(userId: number): Promise<any> {
+    try {
+      const [result] = await db
+        .select()
+        .from(employeeRates)
+        .where(eq(employeeRates.userId, userId))
+        .limit(1);
+      return result || null;
+    } catch (error) {
+      console.error('Error fetching employee rates:', error);
+      throw error;
+    }
+  }
+
+  async getEmployeeRatesByCompany(companyId: number): Promise<any[]> {
+    try {
+      return await db
+        .select({
+          id: employeeRates.id,
+          userId: employeeRates.userId,
+          weekdayRate: employeeRates.weekdayRate,
+          weeknightRate: employeeRates.weeknightRate,
+          saturdayRate: employeeRates.saturdayRate,
+          sundayRate: employeeRates.sundayRate,
+          publicHolidayRate: employeeRates.publicHolidayRate,
+          currency: employeeRates.currency,
+          validFrom: employeeRates.validFrom,
+          validTo: employeeRates.validTo,
+          userName: users.name,
+          userEmail: users.email
+        })
+        .from(employeeRates)
+        .leftJoin(users, eq(employeeRates.userId, users.id))
+        .where(eq(employeeRates.companyId, companyId))
+        .orderBy(users.name);
+    } catch (error) {
+      console.error('Error fetching company employee rates:', error);
+      throw error;
+    }
+  }
+
+  async createEmployeeRates(data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(employeeRates)
+        .values(data)
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating employee rates:', error);
+      throw error;
+    }
+  }
+
+  async updateEmployeeRates(userId: number, data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .update(employeeRates)
+        .set({
+          ...data,
+          updatedAt: new Date()
+        })
+        .where(eq(employeeRates.userId, userId))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating employee rates:', error);
+      throw error;
+    }
+  }
+
+  async deleteEmployeeRates(userId: number): Promise<boolean> {
+    try {
+      await db
+        .delete(employeeRates)
+        .where(eq(employeeRates.userId, userId));
+      return true;
+    } catch (error) {
+      console.error('Error deleting employee rates:', error);
       throw error;
     }
   }

@@ -16,7 +16,7 @@ import {
   calculateMultipleShiftsBilling,
   formatCurrency 
 } from "./billing-engine";
-import { rateTiers, publicHolidays, insertRateTierSchema, insertPublicHolidaySchema } from "@shared/schema";
+import { rateTiers, publicHolidays, insertRateTierSchema, insertPublicHolidaySchema, insertEmployeeRateSchema } from "@shared/schema";
 
 // Extend the Request interface to include session
 interface AuthenticatedRequest extends Request {
@@ -722,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const billing = await calculateShiftBilling(
         shift.id,
-        shift.companyId || 1, // fallback for individual users
+        shift.userId, // Use employee's ID for employee-specific rates
         shift.date,
         shift.startTime,
         shift.endTime,
@@ -753,7 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const billingData = await calculateMultipleShiftsBilling(
         shifts.map(shift => ({
           id: shift.id,
-          companyId: shift.companyId || 1,
+          userId: shift.userId,
           date: shift.date,
           startTime: shift.startTime,
           endTime: shift.endTime,
@@ -852,6 +852,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Employee Rate Management Routes - Manager only
+  
+  // GET /api/employee-rates/:userId - Get rates for a specific employee
+  app.get("/api/employee-rates/:userId", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Only managers and business owners can view employee rates
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+      
+      const employeeId = parseInt(req.params.userId);
+      const employeeRates = await storage.getEmployeeRates(employeeId);
+      
+      if (!employeeRates) {
+        return res.status(404).json({ message: "Employee rates not found" });
+      }
+      
+      res.json(employeeRates);
+    } catch (error) {
+      console.error("Error fetching employee rates:", error);
+      res.status(500).json({ message: "Failed to fetch employee rates" });
+    }
+  });
+
+  // GET /api/companies/:companyId/employee-rates - Get rates for all employees in a company
+  app.get("/api/companies/:companyId/employee-rates", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Only managers and business owners can view employee rates
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+      
+      const companyId = parseInt(req.params.companyId);
+      
+      // Verify user belongs to this company
+      if (user.companyId !== companyId) {
+        return res.status(403).json({ message: "Access denied to this company" });
+      }
+      
+      const employeeRates = await storage.getEmployeeRatesByCompany(companyId);
+      
+      res.json(employeeRates);
+    } catch (error) {
+      console.error("Error fetching company employee rates:", error);
+      res.status(500).json({ message: "Failed to fetch company employee rates" });
+    }
+  });
+
+  // POST /api/employee-rates - Create employee rates
+  app.post("/api/employee-rates", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Only managers and business owners can create employee rates
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+      
+      const rateData = insertEmployeeRateSchema.parse({
+        ...req.body,
+        companyId: user.companyId
+      });
+      
+      const result = await storage.createEmployeeRates(rateData);
+      
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid employee rate data", errors: error.errors });
+      }
+      console.error("Error creating employee rates:", error);
+      res.status(500).json({ message: "Failed to create employee rates" });
+    }
+  });
+
+  // PUT /api/employee-rates/:userId - Update employee rates
+  app.put("/api/employee-rates/:userId", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Only managers and business owners can update employee rates
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+      
+      const employeeId = parseInt(req.params.userId);
+      const updateData = insertEmployeeRateSchema.partial().parse(req.body);
+      
+      const result = await storage.updateEmployeeRates(employeeId, updateData);
+      
+      if (!result) {
+        return res.status(404).json({ message: "Employee rates not found" });
+      }
+      
+      res.json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid employee rate data", errors: error.errors });
+      }
+      console.error("Error updating employee rates:", error);
+      res.status(500).json({ message: "Failed to update employee rates" });
+    }
+  });
+
   app.post("/api/billing/preview", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.userId);
@@ -865,16 +985,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: z.string(),
         startTime: z.string(),
         endTime: z.string(),
-        hoursWorked: z.number().positive()
+        hoursWorked: z.number().positive(),
+        employeeId: z.number().optional() // For manager preview of specific employee
       });
       
       const previewData = previewSchema.parse(req.body);
-      const companyId = user.companyId || 1; // fallback for individual users
       
-      // Use the billing engine to calculate preview
+      // Determine which employee's rates to use for preview
+      let employeeId = req.userId; // Default to current user
+      if (previewData.employeeId) {
+        // Only managers can preview other employees' rates
+        if (user.userType !== 'business_owner' && user.role !== 'manager') {
+          return res.status(403).json({ message: "Manager access required to preview employee rates" });
+        }
+        employeeId = previewData.employeeId;
+      }
+      
+      // Use the billing engine to calculate preview with employee rates
       const billing = await calculateShiftBilling(
         -1, // Mock ID for preview
-        companyId,
+        employeeId,
         previewData.date,
         previewData.startTime,
         previewData.endTime,
