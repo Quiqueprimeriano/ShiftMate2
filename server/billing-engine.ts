@@ -49,10 +49,11 @@ export interface ShiftBilling {
 }
 
 /**
- * Determine the rate type for employee billing purposes
- * Supports: weekday, weeknight, saturday, sunday, publicHoliday
+ * Determine the base rate type for employee billing purposes
+ * Supports: weekday, saturday, sunday, publicHoliday
+ * Note: weeknight is handled separately via split billing
  */
-export function getEmployeeRateType(date: string, startTime: string, holidays: string[]): string {
+export function getEmployeeRateType(date: string, holidays: string[]): string {
   const shiftDate = new Date(date);
   const dayOfWeek = shiftDate.getDay(); // 0 = Sunday, 6 = Saturday
   
@@ -67,16 +68,49 @@ export function getEmployeeRateType(date: string, startTime: string, holidays: s
   } else if (dayOfWeek === 6) {
     return "saturday";
   } else {
-    // Weekdays (Monday-Friday) - differentiate between day and night
-    const [hour] = startTime.split(':').map(Number);
-    
-    // Define night shift as starting between 21:00 (9 PM) and 23:59 (11:59 PM)
-    if (hour >= 21 && hour <= 23) {
-      return "weeknight";
-    } else {
-      return "weekday";
-    }
+    // Weekdays (Monday-Friday)
+    return "weekday";
   }
+}
+
+/**
+ * Calculate weeknight hours for a weekday shift
+ * Returns hours (max 2) that fall between 21:00-23:59 on Monday-Friday
+ */
+export function calculateWeeknightHours(startTime: string, endTime: string): number {
+  const [startHour, startMin] = startTime.split(':').map(Number);
+  const [endHour, endMin] = endTime.split(':').map(Number);
+  
+  let startMinutes = startHour * 60 + startMin;
+  let endMinutes = endHour * 60 + endMin;
+  
+  // Handle cross-day shifts
+  if (endMinutes <= startMinutes) {
+    endMinutes += 24 * 60;
+  }
+  
+  // Weeknight window: 21:00 (1260 minutes) to 23:59 (1439 minutes)
+  const weeknightStart = 21 * 60; // 1260 minutes (9 PM)
+  const weeknightEnd = 23 * 60 + 59; // 1439 minutes (11:59 PM)
+  
+  // Check if shift overlaps with weeknight window
+  if (endMinutes <= weeknightStart || startMinutes > weeknightEnd) {
+    // No overlap
+    return 0;
+  }
+  
+  // Calculate overlap
+  const overlapStart = Math.max(startMinutes, weeknightStart);
+  const overlapEnd = Math.min(endMinutes, weeknightEnd);
+  const overlapMinutes = overlapEnd - overlapStart;
+  
+  if (overlapMinutes <= 0) {
+    return 0;
+  }
+  
+  // Convert to hours and cap at 2 hours
+  const overlapHours = overlapMinutes / 60;
+  return Math.min(overlapHours, 2);
 }
 
 /**
@@ -208,8 +242,8 @@ export async function calculateShiftBilling(
   // Get holidays
   const holidays = await getPublicHolidays();
   
-  // Determine rate type for employee billing
-  const rateType = getEmployeeRateType(date, startTime, holidays);
+  // Determine base rate type for employee billing
+  const rateType = getEmployeeRateType(date, holidays);
   
   // Get employee rates
   const employeeRates = await getEmployeeRates(userId, date);
@@ -235,14 +269,49 @@ export async function calculateShiftBilling(
     };
   }
   
-  // Get the appropriate rate based on rate type
+  // Handle weekday shifts with potential weeknight hours
+  if (rateType === 'weekday') {
+    const weeknightHours = calculateWeeknightHours(startTime, endTime);
+    
+    if (weeknightHours > 0) {
+      // Split billing: weeknight hours + weekday hours
+      const weekdayHours = totalHours - weeknightHours;
+      const weeknightAmount = Math.round(weeknightHours * employeeRates.weeknightRate);
+      const weekdayAmount = Math.round(weekdayHours * employeeRates.weekdayRate);
+      const totalAmount = weeknightAmount + weekdayAmount;
+      
+      return {
+        shift_id: shiftId,
+        total_hours: totalHours,
+        total_amount: totalAmount,
+        date,
+        day_type: 'weekday/weeknight', // Indicates split billing
+        shift_type: shiftType,
+        start_time: startTime,
+        end_time: endTime,
+        billing: [
+          {
+            tier: 1,
+            rate: employeeRates.weekdayRate,
+            hours: weekdayHours,
+            subtotal: weekdayAmount
+          },
+          {
+            tier: 2,
+            rate: employeeRates.weeknightRate,
+            hours: weeknightHours,
+            subtotal: weeknightAmount
+          }
+        ]
+      };
+    }
+  }
+  
+  // Get the appropriate rate based on rate type (non-weekday or weekday without weeknight hours)
   let hourlyRate: number;
   switch (rateType) {
     case 'weekday':
       hourlyRate = employeeRates.weekdayRate;
-      break;
-    case 'weeknight':
-      hourlyRate = employeeRates.weeknightRate;
       break;
     case 'saturday':
       hourlyRate = employeeRates.saturdayRate;
@@ -257,7 +326,7 @@ export async function calculateShiftBilling(
       hourlyRate = employeeRates.weekdayRate; // fallback to weekday rate
   }
   
-  // Calculate simple hourly billing (no tiers for employee rates)
+  // Calculate simple hourly billing
   const totalAmount = Math.round(totalHours * hourlyRate);
   
   return {
