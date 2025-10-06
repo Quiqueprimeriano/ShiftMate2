@@ -569,7 +569,7 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600">
-                    {reportData.summary.totalHours > 0 ? formatCurrency(reportData.summary.totalAmount / reportData.summary.totalHours * 100) : '$0.00'}
+                    {reportData.summary.totalHours > 0 ? formatCurrency(reportData.summary.totalAmount / reportData.summary.totalHours) : '$0.00'}
                   </div>
                   <div className="text-sm text-muted-foreground">Avg Rate/Hour</div>
                 </div>
@@ -821,7 +821,7 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                         </td>
                         <td className="text-right py-4">
                           {reportData.summary.totalHours > 0 
-                            ? formatCurrency(Math.round(reportData.summary.totalAmount / reportData.summary.totalHours * 100))
+                            ? formatCurrency(Math.round(reportData.summary.totalAmount / reportData.summary.totalHours))
                             : formatCurrency(0)
                           }/hr
                         </td>

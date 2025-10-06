@@ -801,26 +801,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get employee shifts for date range (exclude roster shifts)
       const allShifts = await storage.getShiftsByUserAndDateRange(parseInt(employeeId), startDate, endDate);
       
-      // Debug logging to see what's happening
-      console.log(`\n=== BILLING DEBUG for employee ${employeeId} ===`);
-      console.log(`Total shifts retrieved: ${allShifts.length}`);
-      console.log(`Employee ID: ${employeeId} (type: ${typeof employeeId})`);
-      console.log(`Parsed Employee ID: ${parseInt(employeeId)} (type: ${typeof parseInt(employeeId)})`);
-      
-      // Log first few shifts with their createdBy values
-      allShifts.slice(0, 5).forEach((shift, idx) => {
-        console.log(`Shift ${idx + 1}: id=${shift.id}, date=${shift.date}, createdBy=${shift.createdBy} (type: ${typeof shift.createdBy}), status=${shift.status}`);
-      });
-      
       // Filter to only include uploaded shifts (exclude roster/scheduled shifts)
       // Include shifts where createdBy is null or equals the employee's ID
       const shifts = allShifts.filter(shift => 
         shift.createdBy === null || shift.createdBy === parseInt(employeeId)
       );
-      
-      console.log(`Shifts after filtering: ${shifts.length}`);
-      console.log(`Filtered out: ${allShifts.length - shifts.length} shifts`);
-      console.log(`=== END BILLING DEBUG ===\n`);
       
       if (shifts.length === 0) {
         return res.json({
