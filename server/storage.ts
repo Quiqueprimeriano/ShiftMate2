@@ -252,8 +252,13 @@ export class DbStorage implements IStorage {
   async getWeeklyHours(userId: number, startDate: string, endDate: string): Promise<number> {
     const shiftsInRange = await this.getShiftsByUserAndDateRange(userId, startDate, endDate);
     
+    // Filter to only include uploaded shifts (exclude roster shifts)
+    const uploadedShifts = shiftsInRange.filter(shift => 
+      !shift.createdBy || shift.createdBy === userId
+    );
+    
     let totalMinutes = 0;
-    for (const shift of shiftsInRange) {
+    for (const shift of uploadedShifts) {
       const start = new Date(`2000-01-01T${shift.startTime}`);
       const end = new Date(`2000-01-01T${shift.endTime}`);
       
