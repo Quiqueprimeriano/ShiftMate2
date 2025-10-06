@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, User, Clock, BarChart3, Shield, Users, Timer, FileText, Calendar, TrendingUp } from "lucide-react";
-import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 export default function Landing() {
   const [selectedPlan, setSelectedPlan] = useState<'individual' | 'business' | null>(null);
@@ -30,7 +29,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <img src={shiftMateLogo} alt="ShiftMate" className="w-8 h-8" />
+              <Clock className="w-8 h-8 text-blue-600" />
               <h1 className="text-xl font-bold text-slate-900">ShiftMate</h1>
             </div>
             <div className="flex items-center space-x-4">

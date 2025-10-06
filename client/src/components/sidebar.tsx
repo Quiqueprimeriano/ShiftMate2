@@ -10,7 +10,6 @@ import {
   FileText, 
   User 
 } from "lucide-react";
-import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: BarChart3 },
@@ -28,11 +27,7 @@ export function Sidebar() {
     <aside className="w-64 bg-white shadow-sm border-r border-slate-200 hidden lg:block">
       <div className="p-6">
         <div className="flex items-center space-x-3">
-          <img 
-            src={shiftMateLogo} 
-            alt="ShiftMate Logo" 
-            className="w-8 h-8 object-contain"
-          />
+          <Clock className="w-8 h-8 text-blue-600" />
           <h1 className="text-xl font-bold text-slate-900">ShiftMate</h1>
         </div>
       </div>

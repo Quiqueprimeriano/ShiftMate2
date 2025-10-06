@@ -1,7 +1,6 @@
-import { Menu, Bell } from "lucide-react";
+import { Menu, Bell, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateRange, getWeekDates } from "@/lib/time-utils";
-import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 interface HeaderProps {
   title: string;
@@ -26,12 +25,7 @@ export function Header({ title, subtitle, onMobileMenuToggle }: HeaderProps) {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex items-center space-x-3">
-            {/* ShiftMate Logo */}
-            <img 
-              src={shiftMateLogo} 
-              alt="ShiftMate Logo" 
-              className="w-10 h-10 object-contain"
-            />
+            <Clock className="w-10 h-10 text-blue-600" />
             <div>
               <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
               <p className="text-sm text-slate-500">{subtitle}</p>

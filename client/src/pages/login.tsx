@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock } from "lucide-react";
-import shiftMateLogo from "@assets/ShiftMate Logo_1752272094622.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -26,11 +25,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto w-12 h-12 mb-4 flex items-center justify-center">
-            <img 
-              src={shiftMateLogo} 
-              alt="ShiftMate Logo" 
-              className="w-12 h-12 object-contain"
-            />
+            <Clock className="w-12 h-12 text-blue-600" />
           </div>
           <CardTitle className="text-2xl font-bold">Welcome to ShiftMate</CardTitle>
           <CardDescription>
