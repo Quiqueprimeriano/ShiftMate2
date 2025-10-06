@@ -81,13 +81,13 @@ export default function Dashboard() {
 
   // Prepare chart data for filtered recent shifts
   const recentShiftsChartData = useMemo(() => {
-    // Generate all dates in the selected range
-    const startDate = new Date(recentShiftsStartDate);
-    const endDate = new Date(recentShiftsEndDate);
-    const dateRange: Date[] = [];
+    // Generate all dates in the selected range using string manipulation to avoid timezone issues
+    const dateRange: string[] = [];
+    const start = new Date(recentShiftsStartDate + 'T00:00:00Z');
+    const end = new Date(recentShiftsEndDate + 'T00:00:00Z');
     
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      dateRange.push(new Date(d));
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+      dateRange.push(d.toISOString().split('T')[0]);
     }
 
     // Group shifts by date
@@ -101,10 +101,12 @@ export default function Dashboard() {
     }, {} as Record<string, Shift[]>);
 
     // Create chart data for each date in the range (including days with no shifts)
-    return dateRange.map((currentDate) => {
-      const dateString = currentDate.toISOString().split('T')[0];
-      const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
-      const formattedDate = `${dayName} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+    return dateRange.map((dateString) => {
+      // Parse date in UTC to avoid timezone shifts
+      const [year, month, day] = dateString.split('-').map(Number);
+      const utcDate = new Date(Date.UTC(year, month - 1, day));
+      const dayName = utcDate.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+      const formattedDate = `${dayName} ${month}/${day}`;
       
       const shifts = shiftsByDate[dateString] || [];
       
@@ -157,16 +159,19 @@ export default function Dashboard() {
   const weeklyChartData = useMemo(() => {
     if (!recentShifts) return [];
 
-    const last7DaysStart = new Date(last7Days.start);
-    
-    // Generate all 7 days starting from 7 days ago to today
+    // Generate all 7 days using UTC to avoid timezone issues
     return Array.from({ length: 7 }, (_, index) => {
-      const currentDate = new Date(last7DaysStart);
-      currentDate.setDate(last7DaysStart.getDate() + index);
+      const startDate = new Date(last7Days.start + 'T00:00:00Z');
+      const currentDate = new Date(startDate);
+      currentDate.setUTCDate(startDate.getUTCDate() + index);
       const dateString = currentDate.toISOString().split('T')[0];
       
-      // Get the actual day name for this date
-      const actualDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+      // Parse date components in UTC
+      const [year, month, day] = dateString.split('-').map(Number);
+      const utcDate = new Date(Date.UTC(year, month - 1, day));
+      
+      // Get the actual day name for this date using UTC
+      const actualDayName = utcDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
       
       // Filter shifts for this specific day
       const dayShifts = recentShifts.filter((shift: Shift) => shift.date === dateString);
@@ -205,8 +210,8 @@ export default function Dashboard() {
         );
       });
       
-      // Use the actual day name instead of the hardcoded array
-      const dayWithDate = `${actualDayName.slice(0, 3)} ${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+      // Use the actual day name with UTC date components
+      const dayWithDate = `${actualDayName.slice(0, 3)} ${month}/${day}`;
       
       return {
         day: dayWithDate, // Short day names with date
