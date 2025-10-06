@@ -639,9 +639,12 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
           </Card>
 
           {(() => {
+            // Filter to only include uploaded shifts (exclude roster shifts)
             const filteredShifts = Array.isArray(allShifts) 
               ? allShifts.filter((shift: any) => 
-                  shift.date >= overviewStartDate && shift.date <= overviewEndDate
+                  shift.date >= overviewStartDate && 
+                  shift.date <= overviewEndDate &&
+                  (!shift.createdBy || shift.createdBy === shift.userId)
                 ) 
               : [];
 
