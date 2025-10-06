@@ -81,10 +81,12 @@ export default function Dashboard() {
 
   // Prepare chart data for filtered recent shifts
   const recentShiftsChartData = useMemo(() => {
-    // Generate all dates in the selected range using string manipulation to avoid timezone issues
+    // Generate all dates in the selected range
     const dateRange: string[] = [];
-    const start = new Date(recentShiftsStartDate + 'T00:00:00Z');
-    const end = new Date(recentShiftsEndDate + 'T00:00:00Z');
+    const startParts = recentShiftsStartDate.split('-').map(Number);
+    const endParts = recentShiftsEndDate.split('-').map(Number);
+    const start = new Date(Date.UTC(startParts[0], startParts[1] - 1, startParts[2]));
+    const end = new Date(Date.UTC(endParts[0], endParts[1] - 1, endParts[2]));
     
     for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
       dateRange.push(d.toISOString().split('T')[0]);
@@ -161,7 +163,8 @@ export default function Dashboard() {
 
     // Generate all 7 days using UTC to avoid timezone issues
     return Array.from({ length: 7 }, (_, index) => {
-      const startDate = new Date(last7Days.start + 'T00:00:00Z');
+      const startParts = last7Days.start.split('-').map(Number);
+      const startDate = new Date(Date.UTC(startParts[0], startParts[1] - 1, startParts[2]));
       const currentDate = new Date(startDate);
       currentDate.setUTCDate(startDate.getUTCDate() + index);
       const dateString = currentDate.toISOString().split('T')[0];
