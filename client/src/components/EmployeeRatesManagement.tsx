@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   DollarSign, 
   Users, 
@@ -45,6 +52,7 @@ interface EmployeeRatesManagementProps {
 
 export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementProps) {
   const { toast } = useToast();
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null);
   const [editingRates, setEditingRates] = useState<Partial<EmployeeRate>>({});
 
@@ -200,6 +208,11 @@ export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementPr
     );
   }
 
+  // Filter to selected employee
+  const selectedEmployee = selectedEmployeeId 
+    ? employees.find(emp => emp.id.toString() === selectedEmployeeId)
+    : null;
+
   return (
     <Card>
       <CardHeader>
@@ -212,8 +225,39 @@ export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementPr
         </p>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {employees.map(employee => {
+        <div className="space-y-6">
+          {/* Employee Selector */}
+          <div className="space-y-2">
+            <Label htmlFor="employee-select">Select Employee</Label>
+            <Select 
+              value={selectedEmployeeId} 
+              onValueChange={setSelectedEmployeeId}
+            >
+              <SelectTrigger id="employee-select" data-testid="employee-select">
+                <SelectValue placeholder="Select an employee" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((employee) => (
+                  <SelectItem key={employee.id} value={employee.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      {employee.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Employee Rates Display */}
+          {!selectedEmployeeId ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Please select an employee to view and edit their rates.</p>
+            </div>
+          ) : selectedEmployee ? (
+            (() => {
+              const employee = selectedEmployee;
             const existingRates = ratesMap[employee.id];
             const isEditing = editingEmployeeId === employee.id;
             const displayRates = isEditing ? editingRates : existingRates;
@@ -308,14 +352,8 @@ export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementPr
                 </CardContent>
               </Card>
             );
-          })}
-
-          {employees.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No employees found in this company.</p>
-            </div>
-          )}
+            })()
+          ) : null}
         </div>
       </CardContent>
     </Card>
