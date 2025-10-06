@@ -798,8 +798,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to employee in different company" });
       }
       
-      // Get employee shifts for date range
-      const shifts = await storage.getShiftsByUserAndDateRange(parseInt(employeeId), startDate, endDate);
+      // Get employee shifts for date range (exclude roster shifts)
+      const allShifts = await storage.getShiftsByUserAndDateRange(parseInt(employeeId), startDate, endDate);
+      
+      // Filter to only include uploaded shifts (exclude roster/scheduled shifts)
+      // Include shifts where createdBy is null or equals the employee's ID
+      const shifts = allShifts.filter(shift => 
+        shift.createdBy === null || shift.createdBy === parseInt(employeeId)
+      );
       
       if (shifts.length === 0) {
         return res.json({
@@ -859,28 +865,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         summary.totalHours += billing.total_hours;
         summary.totalAmount += billing.total_amount;
         
-        // Add to specific rate type totals
-        switch (billing.day_type) {
-          case 'weekday':
-            summary.weekdayHours += billing.total_hours;
-            summary.weekdayAmount += billing.total_amount;
-            break;
-          case 'weeknight':
-            summary.weeknightHours += billing.total_hours;
-            summary.weeknightAmount += billing.total_amount;
-            break;
-          case 'saturday':
-            summary.saturdayHours += billing.total_hours;
-            summary.saturdayAmount += billing.total_amount;
-            break;
-          case 'sunday':
-            summary.sundayHours += billing.total_hours;
-            summary.sundayAmount += billing.total_amount;
-            break;
-          case 'publicHoliday':
-            summary.publicHolidayHours += billing.total_hours;
-            summary.publicHolidayAmount += billing.total_amount;
-            break;
+        // Handle split billing (weekday/weeknight) by processing billing array entries
+        if (billing.day_type === 'weekday/weeknight') {
+          billing.billing.forEach(entry => {
+            // Determine rate type based on the rate used
+            // In split billing, first entry is weekday, second is weeknight
+            const isWeeknightRate = entry.rate > billing.billing[0].rate;
+            if (isWeeknightRate) {
+              summary.weeknightHours += entry.hours;
+              summary.weeknightAmount += entry.subtotal;
+            } else {
+              summary.weekdayHours += entry.hours;
+              summary.weekdayAmount += entry.subtotal;
+            }
+          });
+        } else {
+          // Add to specific rate type totals for non-split billing
+          switch (billing.day_type) {
+            case 'weekday':
+              summary.weekdayHours += billing.total_hours;
+              summary.weekdayAmount += billing.total_amount;
+              break;
+            case 'weeknight':
+              summary.weeknightHours += billing.total_hours;
+              summary.weeknightAmount += billing.total_amount;
+              break;
+            case 'saturday':
+              summary.saturdayHours += billing.total_hours;
+              summary.saturdayAmount += billing.total_amount;
+              break;
+            case 'sunday':
+              summary.sundayHours += billing.total_hours;
+              summary.sundayAmount += billing.total_amount;
+              break;
+            case 'publicHoliday':
+              summary.publicHolidayHours += billing.total_hours;
+              summary.publicHolidayAmount += billing.total_amount;
+              break;
+          }
         }
       });
       
