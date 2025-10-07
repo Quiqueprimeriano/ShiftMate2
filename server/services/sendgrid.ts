@@ -1,11 +1,13 @@
 import { MailService } from '@sendgrid/mail';
 
-if (!process.env.SENDGRID_API_KEY) {
-  throw new Error("SENDGRID_API_KEY environment variable must be set");
-}
-
 const mailService = new MailService();
-mailService.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Guard SendGrid initialization - only set API key if it exists and is valid
+if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+} else if (process.env.NODE_ENV === 'development') {
+  console.warn('SendGrid API key not configured or invalid. Email functionality will be disabled in development.');
+}
 
 interface EmailParams {
   to: string;
