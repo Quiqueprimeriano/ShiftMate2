@@ -56,6 +56,11 @@ export class AuthUtils {
     }
   }
 
+  // Hash a token using SHA-256
+  static hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
   // Store refresh token in database
   static async storeRefreshToken(
     token: string, 
@@ -72,9 +77,12 @@ export class AuthUtils {
       expiresAt.setDate(expiresAt.getDate() + 1);
     }
 
+    // Hash the token before storing
+    const tokenHash = this.hashToken(token);
+
     await storage.createRefreshToken({
-      token,
       userId,
+      tokenHash,
       expiresAt
     });
   }
@@ -84,10 +92,13 @@ export class AuthUtils {
     refreshToken: string
   ): Promise<{ accessToken: string; newRefreshToken: string } | null> {
     try {
-      // Get refresh token from database
-      const tokenRecord = await storage.getRefreshToken(refreshToken);
+      // Hash the refresh token to find it in database
+      const tokenHash = this.hashToken(refreshToken);
       
-      if (!tokenRecord || tokenRecord.isRevoked || new Date() > tokenRecord.expiresAt) {
+      // Get refresh token from database
+      const tokenRecord = await storage.getRefreshTokenByHash(tokenHash);
+      
+      if (!tokenRecord || tokenRecord.revokedAt || new Date() > tokenRecord.expiresAt) {
         return null;
       }
 
@@ -98,7 +109,7 @@ export class AuthUtils {
       }
 
       // Revoke old refresh token
-      await storage.revokeRefreshToken(refreshToken);
+      await storage.revokeRefreshToken(tokenHash);
 
       // Generate new tokens
       const newAccessToken = await this.generateAccessToken(user.id, user.email);
@@ -125,7 +136,8 @@ export class AuthUtils {
 
   // Revoke refresh token (for logout)
   static async revokeRefreshToken(token: string): Promise<void> {
-    await storage.revokeRefreshToken(token);
+    const tokenHash = this.hashToken(token);
+    await storage.revokeRefreshToken(tokenHash);
   }
 
   // Clean up expired tokens (should be run periodically)

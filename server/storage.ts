@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq, and, gte, lte, desc, sql, or } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, or, isNull, isNotNull } from "drizzle-orm";
 import { 
   users, 
   shifts, 
@@ -96,8 +96,8 @@ export interface IStorage {
   
   // Refresh token methods
   createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken>;
-  getRefreshToken(token: string): Promise<RefreshToken | undefined>;
-  revokeRefreshToken(token: string): Promise<void>;
+  getRefreshTokenByHash(tokenHash: string): Promise<RefreshToken | undefined>;
+  revokeRefreshToken(tokenHash: string): Promise<void>;
   cleanupExpiredTokens(): Promise<void>;
   
   // Admin methods
@@ -346,26 +346,26 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async getRefreshToken(token: string): Promise<RefreshToken | undefined> {
+  async getRefreshTokenByHash(tokenHash: string): Promise<RefreshToken | undefined> {
     const result = await db.select().from(refreshTokens)
       .where(and(
-        eq(refreshTokens.token, token),
-        eq(refreshTokens.isRevoked, false)
+        eq(refreshTokens.tokenHash, tokenHash),
+        isNull(refreshTokens.revokedAt)
       ))
       .limit(1);
     return result[0];
   }
 
-  async revokeRefreshToken(token: string): Promise<void> {
+  async revokeRefreshToken(tokenHash: string): Promise<void> {
     await db.update(refreshTokens)
-      .set({ isRevoked: true })
-      .where(eq(refreshTokens.token, token));
+      .set({ revokedAt: new Date() })
+      .where(eq(refreshTokens.tokenHash, tokenHash));
   }
 
   async cleanupExpiredTokens(): Promise<void> {
     await db.delete(refreshTokens)
       .where(or(
-        eq(refreshTokens.isRevoked, true),
+        isNotNull(refreshTokens.revokedAt),
         lte(refreshTokens.expiresAt, new Date())
       ));
   }
