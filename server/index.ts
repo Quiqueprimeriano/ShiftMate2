@@ -87,9 +87,7 @@ server.listen(port, "0.0.0.0", () => {
 });
 
 // Workaround for ESM/tsx top-level await issue
-// Server exits without active event loop handles
-const keepalive = setInterval(() => {
-  // Active callback required to prevent exit
-  process.stdout.write('');
-}, 5000);
-keepalive.unref();
+// Keep the process alive by maintaining an active interval
+setInterval(() => {
+  // Empty callback to keep event loop active
+}, 60000);
