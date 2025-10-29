@@ -25,12 +25,12 @@ interface AuthenticatedRequest extends Request {
 }
 
 // Configure Google OAuth Strategy
-function setupGoogleAuth() {
+function setupGoogleAuth(callbackURL: string) {
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/api/auth/google/callback"
+      callbackURL: callbackURL
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value;
@@ -101,11 +101,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(passport.initialize());
   app.use(passport.session());
   
-  // Setup Google OAuth
-  setupGoogleAuth();
+  // Determine the base URL for OAuth callback
+  const getCallbackURL = (req: Request) => {
+    // Use REPLIT_DEV_DOMAIN if in development on Replit
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      return `https://${process.env.REPLIT_DEV_DOMAIN}/api/auth/google/callback`;
+    }
+    // Use explicit callback URL if set
+    if (process.env.GOOGLE_CALLBACK_URL) {
+      return process.env.GOOGLE_CALLBACK_URL;
+    }
+    // Fallback to constructing from request
+    const protocol = req.protocol;
+    const host = req.get('host');
+    return `${protocol}://${host}/api/auth/google/callback`;
+  };
 
   // Google OAuth routes
   app.get("/api/auth/google", (req, res, next) => {
+    // Setup Google OAuth with correct callback URL for this request
+    const callbackURL = getCallbackURL(req);
+    setupGoogleAuth(callbackURL);
+    
     // Store the intent (login or signup) in session
     (req.session as any).authIntent = req.query.intent || 'login';
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);

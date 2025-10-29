@@ -38,7 +38,8 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - **Auto-refresh**: Transparent token refresh on 401 errors with request retry
 - **Session Management**: Legacy session-based auth maintained for backward compatibility
 - **User Profile**: Automatic account creation via Google OAuth
-- **Required Environment Variables**: JWT_SECRET (enforced, no fallback allowed)
+- **Google OAuth Callback**: Dynamic callback URL using REPLIT_DEV_DOMAIN environment variable
+- **Required Environment Variables**: JWT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (enforced, no fallback allowed)
 
 ### Shift Management
 - Manual shift entry with date, time, and type selection
