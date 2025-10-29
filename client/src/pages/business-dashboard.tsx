@@ -669,56 +669,64 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
             return (
               <>
                 {/* Period Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{totalPeriodHours.toFixed(1)}h</div>
-                      <p className="text-xs text-muted-foreground">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-medium text-gray-600">Total Hours</p>
+                        <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                          <Clock className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mb-1">{totalPeriodHours.toFixed(1)}<span className="text-xl text-gray-600 ml-1">hrs</span></div>
+                      <p className="text-xs text-gray-600">
                         {format(parseISO(overviewStartDate), 'MMM dd')} - {format(parseISO(overviewEndDate), 'MMM dd')}
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Shifts</CardTitle>
-                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{filteredShifts.length}</div>
-                      <p className="text-xs text-muted-foreground">
+                  <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-medium text-gray-600">Total Shifts</p>
+                        <div className="w-11 h-11 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+                          <CalendarIcon className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mb-1">{filteredShifts.length}</div>
+                      <p className="text-xs text-gray-600">
                         {timelineData.length} days worked
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {timelineData.length > 0 ? (totalPeriodHours / timelineData.length).toFixed(1) : '0'}h
+                  <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-medium text-gray-600">Daily Average</p>
+                        <div className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md">
+                          <TrendingUp className="h-6 w-6 text-white" />
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <div className="text-3xl font-bold text-gray-900 mb-1">
+                        {timelineData.length > 0 ? (totalPeriodHours / timelineData.length).toFixed(1) : '0'}<span className="text-xl text-gray-600 ml-1">hrs</span>
+                      </div>
+                      <p className="text-xs text-gray-600">
                         Per working day
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{Object.keys(employeeTotals).length}</div>
-                      <p className="text-xs text-muted-foreground">
+                  <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-medium text-gray-600">Active Employees</p>
+                        <div className="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-md">
+                          <Users className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mb-1">{Object.keys(employeeTotals).length}</div>
+                      <p className="text-xs text-gray-600">
                         In this period
                       </p>
                     </CardContent>
@@ -726,12 +734,19 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                 </div>
 
                 {/* Timeline Chart - Days vs Hours */}
-                <Card>
+                <Card className="border-gray-200 shadow-sm">
                   <CardHeader>
-                    <CardTitle>Shift Timeline</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Days (x-axis) vs Hours (y-axis) showing when shifts occur
-                    </p>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                        <CalendarIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-semibold text-gray-900">Shift Timeline</CardTitle>
+                        <p className="text-sm text-gray-600">
+                          Days (x-axis) vs Hours (y-axis) showing when shifts occur
+                        </p>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {filteredShifts.length > 0 ? (

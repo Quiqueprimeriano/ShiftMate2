@@ -208,6 +208,7 @@ externalPort = 80
 - **PRODUCT_REQUIREMENTS_DOCUMENT.md**: Comprehensive PRD covering all product requirements, user stories, technical specifications, and success metrics for ShiftMate
 
 ## Changelog
+- October 29, 2025. DESIGN: Enhanced dashboard visual design with improved metric cards featuring gradient icons, better shadows and spacing. Updated shift type color palette (amber for morning, blue for afternoon, indigo for night). Added smooth transitions and animations in global CSS. Created comprehensive dashboard design guidelines with color palette, typography hierarchy, and responsive behavior specifications.
 - October 29, 2025. DEPLOYMENT: Fixed Cloud Run deployment configuration - added [deployment] section to .replit with proper build and production run commands
 - October 29, 2025. DEPLOYMENT: Documented required production environment variables and Google OAuth callback URL setup for production deployments
 - October 29, 2025. AUTHENTICATION: Fixed Google OAuth callback URL to use dynamic absolute URLs (REPLIT_DEV_DOMAIN) instead of relative paths, resolving redirect_uri_mismatch errors

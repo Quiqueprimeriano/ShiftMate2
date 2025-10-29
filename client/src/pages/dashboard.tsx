@@ -229,14 +229,14 @@ export default function Dashboard() {
   }, [recentShifts, last7Days.start]);
 
 
-  // Get unique shift colors based on type
+  // Get unique shift colors based on type (updated with design guidelines)
   const getShiftColor = (shiftType: string) => {
     const colors = {
-      morning: '#10b981', // emerald-500
-      afternoon: '#3b82f6', // blue-500
-      night: '#6366f1',   // indigo-500
+      morning: '#F59E0B', // amber-500 - warm sunrise
+      afternoon: '#3B82F6', // blue-500 - professional daytime
+      night: '#6366F1',   // indigo-500 - deep evening
     };
-    return colors[shiftType as keyof typeof colors] || '#6b7280';
+    return colors[shiftType as keyof typeof colors] || '#6B7280';
   };
 
   const formatElapsedTime = (seconds: number): string => {
@@ -501,10 +501,11 @@ export default function Dashboard() {
   };
 
   const shiftTypeColors = {
-    morning: 'bg-emerald-500',
+    morning: 'bg-amber-500',
+    afternoon: 'bg-blue-500',
     evening: 'bg-blue-500',
-    night: 'bg-purple-500',
-    double: 'bg-amber-500',
+    night: 'bg-indigo-500',
+    double: 'bg-purple-500',
     custom: 'bg-gray-500',
   };
 
@@ -578,47 +579,48 @@ export default function Dashboard() {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <Card>
+        <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Last 7 Days Hours</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Last 7 Days Hours</p>
                 {thisWeekLoading ? (
-                  <Skeleton className="h-8 w-16 mt-1" />
+                  <Skeleton className="h-9 w-20 mt-1" />
                 ) : (
-                  <p className="text-4xl font-bold text-blue-600">
-                    {thisWeekHours?.toFixed(1) || "0"}h
+                  <p className="text-3xl font-bold text-gray-900">
+                    {thisWeekHours?.toFixed(1) || "0"}<span className="text-xl text-gray-600 ml-1">hrs</span>
                   </p>
                 )}
               </div>
-              <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Clock className="h-8 w-8 text-blue-600" />
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                <Clock className="h-7 w-7 text-white" />
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-slate-600">Last 7 days total</span>
+              <TrendingUp className="h-4 w-4 text-emerald-500 mr-1" />
+              <span className="text-gray-600">Last 7 days total</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">
-                  Shift Timer {isShiftActive && <span className="text-green-600 animate-pulse">• Running</span>}
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  Shift Timer {isShiftActive && <span className="text-emerald-600 animate-pulse">• Active</span>}
                 </p>
-                <p className={`text-4xl font-bold tabular-nums ${isShiftActive ? 'text-green-600' : 'text-slate-900'}`}>
+                <p className={`text-3xl font-bold tabular-nums ${isShiftActive ? 'text-emerald-600' : 'text-gray-900'}`}>
                   {isShiftActive ? formatElapsedTime(elapsedTime) : "00:00:00"}
                 </p>
               </div>
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center touch-target ${
-                isShiftActive ? 'bg-red-100 animate-pulse' : 'bg-green-100'
+              <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-md touch-target transition-all duration-200 ${
+                isShiftActive ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-emerald-500 to-emerald-600'
               }`}>
                 {isShiftActive ? (
-                  <Square className="h-8 w-8 text-red-600" />
+                  <Square className="h-7 w-7 text-white" />
                 ) : (
-                  <Play className="h-8 w-8 text-green-600" />
+                  <Play className="h-7 w-7 text-white" />
                 )}
               </div>
             </div>
@@ -627,7 +629,7 @@ export default function Dashboard() {
                 onClick={isShiftActive ? handleEndShift : handleStartShift}
                 variant={isShiftActive ? "destructive" : "default"}
                 size="lg"
-                className="w-full h-14 text-lg touch-target no-callout"
+                className="w-full h-14 text-lg touch-target no-callout shadow-md hover:shadow-lg transition-shadow"
                 disabled={createShiftMutation.isPending}
               >
                 {createShiftMutation.isPending 
@@ -642,14 +644,14 @@ export default function Dashboard() {
                   onClick={stopTimer}
                   variant="outline"
                   size="lg"
-                  className="w-full h-12 text-base touch-target"
+                  className="w-full h-12 text-base touch-target hover:bg-gray-50 transition-colors"
                 >
                   Cancel Shift
                 </Button>
               )}
             </div>
             {isShiftActive && shiftStartTime && (
-              <div className="mt-3 p-2 bg-green-50 rounded-lg text-sm text-green-700 text-center">
+              <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 text-center font-medium">
                 Started at {shiftStartTime.toLocaleTimeString('en-US', { 
                   hour: '2-digit', 
                   minute: '2-digit' 
@@ -664,16 +666,16 @@ export default function Dashboard() {
       <div className="space-y-8">
         {/* Weekly Hours Chart */}
         <div>
-          <Card>
-            <div className="p-6 border-b border-slate-200">
+          <Card className="border-gray-200 shadow-sm">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                  <div className="w-11 h-11 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+                    <BarChart3 className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Last 7 Days Hours</h3>
-                    <p className="text-sm text-slate-500">Daily breakdown of your recent shifts</p>
+                    <h3 className="text-lg font-semibold text-gray-900">Last 7 Days Hours</h3>
+                    <p className="text-sm text-gray-600">Daily breakdown of your recent shifts</p>
                   </div>
                 </div>
               </div>
@@ -687,17 +689,19 @@ export default function Dashboard() {
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={weeklyChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
                       <XAxis 
                         dataKey="day" 
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        tickLine={{ stroke: '#cbd5e1' }}
+                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        tickLine={false}
+                        axisLine={false}
                       />
                       <YAxis 
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        tickLine={{ stroke: '#cbd5e1' }}
+                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        tickLine={false}
+                        axisLine={false}
                         domain={[0, 'dataMax + 2']}
-                        label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '12px', fill: '#64748b' } }}
+                        label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '12px', fill: '#6B7280' } }}
                       />
                       <Tooltip
                         content={({ active, payload, label }) => {
@@ -715,7 +719,7 @@ export default function Dashboard() {
                                     <div className="space-y-1 mt-2">
                                       {data.morningHours > 0 && (
                                         <div className="flex items-center gap-2 text-xs">
-                                          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                          <div className="w-3 h-3 rounded-full bg-amber-500"></div>
                                           <span>Morning: {data.morningHours} hours</span>
                                         </div>
                                       )}
@@ -755,10 +759,10 @@ export default function Dashboard() {
                           return null;
                         }}
                       />
-                      {/* Render separate bars for each shift type */}
-                      <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" minPointSize={3} />
-                      <Bar dataKey="afternoonHours" stackId="shifts" fill="#3b82f6" name="Afternoon Shifts" minPointSize={3} />
-                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" minPointSize={3} />
+                      {/* Render separate bars for each shift type with updated colors */}
+                      <Bar dataKey="morningHours" stackId="shifts" fill="#F59E0B" name="Morning Shifts" minPointSize={3} radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="afternoonHours" stackId="shifts" fill="#3B82F6" name="Afternoon Shifts" minPointSize={3} radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="nightHours" stackId="shifts" fill="#6366F1" name="Night Shifts" minPointSize={3} radius={[8, 8, 0, 0]} />
                       {/* Add total hours label on top of stacked bars */}
                       <Bar 
                         dataKey="totalHours" 
@@ -795,12 +799,17 @@ export default function Dashboard() {
 
         {/* Recent Shifts */}
         <div>
-          <Card>
-            <div className="p-6 border-b border-slate-200">
+          <Card className="border-gray-200 shadow-sm">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-900">Recent Shifts</h3>
+                <div className="flex items-center space-x-3">
+                  <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                    <History className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Recent Shifts</h3>
+                </div>
                 <Link href="/shifts">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="hover:bg-gray-100 transition-colors">
                     View All
                   </Button>
                 </Link>
@@ -917,7 +926,7 @@ export default function Dashboard() {
                                       <div className="space-y-1 mt-2">
                                         {data.morningHours > 0 && (
                                           <div className="flex items-center gap-2 text-xs">
-                                            <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
                                             <span>Morning: {data.morningHours} hours</span>
                                           </div>
                                         )}
@@ -944,9 +953,9 @@ export default function Dashboard() {
                             return null;
                           }}
                         />
-                        <Bar dataKey="morningHours" stackId="shifts" fill="#10b981" name="Morning Shifts" minPointSize={3} />
-                        <Bar dataKey="afternoonHours" stackId="shifts" fill="#3b82f6" name="Afternoon Shifts" minPointSize={3} />
-                        <Bar dataKey="nightHours" stackId="shifts" fill="#6366f1" name="Night Shifts" minPointSize={3} />
+                        <Bar dataKey="morningHours" stackId="shifts" fill="#F59E0B" name="Morning Shifts" minPointSize={3} radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="afternoonHours" stackId="shifts" fill="#3B82F6" name="Afternoon Shifts" minPointSize={3} radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="nightHours" stackId="shifts" fill="#6366F1" name="Night Shifts" minPointSize={3} radius={[8, 8, 0, 0]} />
                         {/* Add total hours label on top of stacked bars */}
                         <Bar 
                           dataKey="totalHours" 
