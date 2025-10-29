@@ -333,11 +333,31 @@ WHERE "revokedAt" IS NOT NULL;
 6. **Expiration**: Short-lived access tokens minimize exposure window
 7. **Revocation**: Logout immediately revokes refresh token
 
+## Required Environment Variables
+
+**CRITICAL**: The application will not start without these environment variables set:
+
+### JWT_SECRET (Required)
+- **Purpose**: Secret key for signing and verifying JWT access tokens
+- **Security**: MUST be a strong, random, cryptographically secure secret
+- **Generation**: Use a secure random generator (minimum 64 characters recommended)
+- **Example generation**:
+  ```bash
+  # Generate a secure random secret
+  node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+  ```
+- **Setting in Replit**:
+  1. Go to "Secrets" in the Replit sidebar (Tools → Secrets)
+  2. Add new secret: Key = `JWT_SECRET`, Value = your generated secret
+  3. Restart the application
+
+**Warning**: Without JWT_SECRET set, the application will throw a startup error and refuse to run. This is intentional for security - no hardcoded fallback is allowed.
+
 ## Production Considerations
 
 1. Set secure environment variables:
-   - `JWT_SECRET`: Strong random secret for signing tokens
-   - `JWT_REFRESH_SECRET`: Separate secret for refresh tokens
+   - `JWT_SECRET`: Strong random secret for signing tokens (REQUIRED - see above)
+   - Optional: Separate secret for refresh tokens if implementing token rotation
 
 2. Enable HTTPS:
    - Secure flag on cookies only works over HTTPS

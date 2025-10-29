@@ -2,7 +2,16 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { storage } from './storage';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
+// Enforce JWT_SECRET is set - no fallback allowed for security
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    'CRITICAL SECURITY ERROR: JWT_SECRET environment variable is not set. ' +
+    'JWT authentication cannot function securely without a secret key. ' +
+    'Please set JWT_SECRET in your environment variables before starting the application.'
+  );
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_ISSUER = 'shiftmate-app';
 
 export interface JWTPayload {
