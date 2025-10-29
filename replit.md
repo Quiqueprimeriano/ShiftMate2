@@ -133,6 +133,42 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - **Port Configuration**: Single-port architecture on port 5000
 - Environment-specific build optimization
 
+### Deployment Configuration (.replit)
+
+**Required .replit Configuration for Cloud Run:**
+```toml
+modules = ["nodejs-20", "web", "postgresql-16"]
+run = "npm run dev"
+
+[deployment]
+build = "npm run build"
+run = "npm start"
+deploymentTarget = "cloudrun"
+
+[nix]
+channel = "stable-24_05"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+```
+
+**Required Production Environment Variables:**
+These must be set in the Replit Deployments Configuration tab (NOT in Secrets pane):
+
+1. **JWT_SECRET** - Secret key for JWT token signing (required, no fallback)
+2. **GOOGLE_CLIENT_ID** - Google OAuth client ID
+3. **GOOGLE_CLIENT_SECRET** - Google OAuth client secret
+4. **SESSION_SECRET** - Express session secret key
+5. **DATABASE_URL** - PostgreSQL connection string (auto-configured by Replit)
+6. **NODE_ENV** - Set to `production` (auto-configured)
+7. **SENDGRID_API_KEY** - (Optional) For email notifications
+
+**Google OAuth Production Setup:**
+- Add your production deployment URL to Google Cloud Console authorized redirect URIs
+- Format: `https://your-app-name.replit.app/api/auth/google/callback`
+- The app uses REPLIT_DEV_DOMAIN in development and falls back to request-based URL construction in production
+
 ### Port Configuration Details
 
 **Architecture**: ShiftMate uses a unified single-port architecture where both the frontend and backend run on the same port.
@@ -172,6 +208,9 @@ externalPort = 80
 - **PRODUCT_REQUIREMENTS_DOCUMENT.md**: Comprehensive PRD covering all product requirements, user stories, technical specifications, and success metrics for ShiftMate
 
 ## Changelog
+- October 29, 2025. DEPLOYMENT: Fixed Cloud Run deployment configuration - added [deployment] section to .replit with proper build and production run commands
+- October 29, 2025. DEPLOYMENT: Documented required production environment variables and Google OAuth callback URL setup for production deployments
+- October 29, 2025. AUTHENTICATION: Fixed Google OAuth callback URL to use dynamic absolute URLs (REPLIT_DEV_DOMAIN) instead of relative paths, resolving redirect_uri_mismatch errors
 - October 29, 2025. SECURITY: Implemented JWT authentication system with dual-token architecture (access + refresh tokens), SHA-256 token hashing, httpOnly cookies, and enforced JWT_SECRET requirement (removed hardcoded fallback for security)
 - October 29, 2025. FEATURE: Added automatic token refresh on 401 errors with request retry in frontend queryClient
 - October 29, 2025. DATABASE: Added refreshTokens table with tokenHash, expiresAt, and revokedAt fields for secure token management
