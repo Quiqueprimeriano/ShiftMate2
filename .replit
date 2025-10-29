@@ -1,45 +1,47 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-run = "bash -lc 'npm --prefix server run dev'"
-
-run = "bash -lc 'npm --prefix server run dev'"
-
-
-[deployment]
-build = "npm run build"
-run = "npm start"
-deploymentTarget = "cloudrun"
+run = "npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5173
-
-[[ports]]
-localPort = 5174
-externalPort = 3000
-
-[[ports]]
-localPort = 5175
+localPort = 43229
 externalPort = 3001
 
 [[ports]]
-localPort = 5176
-externalPort = 3002
+localPort = 43733
+externalPort = 3000
 
-[[ports]]
-localPort = 5177
-externalPort = 3003
-
-[[ports]]
-localPort = 44491
-externalPort = 5000
-
-[[ports]]
-localPort = 46247
-externalPort = 4200
-
+[agent]
+integrations = ["javascript_supabase:1.0.0", "javascript_websocket:1.0.0", "javascript_sendgrid:1.0.0"]
