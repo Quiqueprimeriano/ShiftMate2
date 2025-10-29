@@ -9,9 +9,11 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
-const match = connectionString.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+const match = connectionString.match(
+  /^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/,
+);
 if (!match) {
-  throw new Error('Invalid DATABASE_URL format');
+  throw new Error("Invalid DATABASE_URL format");
 }
 
 const [, username, password, host, port, database] = match;
@@ -23,8 +25,8 @@ const pool = new Pool({
   port: parseInt(port),
   database: database,
   ssl: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+  },
 });
 
 const db = drizzle(pool);
@@ -56,12 +58,12 @@ export interface ShiftBilling {
 export function getEmployeeRateType(date: string, holidays: string[]): string {
   const shiftDate = new Date(date);
   const dayOfWeek = shiftDate.getDay(); // 0 = Sunday, 6 = Saturday
-  
+
   // Check if it's a holiday first
   if (holidays.includes(date)) {
     return "publicHoliday";
   }
-  
+
   // Check day of week
   if (dayOfWeek === 0) {
     return "sunday";
@@ -75,42 +77,45 @@ export function getEmployeeRateType(date: string, holidays: string[]): string {
 
 /**
  * Calculate weeknight hours for a weekday shift
- * Returns hours (max 2) that fall between 21:00-23:59 on Monday-Friday
+ * Returns hours (max 4) that fall between 21:00-23:59 on Monday-Friday
  */
-export function calculateWeeknightHours(startTime: string, endTime: string): number {
-  const [startHour, startMin] = startTime.split(':').map(Number);
-  const [endHour, endMin] = endTime.split(':').map(Number);
-  
+export function calculateWeeknightHours(
+  startTime: string,
+  endTime: string,
+): number {
+  const [startHour, startMin] = startTime.split(":").map(Number);
+  const [endHour, endMin] = endTime.split(":").map(Number);
+
   let startMinutes = startHour * 60 + startMin;
   let endMinutes = endHour * 60 + endMin;
-  
+
   // Handle cross-day shifts
   if (endMinutes <= startMinutes) {
     endMinutes += 24 * 60;
   }
-  
+
   // Weeknight window: 21:00 (1260 minutes) to 23:59 (1439 minutes)
   const weeknightStart = 21 * 60; // 1260 minutes (9 PM)
   const weeknightEnd = 23 * 60 + 59; // 1439 minutes (11:59 PM)
-  
+
   // Check if shift overlaps with weeknight window
   if (endMinutes <= weeknightStart || startMinutes > weeknightEnd) {
     // No overlap
     return 0;
   }
-  
+
   // Calculate overlap
   const overlapStart = Math.max(startMinutes, weeknightStart);
   const overlapEnd = Math.min(endMinutes, weeknightEnd);
   const overlapMinutes = overlapEnd - overlapStart;
-  
+
   if (overlapMinutes <= 0) {
     return 0;
   }
-  
+
   // Convert to hours and cap at 2 hours
   const overlapHours = overlapMinutes / 60;
-  return Math.min(overlapHours, 2);
+  return Math.min(overlapHours, 4);
 }
 
 /**
@@ -118,7 +123,7 @@ export function calculateWeeknightHours(startTime: string, endTime: string): num
  */
 export async function getEmployeeRates(
   userId: number,
-  date: string
+  date: string,
 ): Promise<{
   weekdayRate: number;
   weeknightRate: number;
@@ -138,15 +143,9 @@ export async function getEmployeeRates(
     .where(
       and(
         eq(employeeRates.userId, userId),
-        or(
-          isNull(employeeRates.validFrom),
-          lte(employeeRates.validFrom, date)
-        ),
-        or(
-          isNull(employeeRates.validTo),
-          gte(employeeRates.validTo, date)
-        )
-      )
+        or(isNull(employeeRates.validFrom), lte(employeeRates.validFrom, date)),
+        or(isNull(employeeRates.validTo), gte(employeeRates.validTo, date)),
+      ),
     )
     .limit(1);
 
@@ -156,18 +155,21 @@ export async function getEmployeeRates(
 /**
  * Calculate shift duration in hours, handling cross-day shifts
  */
-export function calculateShiftDuration(startTime: string, endTime: string): number {
-  const [startHour, startMin] = startTime.split(':').map(Number);
-  const [endHour, endMin] = endTime.split(':').map(Number);
-  
+export function calculateShiftDuration(
+  startTime: string,
+  endTime: string,
+): number {
+  const [startHour, startMin] = startTime.split(":").map(Number);
+  const [endHour, endMin] = endTime.split(":").map(Number);
+
   let startMinutes = startHour * 60 + startMin;
   let endMinutes = endHour * 60 + endMin;
-  
+
   // Handle cross-day shifts (e.g., 22:00 to 06:00)
   if (endMinutes <= startMinutes) {
     endMinutes += 24 * 60; // Add 24 hours
   }
-  
+
   const durationMinutes = endMinutes - startMinutes;
   return durationMinutes / 60; // Convert to hours
 }
@@ -179,13 +181,15 @@ export async function getRateTiers(
   companyId: number,
   shiftType: string,
   dayType: string,
-  shiftDate: string
-): Promise<Array<{
-  id: number;
-  tierOrder: number;
-  hoursInTier: string | null;
-  ratePerHour: number;
-}>> {
+  shiftDate: string,
+): Promise<
+  Array<{
+    id: number;
+    tierOrder: number;
+    hoursInTier: string | null;
+    ratePerHour: number;
+  }>
+> {
   const tiers = await db
     .select({
       id: rateTiers.id,
@@ -199,15 +203,9 @@ export async function getRateTiers(
         eq(rateTiers.companyId, companyId),
         eq(rateTiers.shiftType, shiftType),
         eq(rateTiers.dayType, dayType),
-        or(
-          isNull(rateTiers.validFrom),
-          gte(rateTiers.validFrom, shiftDate)
-        ),
-        or(
-          isNull(rateTiers.validTo),
-          lte(rateTiers.validTo, shiftDate)
-        )
-      )
+        or(isNull(rateTiers.validFrom), gte(rateTiers.validFrom, shiftDate)),
+        or(isNull(rateTiers.validTo), lte(rateTiers.validTo, shiftDate)),
+      ),
     )
     .orderBy(rateTiers.tierOrder);
 
@@ -221,8 +219,8 @@ export async function getPublicHolidays(): Promise<string[]> {
   const holidays = await db
     .select({ date: publicHolidays.date })
     .from(publicHolidays);
-  
-  return holidays.map(h => h.date);
+
+  return holidays.map((h) => h.date);
 }
 
 /**
@@ -234,20 +232,20 @@ export async function calculateShiftBilling(
   date: string,
   startTime: string,
   endTime: string,
-  shiftType: string
+  shiftType: string,
 ): Promise<ShiftBilling> {
   // Calculate total hours
   const totalHours = calculateShiftDuration(startTime, endTime);
-  
+
   // Get holidays
   const holidays = await getPublicHolidays();
-  
+
   // Determine base rate type for employee billing
   const rateType = getEmployeeRateType(date, holidays);
-  
+
   // Get employee rates
   const employeeRates = await getEmployeeRates(userId, date);
-  
+
   // If no employee rates found, use fallback rate
   if (!employeeRates) {
     const fallbackRate = 2500; // $25.00 per hour in cents - fallback rate
@@ -263,29 +261,33 @@ export async function calculateShiftBilling(
           tier: 1,
           rate: fallbackRate,
           hours: totalHours,
-          subtotal: Math.round(totalHours * fallbackRate)
-        }
-      ]
+          subtotal: Math.round(totalHours * fallbackRate),
+        },
+      ],
     };
   }
-  
+
   // Handle weekday shifts with potential weeknight hours
-  if (rateType === 'weekday') {
+  if (rateType === "weekday") {
     const weeknightHours = calculateWeeknightHours(startTime, endTime);
-    
+
     if (weeknightHours > 0) {
       // Split billing: weeknight hours + weekday hours
       const weekdayHours = totalHours - weeknightHours;
-      const weeknightAmount = Math.round(weeknightHours * employeeRates.weeknightRate);
-      const weekdayAmount = Math.round(weekdayHours * employeeRates.weekdayRate);
+      const weeknightAmount = Math.round(
+        weeknightHours * employeeRates.weeknightRate,
+      );
+      const weekdayAmount = Math.round(
+        weekdayHours * employeeRates.weekdayRate,
+      );
       const totalAmount = weeknightAmount + weekdayAmount;
-      
+
       return {
         shift_id: shiftId,
         total_hours: totalHours,
         total_amount: totalAmount,
         date,
-        day_type: 'weekday/weeknight', // Indicates split billing
+        day_type: "weekday/weeknight", // Indicates split billing
         shift_type: shiftType,
         start_time: startTime,
         end_time: endTime,
@@ -294,41 +296,41 @@ export async function calculateShiftBilling(
             tier: 1,
             rate: employeeRates.weekdayRate,
             hours: weekdayHours,
-            subtotal: weekdayAmount
+            subtotal: weekdayAmount,
           },
           {
             tier: 2,
             rate: employeeRates.weeknightRate,
             hours: weeknightHours,
-            subtotal: weeknightAmount
-          }
-        ]
+            subtotal: weeknightAmount,
+          },
+        ],
       };
     }
   }
-  
+
   // Get the appropriate rate based on rate type (non-weekday or weekday without weeknight hours)
   let hourlyRate: number;
   switch (rateType) {
-    case 'weekday':
+    case "weekday":
       hourlyRate = employeeRates.weekdayRate;
       break;
-    case 'saturday':
+    case "saturday":
       hourlyRate = employeeRates.saturdayRate;
       break;
-    case 'sunday':
+    case "sunday":
       hourlyRate = employeeRates.sundayRate;
       break;
-    case 'publicHoliday':
+    case "publicHoliday":
       hourlyRate = employeeRates.publicHolidayRate;
       break;
     default:
       hourlyRate = employeeRates.weekdayRate; // fallback to weekday rate
   }
-  
+
   // Calculate simple hourly billing
   const totalAmount = Math.round(totalHours * hourlyRate);
-  
+
   return {
     shift_id: shiftId,
     total_hours: totalHours,
@@ -343,19 +345,22 @@ export async function calculateShiftBilling(
         tier: 1,
         rate: hourlyRate,
         hours: totalHours,
-        subtotal: totalAmount
-      }
-    ]
+        subtotal: totalAmount,
+      },
+    ],
   };
 }
 
 /**
  * Format currency amount from cents to display string
  */
-export function formatCurrency(amountInCents: number, currency: string = "AUD"): string {
+export function formatCurrency(
+  amountInCents: number,
+  currency: string = "AUD",
+): string {
   const amount = amountInCents / 100;
-  return new Intl.NumberFormat('en-AU', {
-    style: 'currency',
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
     currency,
   }).format(amount);
 }
@@ -371,20 +376,20 @@ export async function calculateMultipleShiftsBilling(
     startTime: string;
     endTime: string;
     shiftType: string;
-  }>
+  }>,
 ): Promise<ShiftBilling[]> {
   const results = await Promise.all(
-    shifts.map(shift => 
+    shifts.map((shift) =>
       calculateShiftBilling(
         shift.id,
         shift.userId,
         shift.date,
         shift.startTime,
         shift.endTime,
-        shift.shiftType
-      )
-    )
+        shift.shiftType,
+      ),
+    ),
   );
-  
+
   return results;
 }
