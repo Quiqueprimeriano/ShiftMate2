@@ -67,14 +67,14 @@ export const notifications = pgTable("shiftmate_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Refresh tokens for persistent authentication
+// Refresh tokens for JWT authentication
 export const refreshTokens = pgTable("shiftmate_refresh_tokens", {
   id: serial("id").primaryKey(),
-  token: text("token").notNull().unique(),
   userId: integer("user_id").notNull().references(() => users.id),
+  tokenHash: text("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
-  isRevoked: boolean("is_revoked").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
 });
 
 // Rate tiers for tiered billing system
