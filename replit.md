@@ -31,10 +31,14 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 ## Key Components
 
 ### Authentication System
-- Google OAuth integration for secure login
-- Session-based authentication with persistent storage
-- User profile management with automatic account creation
-- Mobile-optimized biometric authentication support (planned)
+- **Dual Authentication**: Google OAuth 2.0 + JWT token-based authentication
+- **Access Tokens**: 15-minute expiry, stored in localStorage + memory
+- **Refresh Tokens**: 30-day expiry, stored as httpOnly + secure cookies
+- **Token Security**: SHA-256 hashing for database storage, no plaintext tokens
+- **Auto-refresh**: Transparent token refresh on 401 errors with request retry
+- **Session Management**: Legacy session-based auth maintained for backward compatibility
+- **User Profile**: Automatic account creation via Google OAuth
+- **Required Environment Variables**: JWT_SECRET (enforced, no fallback allowed)
 
 ### Shift Management
 - Manual shift entry with date, time, and type selection
@@ -167,6 +171,10 @@ externalPort = 80
 - **PRODUCT_REQUIREMENTS_DOCUMENT.md**: Comprehensive PRD covering all product requirements, user stories, technical specifications, and success metrics for ShiftMate
 
 ## Changelog
+- October 29, 2025. SECURITY: Implemented JWT authentication system with dual-token architecture (access + refresh tokens), SHA-256 token hashing, httpOnly cookies, and enforced JWT_SECRET requirement (removed hardcoded fallback for security)
+- October 29, 2025. FEATURE: Added automatic token refresh on 401 errors with request retry in frontend queryClient
+- October 29, 2025. DATABASE: Added refreshTokens table with tokenHash, expiresAt, and revokedAt fields for secure token management
+- October 29, 2025. DOCUMENTATION: Created AUTH_TESTING.md with comprehensive JWT authentication testing guide and security best practices
 - October 29, 2025. DOCUMENTATION: Added comprehensive port configuration documentation explaining single-port architecture (port 5000) and correct .replit mapping requirements
 - October 29, 2025. INFRASTRUCTURE: Fixed critical server startup issues - removed keepalive .unref(), created dirname-shim.mjs for ES module __dirname support, corrected server/package.json configuration
 - September 26, 2025. FEATURE: Implemented comprehensive roster planning functionality for business accounts including visual weekly grid interface, manager shift assignments, modal-based CRUD operations, and real-time roster management with full API backend support
