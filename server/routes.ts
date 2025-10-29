@@ -112,10 +112,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/google/callback", 
-    passport.authenticate('google', { failureRedirect: '/login?error=auth_failed' }),
-    (req, res) => {
-      // Successful authentication, redirect to dashboard
-      res.redirect('/');
+    passport.authenticate('google', { failureRedirect: '/login?error=auth_failed', session: false }),
+    async (req, res) => {
+      try {
+        const user = req.user as any;
+        
+        if (!user) {
+          return res.redirect('/login?error=no_user');
+        }
+
+        // Generate JWT tokens
+        const accessToken = await AuthUtils.generateAccessToken(user.id, user.email);
+        const refreshToken = AuthUtils.generateRefreshToken();
+
+        // Store refresh token (30 days expiry)
+        await AuthUtils.storeRefreshToken(refreshToken, user.id, true);
+
+        // Set refresh token as httpOnly cookie (30 days)
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        });
+
+        // Redirect to frontend with access token in URL fragment
+        // The frontend will extract and store the token
+        res.redirect(`/?token=${accessToken}`);
+      } catch (error) {
+        console.error('Error in Google OAuth callback:', error);
+        res.redirect('/login?error=token_generation_failed');
+      }
     }
   );
 
