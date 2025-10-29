@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route, Link, useLocation } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, setAccessToken } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -252,6 +252,24 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    // Extract token from URL after Google OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    
+    if (token) {
+      // Store the access token
+      setAccessToken(token);
+      
+      // Remove token from URL without page reload
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      
+      // Invalidate auth query to trigger refresh with new token
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
