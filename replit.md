@@ -125,8 +125,41 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 ### Platform Compatibility
 - Deployed on Replit with autoscale deployment target
 - PostgreSQL 16 module integration
-- Port 5000 internal, port 80 external mapping
+- **Port Configuration**: Single-port architecture on port 5000
 - Environment-specific build optimization
+
+### Port Configuration Details
+
+**Architecture**: ShiftMate uses a unified single-port architecture where both the frontend and backend run on the same port.
+
+**Current Setup**:
+- **Internal Port**: 5000 (application listens here)
+- **External Port**: Should map to 80 for standard web access
+- **Technology**: Vite dev server integrated into Express via middleware (not running separately)
+
+**How It Works**:
+1. Express server starts on port 5000
+2. In development mode, Vite middleware is integrated into Express
+3. All frontend and backend traffic flows through port 5000
+4. No separate Vite server on port 5173 - it's embedded in Express
+
+**Important Notes**:
+- The application does NOT run on port 3000
+- Port 5173 is not used in production (Vite middleware mode)
+- For proper external access, `.replit` should map `localPort = 5000` to `externalPort = 80`
+- This single-port design simplifies deployment and avoids CORS issues
+
+**Correct `.replit` Port Mapping** (manual update required):
+```toml
+[[ports]]
+localPort = 5000
+externalPort = 80
+```
+
+**Why This Matters**:
+- `localPort = 5000`: Matches where the app actually listens
+- `externalPort = 80`: Standard HTTP port for web traffic (no port number in URL)
+- Ensures traffic is routed correctly to the application
 
 ## Documentation
 
@@ -134,6 +167,8 @@ ShiftMate is a comprehensive web application designed for shift-based profession
 - **PRODUCT_REQUIREMENTS_DOCUMENT.md**: Comprehensive PRD covering all product requirements, user stories, technical specifications, and success metrics for ShiftMate
 
 ## Changelog
+- October 29, 2025. DOCUMENTATION: Added comprehensive port configuration documentation explaining single-port architecture (port 5000) and correct .replit mapping requirements
+- October 29, 2025. INFRASTRUCTURE: Fixed critical server startup issues - removed keepalive .unref(), created dirname-shim.mjs for ES module __dirname support, corrected server/package.json configuration
 - September 26, 2025. FEATURE: Implemented comprehensive roster planning functionality for business accounts including visual weekly grid interface, manager shift assignments, modal-based CRUD operations, and real-time roster management with full API backend support
 - September 26, 2025. DOCUMENTATION: Created comprehensive Product Requirements Document (PRD) with user stories, technical requirements, and success metrics
 - September 26, 2025. BUGFIX: Fixed Daily Summary Table in business dashboard to properly display employee hours by handling undefined values
