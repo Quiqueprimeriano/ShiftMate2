@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Clock } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,6 +20,10 @@ export default function Login() {
     if (email && name) {
       login({ email, name, rememberMe });
     }
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = "/api/auth/google?intent=login";
   };
 
   return (
@@ -33,6 +39,31 @@ export default function Login() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Google OAuth Button */}
+          <Button
+            variant="outline"
+            className="w-full h-12"
+            onClick={handleGoogleLogin}
+            type="button"
+            data-testid="button-google-signin"
+          >
+            <FcGoogle className="mr-2 h-5 w-5" />
+            Sign in with Google
+          </Button>
+          
+          {/* Separator */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-slate-500">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+
+          {/* Email/Name Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="email">Email</Label>
