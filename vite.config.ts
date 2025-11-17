@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "client/src"), // ✅ corregido
+      "@": path.resolve(__dirname, "client/src"),
     },
   },
   server: {
@@ -15,13 +15,19 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        // ⚠️ localhost no funciona en Replit → usar 0.0.0.0
-        target: "http://0.0.0.0:3000",
+        target: "http://localhost:3000", // backend en dev
         changeOrigin: true,
       },
     },
+    // Si Replit te cambia el subdominio y te bloquea, cambiá a allowedHosts: true
     allowedHosts: [
       "14311159-0e7c-428a-a851-f6ec72431c0c-00-ozdj6xuq2oty.spock.replit.dev",
     ],
+  },
+  build: {
+    // Compila el frontend dentro de dist/public (para que Express lo sirva en producción)
+    outDir: path.resolve(__dirname, "dist/public"),
+    // No vaciar dist completo (ahí vive tu server compilado)
+    emptyOutDir: false,
   },
 });

@@ -94,8 +94,8 @@ export function calculateWeeknightHours(
     endMinutes += 24 * 60;
   }
 
-  // Weeknight window: 21:00 (1260 minutes) to 23:59 (1439 minutes)
-  const weeknightStart = 21 * 60; // 1260 minutes (9 PM)
+  // Weeknight window: 19:00 (1260 minutes) to 23:59 (1439 minutes)
+  const weeknightStart = 19 * 60; // 1260 minutes (9 PM)
   const weeknightEnd = 23 * 60 + 59; // 1439 minutes (11:59 PM)
 
   // Check if shift overlaps with weeknight window
