@@ -624,14 +624,14 @@ export default function Shifts() {
 
       {/* Edit Shift Modal */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full mx-auto">
           <DialogHeader>
             <DialogTitle>Edit Shift</DialogTitle>
           </DialogHeader>
-          
+
           {shiftToEdit && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-shift-date">Date</Label>
                   <Input
@@ -661,7 +661,7 @@ export default function Shifts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-start-time">Start Time</Label>
                   <Select
@@ -722,10 +722,11 @@ export default function Shifts() {
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => setShowEditDialog(false)}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -737,7 +738,7 @@ export default function Shifts() {
                 }
               }}
               disabled={updateShiftMutation.isPending}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Check className="h-4 w-4" />
               {updateShiftMutation.isPending ? "Updating..." : "Update"}

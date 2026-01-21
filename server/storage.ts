@@ -41,7 +41,10 @@ if (!match) {
   throw new Error('Invalid DATABASE_URL format');
 }
 
-const [, username, password, host, port, database] = match;
+const [, username, encodedPassword, host, port, database] = match;
+
+// Decode URL-encoded password
+const password = decodeURIComponent(encodedPassword);
 
 console.log('Parsed connection details for PostgreSQL');
 

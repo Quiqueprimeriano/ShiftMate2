@@ -381,7 +381,7 @@ export default function Calendar() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-slate-600">Date</label>
                   <div className="text-sm text-slate-900">
@@ -399,7 +399,7 @@ export default function Calendar() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-slate-600">Start Time</label>
                   <div className="text-sm text-slate-900">{formatTime(selectedShift.startTime)}</div>

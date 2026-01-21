@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FileText, Download, User, Calendar, Clock, DollarSign, TrendingUp, FileDown, FileSpreadsheet } from "lucide-react";
+import { FileText, Download, User, Calendar, Clock, DollarSign, TrendingUp, FileDown, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -26,12 +26,15 @@ interface ShiftBilling {
   date: string;
   day_type: string;
   shift_type: string;
+  start_time?: string;
+  end_time?: string;
   billing: Array<{
     tier: number;
     rate: number;
     hours: number;
     subtotal: number;
   }>;
+  error?: string;
 }
 
 interface EmployeeReport {
@@ -536,6 +539,35 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
       {/* Report Display */}
       {reportData && (
         <div className="space-y-6">
+          {/* Error Alert for Unconfigured Rates */}
+          {(() => {
+            const shiftsWithErrors = reportData.shifts.filter(shift => shift.error);
+            if (shiftsWithErrors.length === 0) return null;
+
+            return (
+              <Card className="border-amber-300 bg-amber-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <div className="font-semibold text-amber-800">
+                        Employee Rates Not Configured
+                      </div>
+                      <p className="text-sm text-amber-700">
+                        {shiftsWithErrors.length} shift{shiftsWithErrors.length !== 1 ? 's' : ''} could not be calculated because this employee doesn't have rates configured.
+                        Please configure rates in the employee settings to calculate billing for these shifts.
+                      </p>
+                      <div className="text-sm text-amber-600 mt-2">
+                        <span className="font-medium">Affected dates: </span>
+                        {shiftsWithErrors.map(s => format(new Date(s.date), 'MMM dd')).join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Report Header */}
           <Card>
             <CardHeader>
@@ -645,33 +677,42 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                             rateTypes: new Set<string>(),
                             rates: new Map<string, number>(),
                             times: [],
-                            shifts: []
+                            shifts: [],
+                            hasError: false,
+                            errorMessage: ''
                           };
                         }
                         acc[date].totalHours += shift.total_hours;
                         acc[date].totalAmount += shift.total_amount;
                         acc[date].rateTypes.add(shift.day_type);
-                        
+
+                        // Track errors
+                        if (shift.error) {
+                          acc[date].hasError = true;
+                          acc[date].errorMessage = shift.error;
+                        }
+
                         // Extract rate from billing data
                         if (shift.billing && shift.billing.length > 0) {
                           shift.billing.forEach(billing => {
                             acc[date].rates.set(shift.day_type, billing.rate);
                           });
                         }
-                        
+
                         // Add time range for this shift
-                        if ((shift as any).start_time && (shift as any).end_time) {
-                          acc[date].times.push(`${(shift as any).start_time} - ${(shift as any).end_time}`);
+                        if (shift.start_time && shift.end_time) {
+                          acc[date].times.push(`${shift.start_time} - ${shift.end_time}`);
                         }
-                        
+
                         acc[date].shifts.push(shift);
                         return acc;
                       }, {} as Record<string, any>);
 
                       return Object.values(dailySummary).map((day: any) => (
-                        <tr key={day.date} className="hover:bg-gray-50">
+                        <tr key={day.date} className={`hover:bg-gray-50 ${day.hasError ? 'bg-amber-50' : ''}`}>
                           <td className="border border-gray-200 px-4 py-3">
-                            <div className="font-medium">
+                            <div className="font-medium flex items-center gap-2">
+                              {day.hasError && <AlertTriangle className="h-4 w-4 text-amber-500" />}
                               {format(new Date(day.date), 'EEEE, MMM dd, yyyy')}
                             </div>
                           </td>
@@ -692,8 +733,8 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                           <td className="border border-gray-200 px-4 py-3 text-center">
                             <div className="flex flex-wrap gap-1 justify-center">
                               {Array.from(day.rateTypes as Set<string>).map((rateType: string) => (
-                                <Badge 
-                                  key={rateType} 
+                                <Badge
+                                  key={rateType}
                                   className={`${getRateTypeBadgeColor(rateType)} text-xs`}
                                 >
                                   {formatRateType(rateType)}
@@ -702,23 +743,31 @@ export function EmployeeReportsManagement({ companyId }: EmployeeReportsManageme
                             </div>
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-center">
-                            <div className="flex flex-col gap-1">
-                              {Array.from(day.rates as Map<string, number>).map(([rateType, rate]) => (
-                                <div key={rateType} className="text-sm">
-                                  <span className="font-medium text-gray-700">
-                                    {formatCurrency(rate)}/hr
-                                  </span>
-                                  <span className="text-xs text-gray-500 ml-1">
-                                    ({formatRateType(rateType)})
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+                            {day.hasError ? (
+                              <span className="text-sm text-amber-600 italic">Not configured</span>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                {Array.from(day.rates as Map<string, number>).map(([rateType, rate]) => (
+                                  <div key={rateType} className="text-sm">
+                                    <span className="font-medium text-gray-700">
+                                      {formatCurrency(rate)}/hr
+                                    </span>
+                                    <span className="text-xs text-gray-500 ml-1">
+                                      ({formatRateType(rateType)})
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-right">
-                            <span className="font-bold text-green-600 text-lg">
-                              {formatCurrency(day.totalAmount)}
-                            </span>
+                            {day.hasError ? (
+                              <span className="text-amber-600 text-sm italic">--</span>
+                            ) : (
+                              <span className="font-bold text-green-600 text-lg">
+                                {formatCurrency(day.totalAmount)}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ));

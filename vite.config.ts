@@ -19,10 +19,8 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-    // Si Replit te cambia el subdominio y te bloquea, cambiá a allowedHosts: true
-    allowedHosts: [
-      "14311159-0e7c-428a-a851-f6ec72431c0c-00-ozdj6xuq2oty.spock.replit.dev",
-    ],
+    // Permitir conexiones desde cualquier host (para testing móvil)
+    allowedHosts: true,
   },
   build: {
     // Compila el frontend dentro de dist/public (para que Express lo sirva en producción)

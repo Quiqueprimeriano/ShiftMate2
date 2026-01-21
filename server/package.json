@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "cd .. && NODE_OPTIONS='--import ./dirname-shim.mjs' NODE_ENV=development node --import=tsx/esm server/index.ts"
+    "dev": "cd .. && NODE_OPTIONS='--import ./dirname-shim.mjs' NODE_ENV=development node --env-file=.env --import=tsx/esm server/index.ts"
   }
 }

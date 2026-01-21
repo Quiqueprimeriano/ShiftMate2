@@ -6,11 +6,8 @@ export function useCompanyEmployees(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "employees"],
     queryFn: async () => {
-      console.log('useCompanyEmployees queryFn called for company:', companyId);
       const response = await apiRequest('GET', `/api/companies/${companyId}/employees`);
-      const data = await response.json();
-      console.log('useCompanyEmployees data received:', data.length, 'employees');
-      return data;
+      return response.json();
     },
     enabled: !!companyId,
   });
@@ -21,15 +18,12 @@ export function useCompanyShifts(companyId: number, startDate?: string, endDate?
   if (startDate) params.set('startDate', startDate);
   if (endDate) params.set('endDate', endDate);
   const queryString = params.toString();
-  
+
   return useQuery({
     queryKey: ["/api/companies", companyId, "shifts", { startDate, endDate }],
     queryFn: async () => {
-      console.log('useCompanyShifts queryFn called for company:', companyId, startDate ? `${startDate} to ${endDate}` : 'all shifts');
       const response = await apiRequest('GET', `/api/companies/${companyId}/shifts${queryString ? `?${queryString}` : ''}`);
-      const data = await response.json();
-      console.log('useCompanyShifts data received:', data.length, 'shifts');
-      return data;
+      return response.json();
     },
     enabled: !!companyId,
   });
@@ -39,11 +33,8 @@ export function usePendingShifts(companyId: number) {
   return useQuery({
     queryKey: ["/api/companies", companyId, "pending-shifts"],
     queryFn: async () => {
-      console.log('usePendingShifts queryFn called for company:', companyId);
       const response = await apiRequest('GET', `/api/companies/${companyId}/pending-shifts`);
-      const data = await response.json();
-      console.log('usePendingShifts data received:', data.length, 'pending shifts');
-      return data;
+      return response.json();
     },
     enabled: !!companyId,
   });
@@ -53,12 +44,9 @@ export function useCompanyWeeklyHours(companyId: number, startDate: string, endD
   return useQuery({
     queryKey: ["/api/companies", companyId, "analytics", "weekly-hours", { startDate, endDate }],
     queryFn: async () => {
-      console.log('useCompanyWeeklyHours queryFn called for company:', companyId, `${startDate} to ${endDate}`);
       const params = new URLSearchParams({ startDate, endDate });
       const response = await apiRequest('GET', `/api/companies/${companyId}/analytics/weekly-hours?${params}`);
-      const data = await response.json();
-      console.log('useCompanyWeeklyHours data received:', data);
-      return data;
+      return response.json();
     },
     enabled: !!companyId && !!startDate && !!endDate,
   });
@@ -89,7 +77,6 @@ export function useApproveShift() {
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
     },
@@ -102,15 +89,12 @@ export function useRosterShifts(startDate?: string, endDate?: string) {
   if (startDate) params.set('startDate', startDate);
   if (endDate) params.set('endDate', endDate);
   const queryString = params.toString();
-  
+
   return useQuery({
     queryKey: ["/api/roster", { startDate, endDate }],
     queryFn: async () => {
-      console.log('useRosterShifts queryFn called for date range:', startDate ? `${startDate} to ${endDate}` : 'all shifts');
       const response = await apiRequest('GET', `/api/roster${queryString ? `?${queryString}` : ''}`);
-      const data = await response.json();
-      console.log('useRosterShifts data received:', data.length, 'shifts');
-      return data;
+      return response.json();
     },
   });
 }
@@ -118,12 +102,10 @@ export function useRosterShifts(startDate?: string, endDate?: string) {
 export function useCreateRosterShift() {
   return useMutation({
     mutationFn: async (shiftData: any) => {
-      console.log('Creating roster shift:', shiftData);
       const response = await apiRequest("POST", "/api/roster/shifts", shiftData);
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate roster queries
       queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
     },
@@ -133,12 +115,10 @@ export function useCreateRosterShift() {
 export function useUpdateRosterShift() {
   return useMutation({
     mutationFn: async ({ shiftId, shiftData }: { shiftId: number; shiftData: any }) => {
-      console.log('Updating roster shift:', shiftId, shiftData);
       const response = await apiRequest("PUT", `/api/roster/shifts/${shiftId}`, shiftData);
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate roster queries
       queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
     },
@@ -148,12 +128,10 @@ export function useUpdateRosterShift() {
 export function useDeleteRosterShift() {
   return useMutation({
     mutationFn: async (shiftId: number) => {
-      console.log('Deleting roster shift:', shiftId);
       const response = await apiRequest("DELETE", `/api/roster/shifts/${shiftId}`);
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate roster queries
       queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
     },

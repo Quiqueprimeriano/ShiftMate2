@@ -1,14 +1,15 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { 
-  Clock, 
-  BarChart3, 
-  Calendar, 
+import {
+  Clock,
+  BarChart3,
+  Calendar,
   CalendarDays,
-  Plus, 
-  FileText, 
-  User 
+  Plus,
+  FileText,
+  User,
+  DollarSign
 } from "lucide-react";
 
 const navItems = [
@@ -16,6 +17,7 @@ const navItems = [
   { path: "/calendar", label: "Calendar", icon: Calendar },
   { path: "/my-roster", label: "My Roster", icon: CalendarDays },
   { path: "/add-shift", label: "Add Shift", icon: Plus },
+  { path: "/my-earnings", label: "Earnings", icon: DollarSign },
   { path: "/reports", label: "Reports", icon: FileText },
 ];
 

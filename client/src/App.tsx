@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, User, X } from "lucide-react";
+import { Clock, User, X, LayoutDashboard, Calendar as CalendarIcon, Plus, FileText, List, DollarSign } from "lucide-react";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -22,6 +22,7 @@ import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import BusinessDashboard from "@/pages/business-dashboard";
+import MyEarnings from "@/pages/my-earnings";
 
 const PAGE_TITLES = {
   "/": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
@@ -32,6 +33,7 @@ const PAGE_TITLES = {
   "/add-shift": { title: "Add Shift", subtitle: "Log a new work shift." },
   "/shifts": { title: "All Shifts", subtitle: "View, edit, and manage your shift history." },
   "/reports": { title: "Reports", subtitle: "Generate and download shift reports." },
+  "/my-earnings": { title: "My Earnings", subtitle: "View your rates and track earnings." },
 };
 
 function MobileSidebar({ onClose }: { onClose: () => void }) {
@@ -132,50 +134,75 @@ function getIconForNavItem(iconName: string) {
   return icons[iconName] || "📋";
 }
 
+// Bottom Navigation for Mobile
+function BottomNav() {
+  const [location] = useLocation();
+
+  const navItems = [
+    { path: "/", icon: LayoutDashboard, label: "Home" },
+    { path: "/shifts", icon: List, label: "Shifts" },
+    { path: "/add-shift", icon: Plus, label: "Add", isMain: true },
+    { path: "/calendar", icon: CalendarIcon, label: "Calendar" },
+    { path: "/my-earnings", icon: DollarSign, label: "Earnings" },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 lg:hidden z-50 safe-area-bottom">
+      <div className="flex items-center justify-around h-16 px-2">
+        {navItems.map((item) => {
+          const isActive = location === item.path || (item.path === "/" && location === "/dashboard");
+          const Icon = item.icon;
+
+          if (item.isMain) {
+            return (
+              <Link key={item.path} href={item.path}>
+                <button className="flex flex-col items-center justify-center -mt-4">
+                  <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center shadow-lg">
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
+                </button>
+              </Link>
+            );
+          }
+
+          return (
+            <Link key={item.path} href={item.path}>
+              <button className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px]">
+                <Icon className={`h-6 w-6 ${isActive ? 'text-black' : 'text-neutral-400'}`} />
+                <span className={`text-xs mt-1 ${isActive ? 'text-black font-medium' : 'text-neutral-400'}`}>
+                  {item.label}
+                </span>
+              </button>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 function AppLayout({ children, location }: { children: React.ReactNode; location: string }) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const pageInfo = PAGE_TITLES[location as keyof typeof PAGE_TITLES] || { 
-    title: "ShiftMate", 
-    subtitle: "Manage your work shifts" 
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
+  const pageInfo = PAGE_TITLES[location as keyof typeof PAGE_TITLES] || {
+    title: "ShiftMate",
+    subtitle: "Manage your work shifts"
   };
 
   return (
     <div className="min-h-screen flex bg-slate-50">
       <Sidebar />
-      
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={closeMobileMenu}
-        />
-      )}
-      
-      {/* Mobile Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden ${
-        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <MobileSidebar onClose={closeMobileMenu} />
-      </div>
-      
+
       <main className="flex-1 flex flex-col overflow-hidden">
-        <Header 
+        <Header
           title={pageInfo.title}
           subtitle={pageInfo.subtitle}
-          onMobileMenuToggle={toggleMobileMenu}
         />
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto pb-20 lg:pb-0">
           {children}
         </div>
       </main>
+
+      {/* Bottom Navigation for Mobile */}
+      <BottomNav />
     </div>
   );
 }
@@ -246,6 +273,7 @@ function Router() {
       <Route path="/add-shift" component={() => <AppLayout location="/add-shift"><AddShift /></AppLayout>} />
       <Route path="/shifts" component={() => <AppLayout location="/shifts"><Shifts /></AppLayout>} />
       <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
+      <Route path="/my-earnings" component={() => <AppLayout location="/my-earnings"><MyEarnings /></AppLayout>} />
       <Route path="*" component={() => <AppLayout location="/"><Dashboard /></AppLayout>} />
     </Switch>
   );

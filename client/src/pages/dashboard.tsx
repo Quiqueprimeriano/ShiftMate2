@@ -1085,14 +1085,14 @@ export default function Dashboard() {
 
       {/* Shift Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full mx-auto">
           <DialogHeader>
             <DialogTitle>Confirm Shift Details</DialogTitle>
           </DialogHeader>
-          
+
           {editableShift && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="shift-date">Date</Label>
                   <Input
@@ -1122,7 +1122,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start-time">Start Time</Label>
                   <Select
@@ -1179,11 +1179,11 @@ export default function Dashboard() {
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="outline"
               onClick={handleDeletePendingShift}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
               Delete
@@ -1191,7 +1191,7 @@ export default function Dashboard() {
             <Button
               onClick={handleConfirmShift}
               disabled={createShiftMutation.isPending}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Check className="h-4 w-4" />
               {createShiftMutation.isPending ? "Saving..." : "Confirm"}
@@ -1202,14 +1202,14 @@ export default function Dashboard() {
 
       {/* Edit Shift Modal */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full mx-auto">
           <DialogHeader>
             <DialogTitle>Edit Shift</DialogTitle>
           </DialogHeader>
           
           {shiftToEdit && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-shift-date">Date</Label>
                   <Input
@@ -1239,7 +1239,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-start-time">Start Time</Label>
                   <Select
@@ -1300,12 +1300,12 @@ export default function Dashboard() {
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="destructive"
               onClick={handleDeleteExistingShift}
               disabled={deleteShiftMutation.isPending}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
               {deleteShiftMutation.isPending ? 'Deleting...' : 'Delete'}
@@ -1318,7 +1318,7 @@ export default function Dashboard() {
                 }
               }}
               disabled={updateShiftMutation.isPending}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Check className="h-4 w-4" />
               {updateShiftMutation.isPending ? "Updating..." : "Update"}
