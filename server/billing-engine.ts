@@ -48,6 +48,7 @@ export interface ShiftBilling {
   start_time?: string;
   end_time?: string;
   billing: BillingTier[];
+  error?: string; // Error message if rates not configured
 }
 
 /**
@@ -113,7 +114,7 @@ export function calculateWeeknightHours(
     return 0;
   }
 
-  // Convert to hours and cap at 2 hours
+  // Convert to hours and cap at 4 hours (weeknight limit per day)
   const overlapHours = overlapMinutes / 60;
   return Math.min(overlapHours, 4);
 }
@@ -246,24 +247,17 @@ export async function calculateShiftBilling(
   // Get employee rates
   const employeeRates = await getEmployeeRates(userId, date);
 
-  // If no employee rates found, use fallback rate
+  // If no employee rates found, return error
   if (!employeeRates) {
-    const fallbackRate = 2500; // $25.00 per hour in cents - fallback rate
     return {
       shift_id: shiftId,
       total_hours: totalHours,
-      total_amount: Math.round(totalHours * fallbackRate),
+      total_amount: 0,
       date,
       day_type: rateType,
       shift_type: shiftType,
-      billing: [
-        {
-          tier: 1,
-          rate: fallbackRate,
-          hours: totalHours,
-          subtotal: Math.round(totalHours * fallbackRate),
-        },
-      ],
+      billing: [],
+      error: "Employee rates not configured. Please configure rates for this employee.",
     };
   }
 

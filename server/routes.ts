@@ -11,10 +11,12 @@ import { sendRosterEmail } from "./services/sendgrid";
 import { z } from "zod";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { 
-  calculateShiftBilling, 
+import {
+  calculateShiftBilling,
   calculateMultipleShiftsBilling,
-  formatCurrency 
+  formatCurrency,
+  calculateShiftDuration,
+  calculateWeeknightHours
 } from "./billing-engine";
 import { rateTiers, publicHolidays, insertRateTierSchema, insertPublicHolidaySchema, insertEmployeeRateSchema } from "@shared/schema";
 
@@ -168,16 +170,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, name, rememberMe = false } = req.body;
       
-      console.log('Login attempt:', { email, name, rememberMe });
-      
       // Check if user exists
       let user = await storage.getUserByEmail(email);
       
       if (!user) {
         // User doesn't exist, create them automatically
-        console.log('Creating new user during login:', { email, name });
         user = await storage.createUser({ email, name });
-        console.log('Auto-signup successful for new user:', user.id);
       }
 
       // Generate tokens
@@ -199,8 +197,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxAge: cookieExpiry
       });
 
-      console.log('Login successful for user:', user.id, 'RememberMe:', rememberMe);
-      console.log('Sending access token in response:', accessToken ? 'YES' : 'NO');
       res.json({ 
         user, 
         accessToken,
@@ -215,9 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/signup", async (req, res) => {
     try {
       const { email, name } = req.body;
-      
-      console.log('Signup attempt:', { email, name });
-      
+
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
       
@@ -225,10 +219,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(409).json({ message: "User already exists. Please log in instead." });
       } else {
         // Create new user
-        console.log('Creating new user:', { email, name });
         const newUser = await storage.createUser({ email, name });
         (req.session as any).userId = newUser.id;
-        console.log('Signup successful for user:', newUser.id);
         res.json({ user: newUser });
       }
     } catch (error) {
@@ -336,42 +328,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Enhanced middleware to check both JWT and session authentication
   const requireAuth = (req: any, res: any, next: any) => {
-    console.log('RequireAuth - Checking authentication for:', req.url);
-    console.log('RequireAuth - JWT user:', req.user?.id || 'none');
-    console.log('RequireAuth - Session user:', req.session?.userId || 'none');
-    
     // First check JWT auth (from middleware)
     if (req.user?.id) {
       req.userId = req.user.id;
-      console.log('RequireAuth - Using JWT auth for user:', req.userId);
       return next();
     }
-    
+
     // Fall back to session-based auth for backward compatibility
     const userId = req.session?.userId;
     if (!userId) {
-      console.log('RequireAuth - No authentication found, returning 401');
       return res.status(401).json({ message: "Authentication required" });
     }
     req.userId = userId;
-    console.log('RequireAuth - Using session auth for user:', req.userId);
     next();
   };
 
   // Shift routes - support both JWT and session auth
   app.get("/api/shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
-    console.log('GET /api/shifts - Starting request for user:', req.userId);
     try {
       const { startDate, endDate } = req.query;
-      
+
       let shifts;
       if (startDate && endDate) {
         shifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate, endDate);
       } else {
         shifts = await storage.getShiftsByUser(req.userId);
       }
-      
-      console.log('GET /api/shifts - Returning', shifts.length, 'shifts for user:', req.userId);
+
       res.json(shifts);
     } catch (error) {
       res.status(500).json({ message: "Failed to get shifts" });
@@ -451,23 +434,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // GET /api/personal-shifts - Get shifts created by the user themselves
   app.get("/api/personal-shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
-    console.log('GET /api/personal-shifts - Starting request for user:', req.userId);
     try {
       const { startDate, endDate } = req.query;
-      
+
       let shifts;
       if (startDate && endDate) {
         shifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate, endDate);
       } else {
         shifts = await storage.getShiftsByUser(req.userId);
       }
-      
+
       // Filter to only personal shifts (created by user themselves or createdBy is null)
-      const personalShifts = shifts.filter((shift: any) => 
+      const personalShifts = shifts.filter((shift: any) =>
         !shift.createdBy || shift.createdBy === req.userId
       );
-      
-      console.log('GET /api/personal-shifts - Returning', personalShifts.length, 'personal shifts for user:', req.userId);
+
       res.json(personalShifts);
     } catch (error) {
       res.status(500).json({ message: "Failed to get personal shifts" });
@@ -476,23 +457,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET /api/roster-shifts - Get shifts assigned to the user by managers
   app.get("/api/roster-shifts", optionalJwtAuth, requireAuth, async (req: any, res) => {
-    console.log('GET /api/roster-shifts - Starting request for user:', req.userId);
     try {
       const { startDate, endDate } = req.query;
-      
+
       let shifts;
       if (startDate && endDate) {
         shifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate, endDate);
       } else {
         shifts = await storage.getShiftsByUser(req.userId);
       }
-      
+
       // Filter to only roster shifts (created by someone else - managers)
-      const rosterShifts = shifts.filter((shift: any) => 
+      const rosterShifts = shifts.filter((shift: any) =>
         shift.createdBy && shift.createdBy !== req.userId
       );
-      
-      console.log('GET /api/roster-shifts - Returning', rosterShifts.length, 'roster shifts for user:', req.userId);
+
       res.json(rosterShifts);
     } catch (error) {
       res.status(500).json({ message: "Failed to get roster shifts" });
@@ -741,6 +720,229 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ missingDates });
     } catch (error) {
       res.status(500).json({ message: "Failed to get missing entries" });
+    }
+  });
+
+  // ============================================
+  // My Rates & Earnings - Individual User Routes
+  // ============================================
+
+  // GET /api/my-rates - Get current user's rates
+  app.get("/api/my-rates", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const rates = await storage.getEmployeeRates(req.userId);
+      if (!rates) {
+        // Return default rates if none set
+        return res.json({
+          userId: req.userId,
+          weekdayRate: 0,
+          weeknightRate: 0,
+          saturdayRate: 0,
+          sundayRate: 0,
+          publicHolidayRate: 0,
+          currency: "USD"
+        });
+      }
+      res.json(rates);
+    } catch (error) {
+      console.error("Error fetching my rates:", error);
+      res.status(500).json({ message: "Failed to fetch rates" });
+    }
+  });
+
+  // Note: Rate editing is admin-only via /api/employee-rates/:userId endpoints
+
+  // GET /api/my-earnings - Get current user's earnings summary
+  app.get("/api/my-earnings", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      // Get user's shifts for date range
+      const allShifts = await storage.getShiftsByUserAndDateRange(req.userId, startDate as string, endDate as string);
+
+      // Filter to only include user-uploaded shifts (not roster shifts)
+      const shifts = allShifts.filter(shift =>
+        shift.createdBy === null || shift.createdBy === req.userId
+      );
+
+      if (shifts.length === 0) {
+        return res.json({
+          totalHours: 0,
+          totalEarnings: 0,
+          shiftsCount: 0,
+          breakdown: {
+            weekday: { hours: 0, amount: 0 },
+            weeknight: { hours: 0, amount: 0 },
+            saturday: { hours: 0, amount: 0 },
+            sunday: { hours: 0, amount: 0 },
+            publicHoliday: { hours: 0, amount: 0 }
+          },
+          shifts: []
+        });
+      }
+
+      // Get user's rates
+      const rates = await storage.getEmployeeRates(req.userId);
+      const defaultRates = {
+        weekdayRate: 0,
+        weeknightRate: 0,
+        saturdayRate: 0,
+        sundayRate: 0,
+        publicHolidayRate: 0
+      };
+      const userRates = rates || defaultRates;
+
+      // Calculate earnings for each shift
+      let totalHours = 0;
+      let totalEarnings = 0;
+      const breakdown = {
+        weekday: { hours: 0, amount: 0 },
+        weeknight: { hours: 0, amount: 0 },
+        saturday: { hours: 0, amount: 0 },
+        sunday: { hours: 0, amount: 0 },
+        publicHoliday: { hours: 0, amount: 0 }
+      };
+
+      const shiftDetails = [];
+
+      // Get public holidays once before the loop
+      const allHolidays = await storage.getAllPublicHolidays();
+      const holidays = allHolidays.map((h: any) => h.date);
+
+      for (const shift of shifts) {
+        const duration = calculateShiftDuration(shift.startTime, shift.endTime);
+        totalHours += duration;
+
+        // Determine day type
+        const shiftDate = new Date(shift.date);
+        const dayOfWeek = shiftDate.getDay();
+        const isPublicHoliday = holidays.includes(shift.date);
+
+        let rateType: string;
+        let rate: number;
+
+        if (isPublicHoliday) {
+          rateType = 'publicHoliday';
+          rate = userRates.publicHolidayRate;
+          breakdown.publicHoliday.hours += duration;
+          breakdown.publicHoliday.amount += duration * rate;
+        } else if (dayOfWeek === 0) {
+          rateType = 'sunday';
+          rate = userRates.sundayRate;
+          breakdown.sunday.hours += duration;
+          breakdown.sunday.amount += duration * rate;
+        } else if (dayOfWeek === 6) {
+          rateType = 'saturday';
+          rate = userRates.saturdayRate;
+          breakdown.saturday.hours += duration;
+          breakdown.saturday.amount += duration * rate;
+        } else {
+          // Weekday - check for weeknight hours (after 7pm) using split billing
+          const weeknightHours = calculateWeeknightHours(shift.startTime, shift.endTime);
+
+          if (weeknightHours > 0 && weeknightHours < duration) {
+            // Split billing: part weekday, part weeknight
+            const weekdayHours = duration - weeknightHours;
+
+            // Add weekday hours
+            breakdown.weekday.hours += weekdayHours;
+            breakdown.weekday.amount += weekdayHours * userRates.weekdayRate;
+
+            // Add weeknight hours
+            breakdown.weeknight.hours += weeknightHours;
+            breakdown.weeknight.amount += weeknightHours * userRates.weeknightRate;
+
+            // Calculate total earnings for this shift with split
+            const shiftEarnings = (weekdayHours * userRates.weekdayRate) +
+                                  (weeknightHours * userRates.weeknightRate);
+            totalEarnings += shiftEarnings;
+
+            shiftDetails.push({
+              id: shift.id,
+              date: shift.date,
+              startTime: shift.startTime,
+              endTime: shift.endTime,
+              shiftType: shift.shiftType,
+              hours: duration,
+              rateType: 'weekday/weeknight',
+              rate: userRates.weekdayRate,
+              earnings: shiftEarnings,
+              weekdayHours,
+              weeknightHours
+            });
+
+            continue; // Skip the normal earnings calculation below
+
+          } else if (weeknightHours >= duration) {
+            // Entire shift is weeknight (starts after 7pm)
+            rateType = 'weeknight';
+            rate = userRates.weeknightRate;
+            breakdown.weeknight.hours += duration;
+            breakdown.weeknight.amount += duration * rate;
+          } else {
+            // Entire shift is weekday (ends before 7pm)
+            rateType = 'weekday';
+            rate = userRates.weekdayRate;
+            breakdown.weekday.hours += duration;
+            breakdown.weekday.amount += duration * rate;
+          }
+        }
+
+        const earnings = duration * rate;
+        totalEarnings += earnings;
+
+        shiftDetails.push({
+          id: shift.id,
+          date: shift.date,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          shiftType: shift.shiftType,
+          hours: duration,
+          rateType,
+          rate,
+          earnings
+        });
+      }
+
+      // Convert breakdown object to array format expected by frontend
+      const breakdownArray = Object.entries(breakdown)
+        .filter(([_, data]) => (data as any).hours > 0)
+        .map(([type, data]) => {
+          const typedData = data as { hours: number; amount: number };
+          let rate: number;
+          switch (type) {
+            case 'weekday': rate = userRates.weekdayRate; break;
+            case 'weeknight': rate = userRates.weeknightRate; break;
+            case 'saturday': rate = userRates.saturdayRate; break;
+            case 'sunday': rate = userRates.sundayRate; break;
+            case 'publicHoliday': rate = userRates.publicHolidayRate; break;
+            default: rate = 0;
+          }
+          return {
+            type,
+            hours: typedData.hours,
+            rate,
+            earnings: typedData.amount
+          };
+        });
+
+      res.json({
+        totalHours,
+        totalEarnings,
+        shiftsCount: shifts.length,
+        breakdown: breakdownArray,
+        shifts: shiftDetails,
+        currency: (rates as any)?.currency || 'USD',
+        periodStart: startDate,
+        periodEnd: endDate
+      });
+    } catch (error) {
+      console.error("Error calculating my earnings:", error);
+      res.status(500).json({ message: "Failed to calculate earnings" });
     }
   });
 
