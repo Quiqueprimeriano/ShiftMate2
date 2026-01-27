@@ -1,18 +1,20 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq, and, gte, lte, desc, sql, or, isNull, isNotNull } from "drizzle-orm";
-import { 
-  users, 
-  shifts, 
+import {
+  users,
+  shifts,
   notifications,
   companies,
   refreshTokens,
   rateTiers,
   publicHolidays,
   employeeRates,
-  type User, 
-  type InsertUser, 
-  type Shift, 
+  employeeInvitations,
+  timeOffRequests,
+  type User,
+  type InsertUser,
+  type Shift,
   type InsertShift,
   type Notification,
   type InsertNotification,
@@ -25,7 +27,11 @@ import {
   type PublicHoliday,
   type InsertPublicHoliday,
   type EmployeeRate,
-  type InsertEmployeeRate
+  type InsertEmployeeRate,
+  type EmployeeInvitation,
+  type InsertEmployeeInvitation,
+  type TimeOffRequest,
+  type InsertTimeOffRequest
 } from "@shared/schema";
 
 const connectionString = process.env.DATABASE_URL;
@@ -82,6 +88,7 @@ export interface IStorage {
   getShiftsByCompanyAndDateRange(companyId: number, startDate: string, endDate: string): Promise<Shift[]>;
   getPendingShifts(companyId: number): Promise<Shift[]>;
   createShift(shift: InsertShift): Promise<Shift>;
+  createBulkShifts(shiftsData: InsertShift[]): Promise<Shift[]>;
   updateShift(id: number, shift: Partial<InsertShift>): Promise<Shift | undefined>;
   deleteShift(id: number): Promise<boolean>;
   approveShift(id: number, approvedBy: number): Promise<Shift | undefined>;
@@ -164,6 +171,71 @@ export class DbStorage implements IStorage {
     return await db.select().from(users).where(eq(users.companyId, companyId));
   }
 
+  async inviteEmployeeToCompany(companyId: number, email: string, role: string = 'employee'): Promise<User | null> {
+    try {
+      // Find user by email
+      const existingUser = await this.getUserByEmail(email);
+      if (!existingUser) {
+        return null; // User not found
+      }
+
+      // Check if already in a company
+      if (existingUser.companyId && existingUser.companyId !== companyId) {
+        throw new Error('User already belongs to another company');
+      }
+
+      // Update user with company and role
+      const [result] = await db
+        .update(users)
+        .set({
+          companyId: companyId,
+          role: role,
+          userType: 'employee'
+        })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+
+      return result;
+    } catch (error) {
+      console.error('Error inviting employee to company:', error);
+      throw error;
+    }
+  }
+
+  async toggleEmployeeActive(userId: number, isActive: boolean): Promise<User | null> {
+    try {
+      const [result] = await db
+        .update(users)
+        .set({ isActive: isActive })
+        .where(eq(users.id, userId))
+        .returning();
+
+      return result || null;
+    } catch (error) {
+      console.error('Error toggling employee active status:', error);
+      throw error;
+    }
+  }
+
+  async removeEmployeeFromCompany(userId: number): Promise<User | null> {
+    try {
+      const [result] = await db
+        .update(users)
+        .set({
+          companyId: null,
+          role: null,
+          userType: 'individual'
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      return result || null;
+    } catch (error) {
+      console.error('Error removing employee from company:', error);
+      throw error;
+    }
+  }
+
   // Shift methods
   async getShift(id: number): Promise<Shift | undefined> {
     const result = await db.select().from(shifts).where(eq(shifts.id, id)).limit(1);
@@ -200,6 +272,11 @@ export class DbStorage implements IStorage {
   async createShift(shift: InsertShift): Promise<Shift> {
     const result = await db.insert(shifts).values(shift).returning();
     return result[0];
+  }
+
+  async createBulkShifts(shiftsData: InsertShift[]): Promise<Shift[]> {
+    if (shiftsData.length === 0) return [];
+    return await db.insert(shifts).values(shiftsData).returning();
   }
 
   async updateShift(id: number, shift: Partial<InsertShift>): Promise<Shift | undefined> {
@@ -622,6 +699,337 @@ export class DbStorage implements IStorage {
       return true;
     } catch (error) {
       console.error('Error deleting employee rates:', error);
+      throw error;
+    }
+  }
+
+  // Employee Invitation Methods
+  async createInvitation(data: InsertEmployeeInvitation): Promise<EmployeeInvitation> {
+    try {
+      const [result] = await db
+        .insert(employeeInvitations)
+        .values(data)
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating invitation:', error);
+      throw error;
+    }
+  }
+
+  async getInvitationByToken(token: string): Promise<EmployeeInvitation | null> {
+    try {
+      const [result] = await db
+        .select()
+        .from(employeeInvitations)
+        .where(
+          and(
+            eq(employeeInvitations.token, token),
+            isNull(employeeInvitations.acceptedAt),
+            gte(employeeInvitations.expiresAt, new Date())
+          )
+        )
+        .limit(1);
+      return result || null;
+    } catch (error) {
+      console.error('Error getting invitation by token:', error);
+      throw error;
+    }
+  }
+
+  async getInvitationWithCompany(token: string): Promise<{
+    invitation: EmployeeInvitation;
+    company: Company;
+    inviter: User;
+  } | null> {
+    try {
+      const result = await db
+        .select({
+          invitation: employeeInvitations,
+          company: companies,
+          inviter: users,
+        })
+        .from(employeeInvitations)
+        .innerJoin(companies, eq(employeeInvitations.companyId, companies.id))
+        .innerJoin(users, eq(employeeInvitations.invitedBy, users.id))
+        .where(
+          and(
+            eq(employeeInvitations.token, token),
+            isNull(employeeInvitations.acceptedAt),
+            gte(employeeInvitations.expiresAt, new Date())
+          )
+        )
+        .limit(1);
+
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error getting invitation with company:', error);
+      throw error;
+    }
+  }
+
+  async acceptInvitation(token: string, userId: number): Promise<EmployeeInvitation | null> {
+    try {
+      const [result] = await db
+        .update(employeeInvitations)
+        .set({ acceptedAt: new Date() })
+        .where(eq(employeeInvitations.token, token))
+        .returning();
+      return result || null;
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      throw error;
+    }
+  }
+
+  async getInvitationsByCompany(companyId: number): Promise<EmployeeInvitation[]> {
+    try {
+      return await db
+        .select()
+        .from(employeeInvitations)
+        .where(
+          and(
+            eq(employeeInvitations.companyId, companyId),
+            isNull(employeeInvitations.acceptedAt)
+          )
+        )
+        .orderBy(desc(employeeInvitations.createdAt));
+    } catch (error) {
+      console.error('Error getting invitations by company:', error);
+      throw error;
+    }
+  }
+
+  async getInvitationByEmail(email: string, companyId: number): Promise<EmployeeInvitation | null> {
+    try {
+      const [result] = await db
+        .select()
+        .from(employeeInvitations)
+        .where(
+          and(
+            eq(employeeInvitations.email, email),
+            eq(employeeInvitations.companyId, companyId),
+            isNull(employeeInvitations.acceptedAt)
+          )
+        )
+        .limit(1);
+      return result || null;
+    } catch (error) {
+      console.error('Error getting invitation by email:', error);
+      throw error;
+    }
+  }
+
+  async deleteInvitation(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(employeeInvitations)
+        .where(eq(employeeInvitations.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting invitation:', error);
+      throw error;
+    }
+  }
+
+  // Time-off request methods
+  async createTimeOffRequest(request: InsertTimeOffRequest): Promise<TimeOffRequest> {
+    try {
+      const [result] = await db.insert(timeOffRequests).values(request).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating time-off request:', error);
+      throw error;
+    }
+  }
+
+  async getTimeOffRequestsByUser(userId: number): Promise<TimeOffRequest[]> {
+    try {
+      return await db
+        .select()
+        .from(timeOffRequests)
+        .where(eq(timeOffRequests.userId, userId))
+        .orderBy(desc(timeOffRequests.createdAt));
+    } catch (error) {
+      console.error('Error getting time-off requests by user:', error);
+      throw error;
+    }
+  }
+
+  async getTimeOffRequestsByCompany(companyId: number): Promise<TimeOffRequest[]> {
+    try {
+      return await db
+        .select()
+        .from(timeOffRequests)
+        .where(eq(timeOffRequests.companyId, companyId))
+        .orderBy(desc(timeOffRequests.createdAt));
+    } catch (error) {
+      console.error('Error getting time-off requests by company:', error);
+      throw error;
+    }
+  }
+
+  async getTimeOffRequestsByCompanyAndRange(
+    companyId: number,
+    startDate: string,
+    endDate: string
+  ): Promise<TimeOffRequest[]> {
+    try {
+      return await db
+        .select()
+        .from(timeOffRequests)
+        .where(
+          and(
+            eq(timeOffRequests.companyId, companyId),
+            or(
+              // Request overlaps with date range
+              and(
+                lte(timeOffRequests.startDate, endDate),
+                gte(timeOffRequests.endDate, startDate)
+              )
+            )
+          )
+        )
+        .orderBy(timeOffRequests.startDate);
+    } catch (error) {
+      console.error('Error getting time-off requests by company and range:', error);
+      throw error;
+    }
+  }
+
+  async getTimeOffRequestsByUserAndDateRange(
+    userId: number,
+    startDate: string,
+    endDate: string
+  ): Promise<TimeOffRequest[]> {
+    try {
+      return await db
+        .select()
+        .from(timeOffRequests)
+        .where(
+          and(
+            eq(timeOffRequests.userId, userId),
+            or(
+              // Request overlaps with date range
+              and(
+                lte(timeOffRequests.startDate, endDate),
+                gte(timeOffRequests.endDate, startDate)
+              )
+            )
+          )
+        )
+        .orderBy(timeOffRequests.startDate);
+    } catch (error) {
+      console.error('Error getting time-off requests by user and date range:', error);
+      throw error;
+    }
+  }
+
+  async getTimeOffRequest(id: number): Promise<TimeOffRequest | undefined> {
+    try {
+      const [result] = await db
+        .select()
+        .from(timeOffRequests)
+        .where(eq(timeOffRequests.id, id))
+        .limit(1);
+      return result;
+    } catch (error) {
+      console.error('Error getting time-off request:', error);
+      throw error;
+    }
+  }
+
+  async updateTimeOffRequest(
+    id: number,
+    updates: Partial<InsertTimeOffRequest>
+  ): Promise<TimeOffRequest | undefined> {
+    try {
+      const [result] = await db
+        .update(timeOffRequests)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(timeOffRequests.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating time-off request:', error);
+      throw error;
+    }
+  }
+
+  async deleteTimeOffRequest(id: number): Promise<boolean> {
+    try {
+      await db.delete(timeOffRequests).where(eq(timeOffRequests.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting time-off request:', error);
+      throw error;
+    }
+  }
+
+  async approveTimeOffRequest(
+    id: number,
+    reviewedBy: number
+  ): Promise<TimeOffRequest | undefined> {
+    try {
+      const [result] = await db
+        .update(timeOffRequests)
+        .set({
+          status: 'approved',
+          reviewedBy,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(timeOffRequests.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error approving time-off request:', error);
+      throw error;
+    }
+  }
+
+  async rejectTimeOffRequest(
+    id: number,
+    reviewedBy: number,
+    rejectionReason: string
+  ): Promise<TimeOffRequest | undefined> {
+    try {
+      const [result] = await db
+        .update(timeOffRequests)
+        .set({
+          status: 'rejected',
+          reviewedBy,
+          reviewedAt: new Date(),
+          rejectionReason,
+          updatedAt: new Date(),
+        })
+        .where(eq(timeOffRequests.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error rejecting time-off request:', error);
+      throw error;
+    }
+  }
+
+  async checkShiftConflict(
+    userId: number,
+    startDate: string,
+    endDate: string
+  ): Promise<Shift[]> {
+    try {
+      return await db
+        .select()
+        .from(shifts)
+        .where(
+          and(
+            eq(shifts.userId, userId),
+            gte(shifts.date, startDate),
+            lte(shifts.date, endDate)
+          )
+        );
+    } catch (error) {
+      console.error('Error checking shift conflict:', error);
       throw error;
     }
   }

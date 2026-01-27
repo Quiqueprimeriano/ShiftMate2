@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Clock, Plus, ChevronLeft, ChevronRight, CalendarIcon, User } from "lucide-react";
-import { formatTime, calculateDuration } from "@/lib/time-utils";
+import { formatTime, calculateDuration, formatDateLocal } from "@/lib/time-utils";
 import { Link } from "wouter";
 import type { Shift } from "@shared/schema";
 import { PayBreakdown } from "@/components/PayBreakdown";
@@ -88,8 +88,8 @@ export default function Calendar() {
   const weekDates = useMemo(() => getWeekRange(currentWeekStart), [currentWeekStart]);
   
   // Get all shifts for the week (both personal and roster shifts)
-  const startDate = weekDates[0].toISOString().split('T')[0];
-  const endDate = weekDates[6].toISOString().split('T')[0];
+  const startDate = formatDateLocal(weekDates[0]);
+  const endDate = formatDateLocal(weekDates[6]);
   
   const { data: shifts = [], isLoading } = useShifts(startDate, endDate);
 
@@ -229,7 +229,7 @@ export default function Calendar() {
                 </div>
                 {/* Day headers */}
                 {weekDates.map((date, index) => {
-                  const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+                  const isToday = formatDateLocal(date) === formatDateLocal(new Date());
                   return (
                     <div
                       key={index}
@@ -260,9 +260,9 @@ export default function Calendar() {
                     </div>
                     {/* Day columns */}
                     {weekDates.map((date, dayIndex) => {
-                      const dateStr = date.toISOString().split('T')[0];
+                      const dateStr = formatDateLocal(date);
                       const dayShifts = shiftsByDate[dateStr] || [];
-                      const isToday = dateStr === new Date().toISOString().split('T')[0];
+                      const isToday = dateStr === formatDateLocal(new Date());
                       
                       return (
                         <div

@@ -13,11 +13,15 @@ import { Users, Clock, TrendingUp, DollarSign, Calendar as CalendarIcon, UserChe
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift } from "@/hooks/use-business";
+import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift, useCopyRosterWeek } from "@/hooks/use-business";
 import { useSendRosterEmail, useSendAllRosterEmails } from "@/hooks/use-email";
+import { useCompanyTimeOffByRange } from "@/hooks/use-time-off";
+import { Copy, CalendarOff, UserX, UserMinus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { BillingManagement } from "@/components/BillingManagement";
 import { EmployeeRatesManagement } from "@/components/EmployeeRatesManagement";
 import { EmployeeReportsManagement } from "@/components/EmployeeReportsManagement";
+import { EmployeeManagement } from "@/components/EmployeeManagement";
 import { getDateRange, formatDuration } from "@/lib/time-utils";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, subDays, parseISO } from "date-fns";
 import type { User } from "@shared/schema";
@@ -72,6 +76,10 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
   const [emailSending, setEmailSending] = useState(false);
   const [emailResults, setEmailResults] = useState<any>(null);
 
+  // Employee rates configuration state
+  const [isRatesModalOpen, setIsRatesModalOpen] = useState(false);
+  const [selectedEmployeeForRates, setSelectedEmployeeForRates] = useState<number | null>(null);
+
   // Calculate date range based on view mode
   const getDateRangeForView = () => {
     if (viewMode === "custom" && customStartDate && customEndDate) {
@@ -119,9 +127,15 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
   const createRosterShiftMutation = useCreateRosterShift();
   const updateRosterShiftMutation = useUpdateRosterShift();
   const deleteRosterShiftMutation = useDeleteRosterShift();
+  const copyRosterWeekMutation = useCopyRosterWeek();
+
+  // Time-off requests for availability indicators (AC-005-3)
+  const { data: companyTimeOff = [] } = useCompanyTimeOffByRange(businessUser?.companyId, weekStart, weekEnd);
 
   const approveShiftMutation = useApproveShift();
-  
+
+  const { toast } = useToast();
+
   // Email mutations
   const sendRosterEmailMutation = useSendRosterEmail(businessUser?.companyId || 0);
   const sendAllRosterEmailsMutation = useSendAllRosterEmails(businessUser?.companyId || 0);
@@ -213,11 +227,12 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
 
   // Calculate real metrics
   const employeeArray = Array.isArray(employees) ? employees : [];
+  const activeEmployeeArray = employeeArray.filter((emp: any) => emp.isActive !== false);
   const shiftList = Array.isArray(shifts) ? shifts : [];
   const pendingList = Array.isArray(pendingShifts) ? pendingShifts : [];
 
   const totalEmployees = employeeArray.length;
-  const activeEmployees = employeeArray.filter((emp: any) => emp.isActive !== false).length;
+  const activeEmployees = activeEmployeeArray.length;
   const totalWeeklyHours = shiftList.reduce((sum: number, shift: any) => {
     if (!shift.startTime || !shift.endTime) return sum;
     const start = new Date(`2000-01-01T${shift.startTime}`);
@@ -258,6 +273,44 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
         console.error('Failed to delete shift:', error);
       }
     }
+  };
+
+  // Copy roster from previous week (AC-005-7)
+  const handleCopyFromPreviousWeek = async () => {
+    const previousWeekStart = format(subWeeks(startOfWeek(currentDate, { weekStartsOn: 1 }), 1), 'yyyy-MM-dd');
+
+    if (confirm(`Copy all shifts from week of ${previousWeekStart} to current week?`)) {
+      try {
+        const result = await copyRosterWeekMutation.mutateAsync({
+          sourceWeekStart: previousWeekStart,
+          targetWeekStart: weekStart
+        });
+        toast({
+          title: "Roster Copied",
+          description: `Successfully copied ${result.shifts?.length || 0} shifts from previous week`,
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to copy roster",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  // Helper to get employee availability for a specific date (AC-005-3)
+  const getEmployeeAvailability = (employeeId: number, dateStr: string) => {
+    const timeOffs = companyTimeOff.filter((to: any) =>
+      to.userId === employeeId &&
+      to.startDate <= dateStr &&
+      to.endDate >= dateStr &&
+      (to.status === 'approved' || to.status === 'pending')
+    );
+
+    if (timeOffs.length === 0) return 'available';
+    if (timeOffs.some((to: any) => to.isFullDay)) return 'unavailable';
+    return 'partial';
   };
 
   // Conflict detection helper
@@ -510,16 +563,9 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
         </div>
       )}
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="employees">Employees</TabsTrigger>
-          <TabsTrigger value="roster">Roster Planner</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
+      {/* Main Content - Conditional rendering based on defaultTab */}
+      {defaultTab === "overview" && (
+        <div className="space-y-6">
           {/* Date Filter Controls */}
           <Card>
             <CardHeader>
@@ -1026,156 +1072,44 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
               </>
             );
           })()}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="employees" className="space-y-6">
-          {/* Daily Hours Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Hours by Employee</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Hours worked per day split by team members
-              </p>
-            </CardHeader>
-            <CardContent>
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis 
-                      label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
-                      tickFormatter={(value) => `${value}h`}
-                    />
-                    <Tooltip 
-                      formatter={(value: any, name: string) => [
-                        `${Number(value).toFixed(1)}h`,
-                        name
-                      ]}
-                    />
-                    {processedEmployeeList.map((employee: any, index: number) => (
-                      <Bar
-                        key={employee.id}
-                        dataKey={employee.name}
-                        stackId="hours"
-                        fill={`hsl(${(index * 137.5) % 360}, 70%, 50%)`}
-                      />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium">No shift data</h3>
-                  <p className="text-muted-foreground">No shifts recorded for the selected period.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      {defaultTab === "employees" && (
+        <div className="space-y-6">
+          <EmployeeManagement
+            companyId={businessUser?.companyId || 1}
+            onConfigureRates={(employeeId) => {
+              setSelectedEmployeeForRates(employeeId);
+              setIsRatesModalOpen(true);
+            }}
+          />
+        </div>
+      )}
 
-          {/* Daily Summary Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {Object.keys(dailyData).length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Date</th>
-                        {processedEmployeeList.map((employee: any) => (
-                          <th key={employee.id} className="text-left p-2">{employee.name}</th>
-                        ))}
-                        <th className="text-left p-2 font-bold">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(dailyData).map(([date, employeeHours]) => {
-                        const totalHours = Object.values(employeeHours).reduce((sum: number, hours: any) => sum + hours, 0);
-                        return (
-                          <tr key={date} className="border-b">
-                            <td className="p-2 font-medium">
-                              {format(parseISO(date), 'MMM dd, yyyy')}
-                            </td>
-                            {processedEmployeeList.map((employee: any) => {
-                              const hours = employeeHours[employee.id] || 0;
-                              return (
-                                <td key={employee.id} className="p-2">
-                                  {hours > 0 ? `${hours.toFixed(1)}h` : '-'}
-                                </td>
-                              );
-                            })}
-                            <td className="p-2 font-bold">{totalHours.toFixed(1)}h</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-muted-foreground">No data available for the selected period.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Employee Rates Configuration Modal */}
+        <Dialog open={isRatesModalOpen} onOpenChange={setIsRatesModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Configure Employee Rates
+              </DialogTitle>
+              <DialogDescription>
+                Set hourly rates for different shift types and day categories.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedEmployeeForRates && (
+              <EmployeeRatesManagement
+                companyId={businessUser?.companyId || 1}
+                initialEmployeeId={selectedEmployeeForRates}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
-        <TabsContent value="employees" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Members</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Manage your team and view their performance
-              </p>
-            </CardHeader>
-            <CardContent>
-              {employeesLoading ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </div>
-              ) : employeeArray.length > 0 ? (
-                <div className="space-y-4">
-                  {employeeArray.map((employee: any) => (
-                    <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-blue-700">
-                            {employee.name?.charAt(0) || 'U'}
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{employee.name}</h3>
-                          <p className="text-sm text-muted-foreground">{employee.email}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant={employee.isActive ? "default" : "secondary"}>
-                          {employee.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Role: {employee.role || "Employee"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium">No employees found</h3>
-                  <p className="text-muted-foreground">Add employees to your company to see them here.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="roster" className="space-y-6">
+      {defaultTab === "roster" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Roster Planner</CardTitle>
@@ -1212,6 +1146,26 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                     onClick={() => setCurrentDate(new Date())}
                   >
                     This Week
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyFromPreviousWeek}
+                    disabled={copyRosterWeekMutation.isPending}
+                    data-testid="button-copy-previous-week"
+                    title="Copy all shifts from the previous week"
+                  >
+                    {copyRosterWeekMutation.isPending ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Copying...
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Previous Week
+                      </>
+                    )}
                   </Button>
                   <Button
                     variant="default"
@@ -1259,10 +1213,10 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                   })()}
                 </div>
 
-                {/* Hour Rows (7 AM - 11 PM) */}
+                {/* Hour Rows (24 hours) */}
                 <div className="max-h-[600px] overflow-y-auto">
-                  {Array.from({ length: 16 }, (_, hourIndex) => {
-                    const hour = 7 + hourIndex; // 7 AM to 11 PM (7 + 15 = 22)
+                  {Array.from({ length: 24 }, (_, hourIndex) => {
+                    const hour = hourIndex; // 0 (midnight) to 23
                     const timeDisplay = hour === 0 ? '12 AM' : 
                                       hour < 12 ? `${hour} AM` : 
                                       hour === 12 ? '12 PM' : 
@@ -1316,11 +1270,19 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                             // Find actual shifts that overlap with this hour
                             const actualShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
                               if (shift.date !== dateStr) return false;
-                              
+
                               const shiftStart = parseInt(shift.startTime?.split(':')[0] || '0');
                               const shiftEnd = parseInt(shift.endTime?.split(':')[0] || '0');
-                              
-                              // Check if this hour falls within the shift time
+
+                              // Handle overnight shifts (end time < start time means it crosses midnight)
+                              const isOvernightShift = shiftEnd < shiftStart || (shiftEnd === shiftStart && shift.endTime !== shift.startTime);
+
+                              if (isOvernightShift) {
+                                // Overnight shift: covers from shiftStart to 23 and from 0 to shiftEnd
+                                return hour >= shiftStart || hour < shiftEnd;
+                              }
+
+                              // Normal shift: simple range check
                               return hour >= shiftStart && hour < shiftEnd;
                             }) : [];
 
@@ -1328,19 +1290,25 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                             const templateShiftsForHour = templateShifts.filter(template => {
                               const templateStart = parseInt(template.startTime.split(':')[0]);
                               const templateEnd = parseInt(template.endTime.split(':')[0]);
-                              
+
                               // Check if this hour falls within template time
                               if (hour < templateStart || hour >= templateEnd) return false;
-                              
+
                               // Don't show template if there's already an actual shift covering this time
                               const hasActualShift = actualShifts.some(actualShift => {
                                 const actualStart = parseInt(actualShift.startTime?.split(':')[0] || '0');
                                 const actualEnd = parseInt(actualShift.endTime?.split(':')[0] || '0');
-                                
+                                const actualIsOvernight = actualEnd < actualStart;
+
                                 // Check if template overlaps with actual shift
+                                if (actualIsOvernight) {
+                                  // Actual shift is overnight: overlaps if template starts before actual ends next day
+                                  // or template ends after actual starts
+                                  return templateStart < actualEnd || templateEnd > actualStart;
+                                }
                                 return (templateStart < actualEnd && templateEnd > actualStart);
                               });
-                              
+
                               return !hasActualShift;
                             });
 
@@ -1528,45 +1496,94 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
 
               {/* Employee Hours Summary */}
               <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Weekly Hours Summary */}
+                {/* Employee Panel with Availability (AC-005-2, AC-005-3, AC-005-4) */}
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="text-sm font-medium mb-3">Weekly Hours Summary</h4>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-500" />
+                    Team Availability & Hours
+                  </h4>
                   <div className="space-y-2">
-                    {employeeArray.map((employee: any) => {
+                    {activeEmployeeArray.map((employee: any) => {
                       // Calculate total hours for this employee this week
-                      const employeeShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => 
+                      const employeeShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) =>
                         shift.userId === employee.id
                       ) : [];
-                      
+
                       const totalHours = employeeShifts.reduce((sum: number, shift: any) => {
                         if (!shift.startTime || !shift.endTime) return sum;
-                        
+
                         const [startHour, startMinute] = shift.startTime.split(':').map(Number);
                         const [endHour, endMinute] = shift.endTime.split(':').map(Number);
-                        
+
                         const startDecimal = startHour + startMinute / 60;
                         const endDecimal = endHour + endMinute / 60;
                         const duration = endDecimal - startDecimal;
-                        
+
                         return sum + Math.max(0, duration);
                       }, 0);
 
+                      // Check availability for each day of the week (AC-005-3)
+                      const weekStartDate = startOfWeek(currentDate, { weekStartsOn: 1 });
+                      const weekDays = Array.from({ length: 7 }, (_, i) => {
+                        const day = addDays(weekStartDate, i);
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        return getEmployeeAvailability(employee.id, dateStr);
+                      });
+
+                      const unavailableDays = weekDays.filter(a => a === 'unavailable').length;
+                      const partialDays = weekDays.filter(a => a === 'partial').length;
+                      const availableDays = 7 - unavailableDays - partialDays;
+
+                      // Determine overall availability status
+                      const overallStatus = unavailableDays >= 5 ? 'unavailable'
+                        : unavailableDays > 0 || partialDays > 0 ? 'partial'
+                        : 'available';
+
+                      // Hours limit warning (AC-005-5)
+                      const isOvertime = totalHours > 40;
+
                       return (
-                        <div key={employee.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                        <div
+                          key={employee.id}
+                          className={`flex items-center justify-between p-2 bg-white rounded border ${
+                            overallStatus === 'unavailable' ? 'border-red-200 bg-red-50' :
+                            overallStatus === 'partial' ? 'border-amber-200 bg-amber-50' :
+                            isOvertime ? 'border-orange-200' : ''
+                          }`}
+                        >
                           <div className="flex items-center space-x-3">
-                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-700">
-                                {employee.name?.charAt(0) || 'U'}
-                              </span>
+                            {/* Availability indicator (AC-005-3) */}
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                              overallStatus === 'unavailable' ? 'bg-red-100' :
+                              overallStatus === 'partial' ? 'bg-amber-100' :
+                              'bg-green-100'
+                            }`}>
+                              {overallStatus === 'unavailable' ? (
+                                <UserX className="h-3 w-3 text-red-600" />
+                              ) : overallStatus === 'partial' ? (
+                                <UserMinus className="h-3 w-3 text-amber-600" />
+                              ) : (
+                                <UserCheck className="h-3 w-3 text-green-600" />
+                              )}
                             </div>
                             <div>
-                              <div className="text-sm font-medium">{employee.name}</div>
-                              <div className="text-xs text-gray-500">{employee.role || 'Employee'}</div>
+                              <div className="text-sm font-medium flex items-center gap-1">
+                                {employee.name}
+                                {overallStatus !== 'available' && (
+                                  <span title={`${unavailableDays} day(s) unavailable`}>
+                                    <CalendarOff className="h-3 w-3 text-amber-500" />
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {availableDays}/7 days available
+                              </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold text-blue-600">
+                            <div className={`text-sm font-semibold ${isOvertime ? 'text-orange-600' : 'text-blue-600'}`}>
                               {totalHours.toFixed(1)}h
+                              {isOvertime && <span className="ml-1" title="Overtime">⚠️</span>}
                             </div>
                             <div className="text-xs text-gray-500">
                               {employeeShifts.length} shifts
@@ -1711,30 +1728,32 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="billing" className="space-y-6">
+      {defaultTab === "billing" && (
+        <div className="space-y-6">
           <Tabs defaultValue="employee-rates" className="space-y-4">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="employee-rates" data-testid="tab-employee-rates">Employee Rates</TabsTrigger>
               <TabsTrigger value="employee-reports" data-testid="tab-employee-reports">Employee Reports</TabsTrigger>
               <TabsTrigger value="legacy-tiers" data-testid="tab-legacy-tiers">Legacy Rate Tiers</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="employee-rates">
               <EmployeeRatesManagement companyId={businessUser?.companyId || 1} />
             </TabsContent>
-            
+
             <TabsContent value="employee-reports">
               <EmployeeReportsManagement companyId={businessUser?.companyId || 1} />
             </TabsContent>
-            
+
             <TabsContent value="legacy-tiers">
               <BillingManagement companyId={businessUser?.companyId || 1} />
             </TabsContent>
           </Tabs>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Shift Modal */}
       <Dialog open={isShiftModalOpen} onOpenChange={setIsShiftModalOpen}>
@@ -1831,6 +1850,35 @@ function ShiftForm({
   const onSubmit = (data: any) => {
     console.log('Form submitted with data:', data); // Debug log
     console.log('Initial data for editing:', initialData); // Debug log
+
+    // Validate that start and end times are not the same
+    if (data.startTime === data.endTime) {
+      form.setError('endTime', {
+        type: 'manual',
+        message: 'End time must be different from start time'
+      });
+      return;
+    }
+
+    // Parse times for validation
+    const parseTime = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const startMins = parseTime(data.startTime);
+    const endMins = parseTime(data.endTime);
+
+    // For normal shifts (not overnight), end should be after start
+    // Overnight shifts (end < start) are valid - they cross midnight
+    const isOvernightShift = endMins < startMins;
+
+    // Only warn if the shift is suspiciously short (less than 30 mins) and not overnight
+    if (!isOvernightShift && (endMins - startMins) < 30) {
+      const confirmed = window.confirm('This shift is less than 30 minutes. Are you sure you want to create it?');
+      if (!confirmed) return;
+    }
+
     onSave({
       ...data,
       userId: data.employeeId
@@ -1900,7 +1948,7 @@ function ShiftForm({
                     <SelectValue placeholder="Select an employee" />
                   </SelectTrigger>
                   <SelectContent>
-                    {employees.map((emp: any) => (
+                    {employees.filter((emp: any) => emp.isActive !== false).map((emp: any) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>
                         {emp.name}
                       </SelectItem>

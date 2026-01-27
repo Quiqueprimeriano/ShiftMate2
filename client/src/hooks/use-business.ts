@@ -105,7 +105,34 @@ export function useCreateRosterShift() {
       const response = await apiRequest("POST", "/api/roster/shifts", shiftData);
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (newShift: any) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["/api/roster"] });
+
+      // Snapshot the previous value
+      const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/roster"] });
+
+      // Optimistically update to the new value
+      queryClient.setQueriesData({ queryKey: ["/api/roster"] }, (old: any) => {
+        if (!old) return old;
+        // Add temp ID for optimistic shift
+        const optimisticShift = { ...newShift, id: `temp-${Date.now()}`, status: 'scheduled' };
+        return Array.isArray(old) ? [...old, optimisticShift] : old;
+      });
+
+      // Return context with the snapshotted value
+      return { previousShifts };
+    },
+    onError: (_err, _newShift, context) => {
+      // If mutation fails, roll back to previous value
+      if (context?.previousShifts) {
+        context.previousShifts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we have the correct data
       queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
     },
@@ -118,7 +145,32 @@ export function useUpdateRosterShift() {
       const response = await apiRequest("PUT", `/api/roster/shifts/${shiftId}`, shiftData);
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ shiftId, shiftData }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/roster"] });
+
+      // Snapshot the previous value
+      const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/roster"] });
+
+      // Optimistically update to the new value
+      queryClient.setQueriesData({ queryKey: ["/api/roster"] }, (old: any) => {
+        if (!old || !Array.isArray(old)) return old;
+        return old.map((shift: any) =>
+          shift.id === shiftId ? { ...shift, ...shiftData } : shift
+        );
+      });
+
+      return { previousShifts };
+    },
+    onError: (_err, _vars, context) => {
+      // Roll back on error
+      if (context?.previousShifts) {
+        context.previousShifts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
     },
@@ -129,6 +181,46 @@ export function useDeleteRosterShift() {
   return useMutation({
     mutationFn: async (shiftId: number) => {
       const response = await apiRequest("DELETE", `/api/roster/shifts/${shiftId}`);
+      return response.json();
+    },
+    onMutate: async (shiftId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/roster"] });
+
+      // Snapshot the previous value
+      const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/roster"] });
+
+      // Optimistically remove the shift
+      queryClient.setQueriesData({ queryKey: ["/api/roster"] }, (old: any) => {
+        if (!old || !Array.isArray(old)) return old;
+        return old.filter((shift: any) => shift.id !== shiftId);
+      });
+
+      return { previousShifts };
+    },
+    onError: (_err, _shiftId, context) => {
+      // Roll back on error
+      if (context?.previousShifts) {
+        context.previousShifts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+// Copy roster from a source week to a target week (AC-005-7)
+export function useCopyRosterWeek() {
+  return useMutation({
+    mutationFn: async ({ sourceWeekStart, targetWeekStart }: { sourceWeekStart: string; targetWeekStart: string }) => {
+      const response = await apiRequest("POST", "/api/roster/copy-week", {
+        sourceWeekStart,
+        targetWeekStart
+      });
       return response.json();
     },
     onSuccess: () => {

@@ -1,3 +1,14 @@
+/**
+ * Format a Date object as YYYY-MM-DD in LOCAL timezone (not UTC)
+ * This prevents timezone offset issues when comparing dates
+ */
+export function formatDateLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function generateTimeOptions(): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = [];
   
@@ -44,14 +55,14 @@ export function getWeekDates(date: Date): { start: string; end: string } {
   // Convert Sunday (0) to 7 for easier Monday-based calculation
   const mondayBasedDay = day === 0 ? 7 : day;
   const diff = start.getDate() - (mondayBasedDay - 1);
-  
+
   start.setDate(diff);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  
+
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0]
+    start: formatDateLocal(start),
+    end: formatDateLocal(end)
   };
 }
 
@@ -59,10 +70,10 @@ export function getLast7Days(date: Date): { start: string; end: string } {
   const end = new Date(date);
   const start = new Date(date);
   start.setDate(end.getDate() - 6); // Go back 6 days to include today as the 7th day
-  
+
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0]
+    start: formatDateLocal(start),
+    end: formatDateLocal(end)
   };
 }
 
@@ -99,9 +110,9 @@ export function getDateRange() {
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(endDate.getDate() - 6); // Last 7 days (including today)
-  
+
   return {
-    startDate: startDate.toISOString().split('T')[0],
-    endDate: endDate.toISOString().split('T')[0]
+    startDate: formatDateLocal(startDate),
+    endDate: formatDateLocal(endDate)
   };
 }

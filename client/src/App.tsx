@@ -23,11 +23,15 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import BusinessDashboard from "@/pages/business-dashboard";
 import MyEarnings from "@/pages/my-earnings";
+import AcceptInvitation from "@/pages/accept-invitation";
 
 const PAGE_TITLES = {
   "/": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
   "/dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
   "/business-dashboard": { title: "Dashboard", subtitle: "Welcome back! Here's your business overview." },
+  "/employees": { title: "Employees", subtitle: "Manage your team members and their information." },
+  "/roster": { title: "Roster Planner", subtitle: "Plan and assign shifts to your team." },
+  "/billing": { title: "Billing", subtitle: "Manage employee rates and view reports." },
   "/calendar": { title: "Calendar", subtitle: "View and manage your shifts on the calendar." },
   "/my-roster": { title: "My Roster", subtitle: "View your assigned shifts in mobile-optimized agenda format." },
   "/add-shift": { title: "Add Shift", subtitle: "Log a new work shift." },
@@ -236,6 +240,15 @@ function Router() {
     );
   }
 
+  // Public routes that should be accessible regardless of auth status
+  if (location.startsWith('/invite/')) {
+    return (
+      <Switch>
+        <Route path="/invite/:token" component={AcceptInvitation} />
+      </Switch>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <Switch>
@@ -253,13 +266,12 @@ function Router() {
   if (isBusinessUser) {
     return (
       <Switch>
-        <Route path="/" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
-        <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><BusinessDashboard /></AppLayout>} />
-        <Route path="/business-dashboard" component={() => <AppLayout location="/business-dashboard"><BusinessDashboard /></AppLayout>} />
+        <Route path="/" component={() => <AppLayout location="/"><BusinessDashboard defaultTab="overview" /></AppLayout>} />
+        <Route path="/dashboard" component={() => <AppLayout location="/dashboard"><BusinessDashboard defaultTab="overview" /></AppLayout>} />
+        <Route path="/employees" component={() => <AppLayout location="/employees"><BusinessDashboard defaultTab="employees" /></AppLayout>} />
+        <Route path="/roster" component={() => <AppLayout location="/roster"><BusinessDashboard defaultTab="roster" /></AppLayout>} />
         <Route path="/billing" component={() => <AppLayout location="/billing"><BusinessDashboard defaultTab="billing" /></AppLayout>} />
-        <Route path="/calendar" component={() => <AppLayout location="/calendar"><BusinessDashboard /></AppLayout>} />
-        <Route path="/reports" component={() => <AppLayout location="/reports"><Reports /></AppLayout>} />
-        <Route path="*" component={() => <AppLayout location="/"><BusinessDashboard /></AppLayout>} />
+        <Route path="*" component={() => <AppLayout location="/"><BusinessDashboard defaultTab="overview" /></AppLayout>} />
       </Switch>
     );
   }

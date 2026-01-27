@@ -9,10 +9,13 @@ import {
   Plus,
   FileText,
   User,
-  DollarSign
+  DollarSign,
+  Users,
+  CreditCard
 } from "lucide-react";
 
-const navItems = [
+// Menu items for employees
+const employeeNavItems = [
   { path: "/", label: "Dashboard", icon: BarChart3 },
   { path: "/calendar", label: "Calendar", icon: Calendar },
   { path: "/my-roster", label: "My Roster", icon: CalendarDays },
@@ -21,9 +24,21 @@ const navItems = [
   { path: "/reports", label: "Reports", icon: FileText },
 ];
 
+// Menu items for business/admin users
+const adminNavItems = [
+  { path: "/", label: "Dashboard", icon: BarChart3 },
+  { path: "/employees", label: "Employees", icon: Users },
+  { path: "/roster", label: "Roster Planner", icon: CalendarDays },
+  { path: "/billing", label: "Billing", icon: CreditCard },
+];
+
 export function Sidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+
+  // Determine if user is admin/business owner
+  const isAdmin = user?.userType === 'business' || user?.userType === 'business_owner' || user?.role === 'manager';
+  const navItems = isAdmin ? adminNavItems : employeeNavItems;
 
   return (
     <aside className="w-64 bg-white shadow-sm border-r border-slate-200 hidden lg:block">
@@ -39,7 +54,7 @@ export function Sidebar() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.path;
-            
+
             return (
               <li key={item.path}>
                 <Link href={item.path}>

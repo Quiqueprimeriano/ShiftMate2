@@ -1,0 +1,794 @@
+{
+  "product": "ShiftMate",
+  "feature": "Sistema de Roster",
+  "version": "1.0",
+  "lastUpdated": "2025-01-27",
+  "overview": {
+    "objetivo": "Crear un sistema completo de gestión de roster que permita a los administradores planificar turnos de manera eficiente y a los empleados visualizar, interactuar y comunicar su disponibilidad de forma clara y oportuna.",
+    "problemaQueResuelve": [
+      "Los administradores necesitan una forma eficiente de crear y gestionar rosters semanales",
+      "Los empleados requieren visibilidad clara de sus turnos asignados",
+      "Falta un canal estructurado para comunicar indisponibilidad",
+      "No existe un sistema de notificaciones cuando se publican o modifican rosters"
+    ],
+    "metricasDeExito": [
+      {
+        "metrica": "Tiempo de creación de roster",
+        "objetivo": "Reducción del 50%"
+      },
+      {
+        "metrica": "Empleados que marcan disponibilidad",
+        "objetivo": "90% antes del deadline"
+      },
+      {
+        "metrica": "Conflictos de turnos",
+        "objetivo": "Reducción del 70%"
+      },
+      {
+        "metrica": "Tasa de adopción",
+        "objetivo": "80% en el primer mes"
+      }
+    ]
+  },
+  "personas": [
+    {
+      "id": "persona-1",
+      "nombre": "Administrador/Manager",
+      "necesidades": [
+        "Crear rosters rápidamente",
+        "Visualizar disponibilidad del equipo",
+        "Minimizar conflictos"
+      ],
+      "painPoints": [
+        "Proceso manual de creación de turnos",
+        "Falta de visibilidad de disponibilidad"
+      ]
+    },
+    {
+      "id": "persona-2",
+      "nombre": "Empleado",
+      "necesidades": [
+        "Ver sus turnos claramente",
+        "Comunicar indisponibilidad con anticipación",
+        "Recibir notificaciones"
+      ],
+      "painPoints": [
+        "Falta de claridad en horarios",
+        "Dificultad para comunicar cambios"
+      ]
+    }
+  ],
+  "epics": [
+    {
+      "id": "epic-1",
+      "titulo": "Visualización del Roster (Empleado)",
+      "descripcion": "Permitir a los empleados ver y consultar sus turnos asignados de manera clara y accesible",
+      "objetivo": "Proveer visibilidad completa del roster personal a los empleados",
+      "userStories": ["US-001", "US-002"]
+    },
+    {
+      "id": "epic-2",
+      "titulo": "Comunicación de Disponibilidad (Empleado)",
+      "descripcion": "Habilitar a los empleados para comunicar su disponibilidad y gestionar bloqueos de calendario",
+      "objetivo": "Facilitar la comunicación proactiva de indisponibilidad para prevenir conflictos",
+      "userStories": ["US-003", "US-004"]
+    },
+    {
+      "id": "epic-3",
+      "titulo": "Creación de Roster (Administrador)",
+      "descripcion": "Proporcionar herramientas para que los administradores creen y gestionen rosters de manera eficiente",
+      "objetivo": "Optimizar el proceso de planificación de turnos",
+      "userStories": ["US-005", "US-006", "US-007"]
+    },
+    {
+      "id": "epic-4",
+      "titulo": "Notificaciones",
+      "descripcion": "Sistema de notificaciones para mantener a todos los usuarios informados sobre cambios y actualizaciones del roster",
+      "objetivo": "Asegurar comunicación oportuna de cambios en el roster",
+      "userStories": ["US-008", "US-009"]
+    },
+    {
+      "id": "epic-5",
+      "titulo": "Gestión de Modificaciones",
+      "descripcion": "Permitir solicitudes de cambios y modificaciones al roster con workflow de aprobación",
+      "objetivo": "Gestionar cambios de manera controlada y transparente",
+      "userStories": ["US-010", "US-011", "US-012"]
+    }
+  ],
+  "userStories": [
+    {
+      "id": "US-001",
+      "epic": "epic-1",
+      "titulo": "Ver Roster Semanal",
+      "como": "empleado",
+      "quiero": "ver mi roster semanal de manera clara y visual",
+      "para": "planificar mi semana y conocer mis turnos asignados",
+      "prioridad": "Alta",
+      "esfuerzoEstimado": 5,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-001-1",
+          "descripcion": "El calendario muestra la semana actual por defecto",
+          "verificacion": "Al cargar la página, se muestra la semana que incluye la fecha actual"
+        },
+        {
+          "id": "AC-001-2",
+          "descripcion": "Puedo navegar entre semanas (anterior/siguiente)",
+          "verificacion": "Botones de navegación permiten moverse entre semanas, con límite de 12 semanas hacia adelante"
+        },
+        {
+          "id": "AC-001-3",
+          "descripcion": "Cada turno muestra: fecha, hora inicio, hora fin, ubicación/área",
+          "verificacion": "Cada card de turno en el calendario incluye todos estos datos de forma legible"
+        },
+        {
+          "id": "AC-001-4",
+          "descripcion": "Los turnos están codificados por colores según tipo/estado",
+          "verificacion": "Sistema de colores consistente: verde (confirmado), amarillo (pendiente), rojo (conflicto)"
+        },
+        {
+          "id": "AC-001-5",
+          "descripcion": "Vista responsiva mobile y desktop",
+          "verificacion": "La vista se adapta correctamente a pantallas desde 320px hasta 1920px de ancho"
+        },
+        {
+          "id": "AC-001-6",
+          "descripcion": "Puedo alternar entre vista semanal y mensual",
+          "verificacion": "Toggle permite cambiar entre ambas vistas manteniendo la fecha seleccionada"
+        },
+        {
+          "id": "AC-001-7",
+          "descripcion": "Indicador visual de turnos confirmados vs pendientes",
+          "verificacion": "Badge o ícono diferencia claramente el estado de cada turno"
+        }
+      ],
+      "notas": [
+        "Considerar accesibilidad para usuarios con daltonismo",
+        "Incluir leyenda de colores visible en todo momento",
+        "Optimizar carga para usuarios con muchos turnos"
+      ]
+    },
+    {
+      "id": "US-002",
+      "epic": "epic-1",
+      "titulo": "Ver Detalles de Turno Individual",
+      "como": "empleado",
+      "quiero": "hacer click en un turno para ver todos sus detalles",
+      "para": "obtener información completa sobre mi asignación",
+      "prioridad": "Media",
+      "esfuerzoEstimado": 3,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-002-1",
+          "descripcion": "Modal/panel con información detallada al hacer click",
+          "verificacion": "Click en cualquier turno abre modal con detalles completos"
+        },
+        {
+          "id": "AC-002-2",
+          "descripcion": "Muestra: fecha, horario, duración, ubicación, rol/puesto, notas del manager",
+          "verificacion": "Todos los campos están presentes y correctamente formateados"
+        },
+        {
+          "id": "AC-002-3",
+          "descripcion": "Opción de agregar a calendario personal (Google/Apple Calendar)",
+          "verificacion": "Botón genera archivo .ics compatible con calendarios estándar"
+        },
+        {
+          "id": "AC-002-4",
+          "descripcion": "Botón para solicitar modificación",
+          "verificacion": "Botón visible y funcional que abre formulario de solicitud de cambio"
+        },
+        {
+          "id": "AC-002-5",
+          "descripcion": "Información de contacto de emergencia si aplica",
+          "verificacion": "Si el turno requiere contacto de emergencia, se muestra claramente"
+        }
+      ],
+      "notas": [
+        "Modal debe ser accesible con teclado (ESC para cerrar)",
+        "Considerar lazy loading de información adicional"
+      ]
+    },
+    {
+      "id": "US-003",
+      "epic": "epic-2",
+      "titulo": "Marcar Indisponibilidad",
+      "como": "empleado",
+      "quiero": "marcar días/horarios en los que no estoy disponible",
+      "para": "que no me asignen turnos en esos momentos",
+      "prioridad": "Alta",
+      "esfuerzoEstimado": 5,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-003-1",
+          "descripcion": "Puedo seleccionar uno o múltiples días en el calendario",
+          "verificacion": "Click en días permite selección múltiple con indicador visual"
+        },
+        {
+          "id": "AC-003-2",
+          "descripcion": "Puedo especificar horario completo o parcial del día",
+          "verificacion": "Opción de día completo o selección de rango horario específico"
+        },
+        {
+          "id": "AC-003-3",
+          "descripcion": "Puedo agregar una razón/nota (opcional)",
+          "verificacion": "Campo de texto opcional permite agregar contexto (max 500 caracteres)"
+        },
+        {
+          "id": "AC-003-4",
+          "descripcion": "Se distingue visualmente en el calendario (ej: rayado, color diferente)",
+          "verificacion": "Días/horarios marcados tienen patrón visual distintivo y consistente"
+        },
+        {
+          "id": "AC-003-5",
+          "descripcion": "Confirmación visual de que se guardó la indisponibilidad",
+          "verificacion": "Toast/mensaje de éxito aparece después de guardar"
+        },
+        {
+          "id": "AC-003-6",
+          "descripcion": "Puedo editar o eliminar indisponibilidad previamente marcada",
+          "verificacion": "Click en período marcado permite editar o eliminar con confirmación"
+        },
+        {
+          "id": "AC-003-7",
+          "descripcion": "Sistema valida que no haya turnos ya asignados en ese período",
+          "verificacion": "Error claro si intento marcar indisponibilidad sobre turno existente"
+        }
+      ],
+      "notas": [
+        "Considerar límite de antelación mínima para marcar indisponibilidad",
+        "Implementar soft-delete para mantener historial",
+        "Validar reglas de negocio sobre períodos mínimos de disponibilidad"
+      ]
+    },
+    {
+      "id": "US-004",
+      "epic": "epic-2",
+      "titulo": "Ver Estado de Solicitudes de Indisponibilidad",
+      "como": "empleado",
+      "quiero": "ver el estado de mis solicitudes de indisponibilidad",
+      "para": "saber si fueron aprobadas o necesitan seguimiento",
+      "prioridad": "Media",
+      "esfuerzoEstimado": 3,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-004-1",
+          "descripcion": "Lista de solicitudes con estados: Pendiente, Aprobada, Rechazada",
+          "verificacion": "Tabla/lista muestra todas las solicitudes con badge de estado"
+        },
+        {
+          "id": "AC-004-2",
+          "descripcion": "Filtros por estado y fecha",
+          "verificacion": "Filtros funcionales permiten ver solicitudes específicas"
+        },
+        {
+          "id": "AC-004-3",
+          "descripcion": "Notificación cuando cambia el estado de una solicitud",
+          "verificacion": "Notificación in-app y email cuando admin aprueba/rechaza"
+        },
+        {
+          "id": "AC-004-4",
+          "descripcion": "Posibilidad de cancelar solicitudes pendientes",
+          "verificacion": "Botón de cancelar visible solo en solicitudes pendientes, con confirmación"
+        },
+        {
+          "id": "AC-004-5",
+          "descripcion": "Razón del rechazo visible (si aplica)",
+          "verificacion": "Solicitudes rechazadas muestran comentario del manager"
+        }
+      ],
+      "notas": [
+        "Incluir timestamps de creación y última actualización",
+        "Considerar paginación si hay muchas solicitudes"
+      ]
+    },
+    {
+      "id": "US-005",
+      "epic": "epic-3",
+      "titulo": "Crear Roster Semanal Interactivo",
+      "como": "administrador",
+      "quiero": "crear el roster semanal de forma visual e interactiva",
+      "para": "asignar turnos eficientemente a mi equipo",
+      "prioridad": "Alta",
+      "esfuerzoEstimado": 8,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-005-1",
+          "descripcion": "Vista de calendario con drag & drop de turnos",
+          "verificacion": "Puedo arrastrar turnos desde panel lateral y soltarlos en el calendario"
+        },
+        {
+          "id": "AC-005-2",
+          "descripcion": "Panel lateral con lista de empleados disponibles",
+          "verificacion": "Panel muestra todos los empleados con indicador de disponibilidad en tiempo real"
+        },
+        {
+          "id": "AC-005-3",
+          "descripcion": "Indicadores visuales de disponibilidad de cada empleado",
+          "verificacion": "Código de colores o íconos muestran: disponible, parcialmente disponible, no disponible"
+        },
+        {
+          "id": "AC-005-4",
+          "descripcion": "Contador de horas asignadas por empleado",
+          "verificacion": "Cada empleado muestra total de horas asignadas en la semana con límite visual"
+        },
+        {
+          "id": "AC-005-5",
+          "descripcion": "Advertencias de conflictos (doble asignación, sobretiempo)",
+          "verificacion": "Alertas automáticas aparecen al detectar conflictos, bloqueando asignación si es crítico"
+        },
+        {
+          "id": "AC-005-6",
+          "descripcion": "Plantillas de turnos predefinidos (mañana, tarde, noche)",
+          "verificacion": "Dropdown con plantillas permite aplicar horarios estándar rápidamente"
+        },
+        {
+          "id": "AC-005-7",
+          "descripcion": "Función de copiar roster de semana anterior",
+          "verificacion": "Botón permite copiar roster completo de semana seleccionada con confirmación"
+        },
+        {
+          "id": "AC-005-8",
+          "descripcion": "Auto-guardado de cambios",
+          "verificacion": "Cambios se guardan automáticamente cada 30 segundos con indicador visual"
+        }
+      ],
+      "notas": [
+        "Implementar debounce en auto-guardado para optimizar requests",
+        "Considerar sistema de locks para prevenir edición concurrente",
+        "Agregar shortcuts de teclado para operaciones comunes"
+      ]
+    },
+    {
+      "id": "US-006",
+      "epic": "epic-3",
+      "titulo": "Ver Disponibilidad del Equipo",
+      "como": "administrador",
+      "quiero": "ver la disponibilidad de todos mis empleados al crear el roster",
+      "para": "evitar asignar turnos a personas no disponibles",
+      "prioridad": "Alta",
+      "esfuerzoEstimado": 5,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-006-1",
+          "descripcion": "Vista consolidada de disponibilidad del equipo",
+          "verificacion": "Grid/matriz muestra disponibilidad de todos los empleados por día/horario"
+        },
+        {
+          "id": "AC-006-2",
+          "descripcion": "Filtros por departamento, rol, habilidades",
+          "verificacion": "Filtros múltiples permiten segmentar vista de empleados"
+        },
+        {
+          "id": "AC-006-3",
+          "descripcion": "Indicadores de: disponible, no disponible, parcialmente disponible",
+          "verificacion": "Sistema de colores consistente con leyenda visible"
+        },
+        {
+          "id": "AC-006-4",
+          "descripcion": "Historial de disponibilidad de cada empleado",
+          "verificacion": "Click en empleado muestra historial de últimas 4 semanas de disponibilidad"
+        },
+        {
+          "id": "AC-006-5",
+          "descripcion": "Alertas al intentar asignar turno a empleado no disponible",
+          "verificacion": "Modal de confirmación con detalle de conflicto antes de asignar"
+        },
+        {
+          "id": "AC-006-6",
+          "descripcion": "Vista de cobertura mínima requerida vs actual",
+          "verificacion": "Dashboard muestra déficit/superávit de cobertura por día y horario"
+        }
+      ],
+      "notas": [
+        "Optimizar queries para equipos grandes (50+ empleados)",
+        "Considerar vista de heat map para visualización de cobertura",
+        "Permitir exportar disponibilidad a CSV/Excel"
+      ]
+    },
+    {
+      "id": "US-007",
+      "epic": "epic-3",
+      "titulo": "Validar y Publicar Roster",
+      "como": "administrador",
+      "quiero": "validar el roster antes de publicarlo",
+      "para": "asegurarme de que cumple con todos los requisitos",
+      "prioridad": "Alta",
+      "esfuerzoEstimado": 5,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-007-1",
+          "descripcion": "Sistema valida: cobertura mínima, límites de horas, descansos legales",
+          "verificacion": "Validación automática ejecuta todas las reglas antes de permitir publicación"
+        },
+        {
+          "id": "AC-007-2",
+          "descripcion": "Lista de warnings/errores antes de publicar",
+          "verificacion": "Panel muestra errores (bloqueantes) y warnings (no bloqueantes) con descripciones claras"
+        },
+        {
+          "id": "AC-007-3",
+          "descripcion": "Vista previa del roster completo",
+          "verificacion": "Modal/página de preview muestra cómo verán el roster los empleados"
+        },
+        {
+          "id": "AC-007-4",
+          "descripcion": "Confirmación requerida antes de publicar",
+          "verificacion": "Diálogo de confirmación explícito con checkbox de 'He revisado el roster'"
+        },
+        {
+          "id": "AC-007-5",
+          "descripcion": "Opción de programar publicación para fecha/hora específica",
+          "verificacion": "Selector de fecha/hora permite agendar publicación futura"
+        },
+        {
+          "id": "AC-007-6",
+          "descripcion": "Estado cambia de 'Borrador' a 'Publicado'",
+          "verificacion": "Badge de estado se actualiza inmediatamente tras publicación"
+        }
+      ],
+      "notas": [
+        "Implementar audit log de quién publicó y cuándo",
+        "Considerar versioning del roster para rollback si es necesario",
+        "Enviar notificaciones inmediatamente tras publicación"
+      ]
+    },
+    {
+      "id": "US-008",
+      "epic": "epic-4",
+      "titulo": "Notificar Publicación de Nuevo Roster",
+      "como": "empleado",
+      "quiero": "recibir una notificación cuando se publique un nuevo roster",
+      "para": "estar al tanto de mis próximos turnos",
+      "prioridad": "Alta",
+      "esfuerzoEstimado": 3,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-008-1",
+          "descripcion": "Notificación in-app cuando se publica roster",
+          "verificacion": "Badge de notificación aparece en icono de campana con mensaje claro"
+        },
+        {
+          "id": "AC-008-2",
+          "descripcion": "Email con resumen de turnos asignados",
+          "verificacion": "Email enviado dentro de 5 minutos de publicación con formato profesional"
+        },
+        {
+          "id": "AC-008-3",
+          "descripcion": "Notificación push (si está habilitado)",
+          "verificacion": "Push notification se envía a dispositivos con permisos otorgados"
+        },
+        {
+          "id": "AC-008-4",
+          "descripcion": "Link directo al roster en la notificación",
+          "verificacion": "Click en notificación lleva directamente a vista de roster semanal"
+        },
+        {
+          "id": "AC-008-5",
+          "descripcion": "Resumen de: número de turnos, total de horas, fechas clave",
+          "verificacion": "Notificación incluye métricas principales sin necesidad de abrir app"
+        }
+      ],
+      "notas": [
+        "Respetar preferencias de notificación del usuario",
+        "Implementar rate limiting para evitar spam",
+        "Considerar zona horaria del empleado para timing de notificaciones"
+      ]
+    },
+    {
+      "id": "US-009",
+      "epic": "epic-4",
+      "titulo": "Notificar Cambios en Roster Publicado",
+      "como": "empleado",
+      "quiero": "recibir notificación cuando hay cambios en mi roster",
+      "para": "ajustar mis planes según los cambios",
+      "prioridad": "Alta",
+      "esfuerzoEstimado": 4,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-009-1",
+          "descripcion": "Notificación inmediata de cualquier cambio en mis turnos",
+          "verificacion": "Notificación se envía < 1 minuto después del cambio"
+        },
+        {
+          "id": "AC-009-2",
+          "descripcion": "Detalle de qué cambió (antes vs después)",
+          "verificacion": "Mensaje muestra claramente: turno anterior → turno nuevo con highlighting de diferencias"
+        },
+        {
+          "id": "AC-009-3",
+          "descripcion": "Opción de aceptar o solicitar revisión del cambio",
+          "verificacion": "Botones de acción en notificación permiten respuesta rápida"
+        },
+        {
+          "id": "AC-009-4",
+          "descripcion": "Historial de cambios visible",
+          "verificacion": "Pestaña de historial muestra todos los cambios con timestamps y autor"
+        },
+        {
+          "id": "AC-009-5",
+          "descripcion": "Diferentes tipos de notificación según urgencia del cambio",
+          "verificacion": "Cambios urgentes (< 24hs) tienen prioridad alta y formato distintivo"
+        }
+      ],
+      "notas": [
+        "Agrupar múltiples cambios en una sola notificación si ocurren dentro de 5 minutos",
+        "Permitir configurar nivel de detalle de notificaciones",
+        "Guardar registro de notificaciones enviadas para auditoría"
+      ]
+    },
+    {
+      "id": "US-010",
+      "epic": "epic-5",
+      "titulo": "Solicitar Modificación de Turno (Empleado)",
+      "como": "empleado",
+      "quiero": "solicitar una modificación en un turno asignado",
+      "para": "ajustar mi horario cuando surgen imprevistos",
+      "prioridad": "Media",
+      "esfuerzoEstimado": 5,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-010-1",
+          "descripcion": "Botón de 'Solicitar cambio' en cada turno",
+          "verificacion": "Botón visible en vista de detalle de turno y en vista de calendario"
+        },
+        {
+          "id": "AC-010-2",
+          "descripcion": "Formulario con: turno a modificar, razón, propuesta de cambio",
+          "verificacion": "Form incluye todos los campos requeridos con validación apropiada"
+        },
+        {
+          "id": "AC-010-3",
+          "descripcion": "Opción de sugerir intercambio con otro empleado",
+          "verificacion": "Checkbox permite activar búsqueda de empleados elegibles para swap"
+        },
+        {
+          "id": "AC-010-4",
+          "descripcion": "Estado de solicitud visible: Pendiente, Aprobada, Rechazada",
+          "verificacion": "Badge de estado se actualiza en tiempo real en el turno"
+        },
+        {
+          "id": "AC-010-5",
+          "descripcion": "Notificación al manager cuando se crea solicitud",
+          "verificacion": "Manager recibe notificación in-app y email dentro de 5 minutos"
+        },
+        {
+          "id": "AC-010-6",
+          "descripcion": "Deadline para solicitar cambios (ej: 48hs antes del turno)",
+          "verificacion": "Sistema previene solicitudes fuera del período permitido con mensaje claro"
+        }
+      ],
+      "notas": [
+        "Considerar reglas de negocio específicas por tipo de turno",
+        "Implementar límite de solicitudes pendientes simultáneas",
+        "Permitir adjuntar documentación de soporte si es necesario"
+      ]
+    },
+    {
+      "id": "US-011",
+      "epic": "epic-5",
+      "titulo": "Aprobar/Rechazar Solicitudes de Modificación (Admin)",
+      "como": "administrador",
+      "quiero": "revisar y responder a solicitudes de modificación",
+      "para": "gestionar cambios en el roster de manera controlada",
+      "prioridad": "Media",
+      "esfuerzoEstimado": 5,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-011-1",
+          "descripcion": "Panel de solicitudes pendientes con priorización",
+          "verificacion": "Dashboard muestra solicitudes ordenadas por urgencia (fecha del turno)"
+        },
+        {
+          "id": "AC-011-2",
+          "descripcion": "Ver detalles de cada solicitud con contexto del roster",
+          "verificacion": "Modal muestra: solicitud completa + vista de roster afectado + disponibilidad"
+        },
+        {
+          "id": "AC-011-3",
+          "descripcion": "Opciones: Aprobar, Rechazar, Solicitar más información",
+          "verificacion": "Tres botones claramente diferenciados con tooltips explicativos"
+        },
+        {
+          "id": "AC-011-4",
+          "descripcion": "Campo obligatorio de razón al rechazar",
+          "verificacion": "Formulario requiere comentario mínimo de 20 caracteres para rechazar"
+        },
+        {
+          "id": "AC-011-5",
+          "descripcion": "Búsqueda automática de reemplazos disponibles",
+          "verificacion": "Sistema sugiere empleados elegibles basado en rol, skills y disponibilidad"
+        },
+        {
+          "id": "AC-011-6",
+          "descripcion": "Actualización automática del roster al aprobar",
+          "verificacion": "Aprobación actualiza roster inmediatamente y recalcula métricas"
+        },
+        {
+          "id": "AC-011-7",
+          "descripcion": "Notificación al empleado de la decisión",
+          "verificacion": "Empleado recibe notificación < 1 minuto con detalles de la decisión"
+        }
+      ],
+      "notas": [
+        "Implementar bulk actions para aprobar/rechazar múltiples solicitudes",
+        "Considerar SLA para tiempo de respuesta a solicitudes",
+        "Agregar analytics de solicitudes por empleado"
+      ]
+    },
+    {
+      "id": "US-012",
+      "epic": "epic-5",
+      "titulo": "Intercambio de Turnos entre Empleados",
+      "como": "empleado",
+      "quiero": "proponer intercambiar un turno con un compañero",
+      "para": "resolver conflictos de horario de manera colaborativa",
+      "prioridad": "Baja",
+      "esfuerzoEstimado": 8,
+      "criteriosDeAceptacion": [
+        {
+          "id": "AC-012-1",
+          "descripcion": "Buscar empleados elegibles para intercambio (mismo rol/skills)",
+          "verificacion": "Buscador filtra automáticamente por compatibilidad de rol y habilidades"
+        },
+        {
+          "id": "AC-012-2",
+          "descripcion": "Enviar propuesta de intercambio a compañero",
+          "verificacion": "Selección de empleado y turno a intercambiar genera propuesta formal"
+        },
+        {
+          "id": "AC-012-3",
+          "descripcion": "El compañero puede aceptar o rechazar",
+          "verificacion": "Notificación al compañero con opción de aceptar/rechazar con un click"
+        },
+        {
+          "id": "AC-012-4",
+          "descripcion": "Requiere aprobación final del manager",
+          "verificacion": "Después de aceptación mutua, se envía a manager para aprobación final"
+        },
+        {
+          "id": "AC-012-5",
+          "descripcion": "Notificaciones a todas las partes en cada paso",
+          "verificacion": "Cada cambio de estado notifica a: solicitante, receptor, manager"
+        },
+        {
+          "id": "AC-012-6",
+          "descripcion": "El intercambio actualiza automáticamente el roster al ser aprobado",
+          "verificacion": "Aprobación final intercambia turnos atómicamente con validación de conflictos"
+        }
+      ],
+      "notas": [
+        "Implementar timeout en propuestas (ej: 48hs para responder)",
+        "Considerar límite de intercambios por empleado por mes",
+        "Agregar historial de intercambios para detectar patrones",
+        "Validar que no se creen cadenas de intercambios complejas"
+      ]
+    }
+  ],
+  "dependencias": [
+    {
+      "id": "DEP-001",
+      "descripcion": "Sistema de autenticación y permisos (roles admin vs empleado)",
+      "impacto": "Bloqueante para todas las features",
+      "estado": "Requerido"
+    },
+    {
+      "id": "DEP-002",
+      "descripcion": "Sistema de notificaciones configurado (email, push, in-app)",
+      "impacto": "Bloqueante para Epic 4",
+      "estado": "Requerido"
+    },
+    {
+      "id": "DEP-003",
+      "descripcion": "Base de datos de empleados con roles y habilidades",
+      "impacto": "Bloqueante para US-005, US-006",
+      "estado": "Requerido"
+    }
+  ],
+  "riesgos": [
+    {
+      "id": "RISK-001",
+      "descripcion": "Complejidad de validaciones de reglas laborales",
+      "probabilidad": "Alta",
+      "impacto": "Alto",
+      "mitigacion": "Crear biblioteca de reglas configurable por región/industria"
+    },
+    {
+      "id": "RISK-002",
+      "descripcion": "Conflictos concurrentes en edición de roster",
+      "probabilidad": "Media",
+      "impacto": "Alto",
+      "mitigacion": "Implementar sistema de locks optimistas y versionado"
+    },
+    {
+      "id": "RISK-003",
+      "descripcion": "Baja adopción del usuario",
+      "probabilidad": "Media",
+      "impacto": "Alto",
+      "mitigacion": "Programa de onboarding estructurado y soporte dedicado en primeras semanas"
+    },
+    {
+      "id": "RISK-004",
+      "descripcion": "Performance con grandes volúmenes de datos",
+      "probabilidad": "Media",
+      "impacto": "Medio",
+      "mitigacion": "Implementar paginación, caching y optimización de queries desde el inicio"
+    }
+  ],
+  "preguntasAbiertas": [
+    {
+      "id": "Q-001",
+      "pregunta": "¿Cuántas semanas adelante pueden ver/planificar los usuarios?",
+      "categoria": "Alcance funcional",
+      "prioridad": "Alta"
+    },
+    {
+      "id": "Q-002",
+      "pregunta": "¿Hay límites de horas semanales/mensuales por empleado?",
+      "categoria": "Reglas de negocio",
+      "prioridad": "Alta"
+    },
+    {
+      "id": "Q-003",
+      "pregunta": "¿Se necesita integración con sistemas de time-tracking o payroll?",
+      "categoria": "Integraciones",
+      "prioridad": "Media"
+    },
+    {
+      "id": "Q-004",
+      "pregunta": "¿Qué reglas de negocio específicas aplican (descansos obligatorios, horas extra, etc.)?",
+      "categoria": "Reglas de negocio",
+      "prioridad": "Alta"
+    },
+    {
+      "id": "Q-005",
+      "pregunta": "¿Los empleados pueden ver el roster completo del equipo o solo el suyo?",
+      "categoria": "Privacidad y permisos",
+      "prioridad": "Media"
+    },
+    {
+      "id": "Q-006",
+      "pregunta": "¿Qué período de antelación mínima se requiere para marcar indisponibilidad?",
+      "categoria": "Reglas de negocio",
+      "prioridad": "Media"
+    },
+    {
+      "id": "Q-007",
+      "pregunta": "¿Hay diferentes tipos de turnos con reglas específicas (guardia, on-call, etc.)?",
+      "categoria": "Alcance funcional",
+      "prioridad": "Media"
+    },
+    {
+      "id": "Q-008",
+      "pregunta": "¿Se requiere soporte multi-idioma desde el inicio?",
+      "categoria": "Localización",
+      "prioridad": "Baja"
+    }
+  ],
+  "glosario": [
+    {
+      "termino": "Roster",
+      "definicion": "Planificación semanal de turnos asignados a empleados"
+    },
+    {
+      "termino": "Turno",
+      "definicion": "Período de trabajo específico asignado a un empleado con fecha, hora inicio y hora fin"
+    },
+    {
+      "termino": "Indisponibilidad",
+      "definicion": "Período marcado por el empleado donde no puede trabajar"
+    },
+    {
+      "termino": "Conflicto",
+      "definicion": "Situación donde un empleado tiene asignaciones superpuestas o viola reglas de negocio"
+    },
+    {
+      "termino": "Cobertura",
+      "definicion": "Cantidad de empleados necesarios por horario y ubicación para operación normal"
+    },
+    {
+      "termino": "Swap/Intercambio",
+      "definicion": "Acuerdo entre dos empleados para intercambiar sus turnos asignados"
+    }
+  ]
+}

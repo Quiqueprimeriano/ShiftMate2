@@ -253,16 +253,20 @@ export function exportToPDF(shifts: Shift[], options: ExportOptions): void {
           padding: 6px;
           text-align: center;
         }
-        .daily-total {
-          background: #2563eb;
-          color: white;
+        .daily-total td {
+          background: #2563eb !important;
+          color: white !important;
           font-weight: bold;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
-        .period-total {
-          background: #1e40af;
-          color: white;
+        .period-total td {
+          background: #1e40af !important;
+          color: white !important;
           font-weight: bold;
           font-size: 12px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
       </style>
     </head>

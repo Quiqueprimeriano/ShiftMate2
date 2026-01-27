@@ -7,7 +7,8 @@ import { storage } from "./storage";
 import { insertUserSchema, insertShiftSchema, insertNotificationSchema } from "@shared/schema";
 import { AuthUtils } from "./auth-utils";
 import { jwtAuth, optionalJwtAuth } from "./jwt-middleware";
-import { sendRosterEmail } from "./services/sendgrid";
+import { sendRosterEmail, sendInvitationEmail } from "./services/sendgrid";
+import crypto from "crypto";
 import { z } from "zod";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -388,11 +389,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/shifts/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Get user data to ensure companyId is maintained
       const user = await storage.getUser(req.userId);
       if (!user) {
         return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify the user owns this shift or is a manager in the same company
+      const existingShift = await storage.getShift(id);
+      if (!existingShift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+
+      // Check authorization: user must own the shift or be a manager in the same company
+      const isOwner = existingShift.userId === req.userId;
+      const isCompanyManager = user.companyId && existingShift.companyId === user.companyId &&
+                               (user.role === 'manager' || user.userType === 'business');
+
+      if (!isOwner && !isCompanyManager) {
+        return res.status(403).json({ message: "Not authorized to modify this shift" });
       }
 
       const shiftData = insertShiftSchema.partial().parse({
@@ -405,7 +421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!shift) {
         return res.status(404).json({ message: "Shift not found" });
       }
-      
+
       res.json(shift);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -418,12 +434,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/shifts/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
+
+      // Get user data for authorization check
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify the user owns this shift or is a manager in the same company
+      const existingShift = await storage.getShift(id);
+      if (!existingShift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+
+      // Check authorization: user must own the shift or be a manager in the same company
+      const isOwner = existingShift.userId === req.userId;
+      const isCompanyManager = user.companyId && existingShift.companyId === user.companyId &&
+                               (user.role === 'manager' || user.userType === 'business');
+
+      if (!isOwner && !isCompanyManager) {
+        return res.status(403).json({ message: "Not authorized to delete this shift" });
+      }
+
       const success = await storage.deleteShift(id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "Shift not found" });
       }
-      
+
       res.json({ message: "Shift deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete shift" });
@@ -490,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Roster Management Routes - Manager only
   
-  // GET /api/roster - Get full team shifts for managers
+  // GET /api/roster - Get full team shifts for managers (only roster shifts, not employee-uploaded)
   app.get("/api/roster", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       if (!(await isManager(req.userId))) {
@@ -503,15 +541,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { startDate, endDate } = req.query;
-      
+
       let shifts;
       if (startDate && endDate) {
         shifts = await storage.getShiftsByCompanyAndDateRange(user.companyId, startDate, endDate);
       } else {
         shifts = await storage.getShiftsByCompany(user.companyId);
       }
-      
-      res.json(shifts);
+
+      // Filter to only show roster shifts (created by managers, not employee-uploaded)
+      // Roster shifts have createdBy set and createdBy !== userId (manager created for employee)
+      const rosterShifts = shifts.filter((shift: any) =>
+        shift.createdBy && shift.createdBy !== shift.userId
+      );
+
+      res.json(rosterShifts);
     } catch (error) {
       res.status(500).json({ message: "Failed to get roster shifts" });
     }
@@ -534,34 +578,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle both single shift and bulk shifts
       const shiftsArray = Array.isArray(shiftsToCreate) ? shiftsToCreate : [shiftsToCreate || req.body];
       
-      const createdShifts = [];
-      
+      // Helper to parse time and handle overnight shifts
+      const parseTimeToMinutes = (time: string) => {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+
+      const checkOverlap = (s1: number, e1: number, isOvernight1: boolean, s2: number, e2: number, isOvernight2: boolean) => {
+        if (!isOvernight1 && !isOvernight2) {
+          return s1 < e2 && e1 > s2;
+        }
+        if (isOvernight1 && !isOvernight2) {
+          return (s2 < 1440 && e2 > s1) || (s2 < e1);
+        }
+        if (!isOvernight1 && isOvernight2) {
+          return (s1 < 1440 && e1 > s2) || (s1 < e2);
+        }
+        return true;
+      };
+
+      // Phase 1: Validate all shifts first (before any DB writes)
+      const validatedShifts = [];
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
       for (const shiftData of shiftsArray) {
+        // Validate required fields
+        if (!shiftData.startTime || !shiftData.endTime) {
+          return res.status(400).json({ message: 'Start time and end time are required' });
+        }
+
+        // Validate time format (HH:MM)
+        if (!timeRegex.test(shiftData.startTime) || !timeRegex.test(shiftData.endTime)) {
+          return res.status(400).json({ message: 'Invalid time format. Use HH:MM format (e.g., 09:00, 23:30)' });
+        }
+
+        // Validate start time is not the same as end time
+        if (shiftData.startTime === shiftData.endTime) {
+          return res.status(400).json({ message: 'Start time and end time cannot be the same' });
+        }
+
         // Validate employee belongs to same company
         const employee = await storage.getUser(shiftData.userId);
         if (!employee || employee.companyId !== user.companyId) {
-          return res.status(403).json({ 
-            message: `Employee ${shiftData.userId} not found or not in your company` 
+          return res.status(403).json({
+            message: `Employee ${shiftData.userId} not found or not in your company`
           });
         }
 
         // Check for overlapping shifts for this employee
         const existingShifts = await storage.getShiftsByUserAndDate(shiftData.userId, shiftData.date);
+        const newStartMins = parseTimeToMinutes(shiftData.startTime);
+        const newEndMins = parseTimeToMinutes(shiftData.endTime);
+        const newIsOvernight = newEndMins < newStartMins;
+
         const hasOverlap = existingShifts.some(existing => {
-          const newStart = new Date(`2000-01-01T${shiftData.startTime}`);
-          const newEnd = new Date(`2000-01-01T${shiftData.endTime}`);
-          const existingStart = new Date(`2000-01-01T${existing.startTime}`);
-          const existingEnd = new Date(`2000-01-01T${existing.endTime}`);
-          
-          return (newStart < existingEnd && newEnd > existingStart);
+          const existingStartMins = parseTimeToMinutes(existing.startTime);
+          const existingEndMins = parseTimeToMinutes(existing.endTime);
+          const existingIsOvernight = existingEndMins < existingStartMins;
+          return checkOverlap(newStartMins, newEndMins, newIsOvernight, existingStartMins, existingEndMins, existingIsOvernight);
         });
 
         if (hasOverlap) {
-          return res.status(409).json({ 
-            message: `Shift overlaps with existing shift for employee ${employee.name} on ${shiftData.date}` 
+          return res.status(409).json({
+            message: `Shift overlaps with existing shift for employee ${employee.name} on ${shiftData.date}`
           });
         }
 
+        // Parse and validate with zod schema
         const processedShiftData = insertShiftSchema.parse({
           ...shiftData,
           companyId: user.companyId,
@@ -569,8 +652,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'scheduled'
         });
 
-        const shift = await storage.createShift(processedShiftData);
-        createdShifts.push(shift);
+        validatedShifts.push(processedShiftData);
+      }
+
+      // Phase 2: Batch insert all validated shifts at once
+      let createdShifts;
+      if (validatedShifts.length === 1) {
+        // Single shift - use regular create
+        const shift = await storage.createShift(validatedShifts[0]);
+        createdShifts = [shift];
+      } else {
+        // Multiple shifts - use bulk insert for better performance
+        createdShifts = await storage.createBulkShifts(validatedShifts);
       }
 
       res.status(201).json(createdShifts.length === 1 ? createdShifts[0] : createdShifts);
@@ -635,7 +728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const id = parseInt(req.params.id);
-      
+
       // Verify shift belongs to manager's company
       const existingShift = await storage.getShift(id);
       if (!existingShift || existingShift.companyId !== user.companyId) {
@@ -643,14 +736,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const success = await storage.deleteShift(id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "Shift not found" });
       }
-      
+
       res.json({ message: "Roster shift deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete roster shift" });
+    }
+  });
+
+  // POST /api/roster/copy-week - Copy roster from source week to target week (AC-005-7)
+  app.post("/api/roster/copy-week", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      if (!(await isManager(req.userId))) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+
+      const user = await storage.getUser(req.userId);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+
+      const { sourceWeekStart, targetWeekStart } = req.body;
+
+      if (!sourceWeekStart || !targetWeekStart) {
+        return res.status(400).json({ message: "sourceWeekStart and targetWeekStart are required" });
+      }
+
+      // Get source week shifts
+      const sourceStart = new Date(sourceWeekStart);
+      const sourceEnd = new Date(sourceStart);
+      sourceEnd.setDate(sourceEnd.getDate() + 6);
+
+      const sourceShifts = await storage.getShiftsByCompanyAndDateRange(
+        user.companyId,
+        sourceWeekStart,
+        sourceEnd.toISOString().split('T')[0]
+      );
+
+      if (sourceShifts.length === 0) {
+        return res.status(400).json({ message: "No shifts found in source week to copy" });
+      }
+
+      // Calculate days offset between source and target
+      const targetStart = new Date(targetWeekStart);
+      const daysDiff = Math.round((targetStart.getTime() - sourceStart.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Create new shifts for target week
+      const newShifts = sourceShifts.map((shift: any) => {
+        const shiftDate = new Date(shift.date);
+        shiftDate.setDate(shiftDate.getDate() + daysDiff);
+
+        return {
+          userId: shift.userId,
+          companyId: user.companyId,
+          date: shiftDate.toISOString().split('T')[0],
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          shiftType: shift.shiftType,
+          location: shift.location,
+          notes: shift.notes,
+          createdBy: req.userId,
+          status: 'scheduled'
+        };
+      });
+
+      // Bulk insert the new shifts
+      const createdShifts = await storage.createBulkShifts(newShifts);
+
+      res.status(201).json({
+        message: `Successfully copied ${createdShifts.length} shifts from source week`,
+        shifts: createdShifts
+      });
+    } catch (error) {
+      console.error("Error copying roster week:", error);
+      res.status(500).json({ message: "Failed to copy roster week" });
     }
   });
 
@@ -1194,7 +1356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Only managers and business owners can create rate tiers
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      const isBusinessOwner = user.userType === 'business' || user.userType === 'business_owner';
+      const isManagerOrOwner = user.role === 'manager' || user.role === 'owner';
+      if (!isBusinessOwner && !isManagerOrOwner) {
         return res.status(403).json({ message: "Only managers can create rate tiers" });
       }
       
@@ -1234,7 +1398,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Only managers and business owners can add public holidays
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      const isBusinessOwner = user.userType === 'business' || user.userType === 'business_owner';
+      const isManagerOrOwner = user.role === 'manager' || user.role === 'owner';
+      if (!isBusinessOwner && !isManagerOrOwner) {
         return res.status(403).json({ message: "Only managers can add public holidays" });
       }
       
@@ -1395,7 +1561,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let employeeId = req.userId; // Default to current user
       if (previewData.employeeId) {
         // Only managers can preview other employees' rates
-        if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        const isBusinessOwner = user.userType === 'business' || user.userType === 'business_owner';
+        const isManagerOrOwner = user.role === 'manager' || user.role === 'owner';
+        if (!isBusinessOwner && !isManagerOrOwner) {
           return res.status(403).json({ message: "Manager access required to preview employee rates" });
         }
         employeeId = previewData.employeeId;
@@ -1550,6 +1718,305 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting company employees:", error);
       res.status(500).json({ message: "Failed to get company employees" });
+    }
+  });
+
+  // POST /api/companies/:id/invite-employee - Add employee to company by email
+  app.post("/api/companies/:id/invite-employee", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const { email, role } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Verify user is owner or manager of this company
+      const user = await storage.getUser(req.userId);
+      if (!user || (user.companyId !== companyId && user.userType !== 'business_owner')) {
+        return res.status(403).json({ message: "Not authorized to add employees to this company" });
+      }
+
+      // Get company info for the invitation email
+      const company = await storage.getCompany(companyId);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      // Try to add existing user first
+      const result = await storage.inviteEmployeeToCompany(companyId, email, role || 'employee');
+
+      if (result) {
+        // User exists and was added directly
+        return res.json({ message: "Employee added successfully", employee: result, type: "direct" });
+      }
+
+      // User doesn't exist - check if there's already a pending invitation
+      const existingInvitation = await storage.getInvitationByEmail(email, companyId);
+      if (existingInvitation) {
+        return res.status(400).json({ message: "An invitation has already been sent to this email" });
+      }
+
+      // Create invitation token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
+      // Save invitation to database
+      const invitation = await storage.createInvitation({
+        email,
+        companyId,
+        role: role || 'employee',
+        token,
+        invitedBy: req.userId,
+        expiresAt,
+      });
+
+      // Send invitation email
+      const emailSent = await sendInvitationEmail(
+        email,
+        company.name,
+        user.name,
+        token
+      );
+
+      if (emailSent) {
+        res.json({
+          message: "Invitation sent successfully",
+          invitation: { id: invitation.id, email, expiresAt },
+          type: "invitation"
+        });
+      } else {
+        // Email failed but invitation was created
+        res.json({
+          message: "Invitation created but email could not be sent. Please ensure SendGrid is configured.",
+          invitation: { id: invitation.id, email, expiresAt },
+          type: "invitation",
+          emailSent: false
+        });
+      }
+    } catch (error: any) {
+      console.error("Error inviting employee:", error);
+      if (error.message === 'User already belongs to another company') {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to add employee" });
+    }
+  });
+
+  // PUT /api/companies/:id/employees/:userId/toggle-active - Toggle employee active status
+  app.put("/api/companies/:id/employees/:userId/toggle-active", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const employeeId = parseInt(req.params.userId);
+      const { isActive } = req.body;
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ message: "isActive must be a boolean" });
+      }
+
+      // Verify user is owner or manager of this company
+      const user = await storage.getUser(req.userId);
+      if (!user || (user.companyId !== companyId && user.userType !== 'business_owner')) {
+        return res.status(403).json({ message: "Not authorized to manage employees in this company" });
+      }
+
+      // Verify employee belongs to this company
+      const employee = await storage.getUser(employeeId);
+      if (!employee || employee.companyId !== companyId) {
+        return res.status(404).json({ message: "Employee not found in this company" });
+      }
+
+      const result = await storage.toggleEmployeeActive(employeeId, isActive);
+
+      if (!result) {
+        return res.status(404).json({ message: "Failed to update employee status" });
+      }
+
+      res.json({ message: `Employee ${isActive ? 'activated' : 'deactivated'} successfully`, employee: result });
+    } catch (error) {
+      console.error("Error toggling employee status:", error);
+      res.status(500).json({ message: "Failed to update employee status" });
+    }
+  });
+
+  // DELETE /api/companies/:id/employees/:userId - Remove employee from company
+  app.delete("/api/companies/:id/employees/:userId", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const employeeId = parseInt(req.params.userId);
+
+      // Verify user is owner or manager of this company
+      const user = await storage.getUser(req.userId);
+      if (!user || (user.companyId !== companyId && user.userType !== 'business_owner')) {
+        return res.status(403).json({ message: "Not authorized to remove employees from this company" });
+      }
+
+      // Verify employee belongs to this company
+      const employee = await storage.getUser(employeeId);
+      if (!employee || employee.companyId !== companyId) {
+        return res.status(404).json({ message: "Employee not found in this company" });
+      }
+
+      const result = await storage.removeEmployeeFromCompany(employeeId);
+
+      if (!result) {
+        return res.status(404).json({ message: "Failed to remove employee" });
+      }
+
+      res.json({ message: "Employee removed successfully" });
+    } catch (error) {
+      console.error("Error removing employee:", error);
+      res.status(500).json({ message: "Failed to remove employee" });
+    }
+  });
+
+  // GET /api/companies/:id/invitations - List pending invitations
+  app.get("/api/companies/:id/invitations", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+
+      // Verify user is owner or manager of this company
+      const user = await storage.getUser(req.userId);
+      if (!user || (user.companyId !== companyId && user.userType !== 'business_owner')) {
+        return res.status(403).json({ message: "Not authorized to view invitations" });
+      }
+
+      const invitations = await storage.getInvitationsByCompany(companyId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error getting invitations:", error);
+      res.status(500).json({ message: "Failed to get invitations" });
+    }
+  });
+
+  // DELETE /api/companies/:id/invitations/:invitationId - Cancel invitation
+  app.delete("/api/companies/:id/invitations/:invitationId", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const invitationId = parseInt(req.params.invitationId);
+
+      // Verify user is owner or manager of this company
+      const user = await storage.getUser(req.userId);
+      if (!user || (user.companyId !== companyId && user.userType !== 'business_owner')) {
+        return res.status(403).json({ message: "Not authorized to cancel invitations" });
+      }
+
+      await storage.deleteInvitation(invitationId);
+      res.json({ message: "Invitation cancelled" });
+    } catch (error) {
+      console.error("Error cancelling invitation:", error);
+      res.status(500).json({ message: "Failed to cancel invitation" });
+    }
+  });
+
+  // GET /api/invitations/:token - Get invitation info by token (public)
+  app.get("/api/invitations/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      const result = await storage.getInvitationWithCompany(token);
+
+      if (!result) {
+        return res.status(404).json({ message: "Invitation not found or expired" });
+      }
+
+      res.json({
+        email: result.invitation.email,
+        role: result.invitation.role,
+        companyName: result.company.name,
+        inviterName: result.inviter.name,
+        expiresAt: result.invitation.expiresAt,
+      });
+    } catch (error) {
+      console.error("Error getting invitation:", error);
+      res.status(500).json({ message: "Failed to get invitation" });
+    }
+  });
+
+  // POST /api/invitations/:token/accept - Accept invitation and create/link user
+  app.post("/api/invitations/:token/accept", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { name } = req.body;
+
+      // Get invitation with company info
+      const result = await storage.getInvitationWithCompany(token);
+
+      if (!result) {
+        return res.status(404).json({ message: "Invitation not found or expired" });
+      }
+
+      const { invitation, company } = result;
+
+      if (!name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      // Check if user already exists with this email
+      let existingUser = await storage.getUserByEmail(invitation.email);
+
+      if (existingUser) {
+        // User exists - link them to the company
+        if (existingUser.companyId && existingUser.companyId !== invitation.companyId) {
+          return res.status(400).json({ message: "This email is already associated with another company" });
+        }
+
+        await storage.inviteEmployeeToCompany(invitation.companyId, invitation.email, invitation.role);
+        await storage.acceptInvitation(token, existingUser.id);
+
+        // Generate tokens for the existing user
+        const accessToken = await AuthUtils.generateAccessToken(existingUser.id, existingUser.email);
+        const refreshToken = AuthUtils.generateRefreshToken();
+        await AuthUtils.storeRefreshToken(refreshToken, existingUser.id, true);
+
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60 * 1000
+        });
+
+        return res.json({
+          message: "Welcome to the team!",
+          user: existingUser,
+          accessToken,
+        });
+      }
+
+      // Create new user
+      const newUser = await storage.createUser({
+        email: invitation.email,
+        name,
+        userType: 'employee',
+        companyId: invitation.companyId,
+        role: invitation.role,
+        isActive: true,
+      });
+
+      // Mark invitation as accepted
+      await storage.acceptInvitation(token, newUser.id);
+
+      // Generate tokens for the new user
+      const accessToken = await AuthUtils.generateAccessToken(newUser.id, newUser.email);
+      const refreshToken = AuthUtils.generateRefreshToken();
+      await AuthUtils.storeRefreshToken(refreshToken, newUser.id, true);
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000
+      });
+
+      res.json({
+        message: "Account created successfully! Welcome to the team!",
+        user: newUser,
+        accessToken,
+      });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
     }
   });
 
@@ -1726,6 +2193,323 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending roster emails:", error);
       res.status(500).json({ message: "Failed to send roster emails" });
+    }
+  });
+
+  // ============================================================
+  // Time-Off Request Routes (US-003: Marcar Indisponibilidad)
+  // ============================================================
+
+  // Get user's time-off requests
+  app.get("/api/time-off", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const requests = await storage.getTimeOffRequestsByUser(userId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching time-off requests:", error);
+      res.status(500).json({ message: "Failed to fetch time-off requests" });
+    }
+  });
+
+  // Get time-off requests for date range (for calendar display)
+  app.get("/api/time-off/range", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const requests = await storage.getTimeOffRequestsByUserAndDateRange(
+        userId,
+        startDate as string,
+        endDate as string
+      );
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching time-off requests:", error);
+      res.status(500).json({ message: "Failed to fetch time-off requests" });
+    }
+  });
+
+  // Create time-off request
+  app.post("/api/time-off", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { startDate, endDate, startTime, endTime, isFullDay, reason } = req.body;
+
+      // Validate required fields
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      // Validate reason length (max 500 chars)
+      if (reason && reason.length > 500) {
+        return res.status(400).json({ message: "Reason cannot exceed 500 characters" });
+      }
+
+      // Check for conflicting shifts (AC-003-7)
+      const conflictingShifts = await storage.checkShiftConflict(userId, startDate, endDate);
+      if (conflictingShifts.length > 0) {
+        return res.status(400).json({
+          message: "Cannot mark unavailability: you have shifts scheduled during this period",
+          conflicts: conflictingShifts.map(s => ({
+            date: s.date,
+            startTime: s.startTime,
+            endTime: s.endTime
+          }))
+        });
+      }
+
+      // Get user's company
+      const user = await storage.getUser(userId);
+      const companyId = user?.companyId;
+
+      const request = await storage.createTimeOffRequest({
+        userId,
+        companyId: companyId || null,
+        startDate,
+        endDate,
+        startTime: isFullDay ? null : startTime,
+        endTime: isFullDay ? null : endTime,
+        isFullDay: isFullDay ?? true,
+        reason: reason || null,
+        status: 'pending'
+      });
+
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating time-off request:", error);
+      res.status(500).json({ message: "Failed to create time-off request" });
+    }
+  });
+
+  // Update time-off request
+  app.put("/api/time-off/:id", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const existing = await storage.getTimeOffRequest(requestId);
+
+      if (!existing) {
+        return res.status(404).json({ message: "Time-off request not found" });
+      }
+
+      // Only owner can update their request
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to update this request" });
+      }
+
+      // Can only update pending requests
+      if (existing.status !== 'pending') {
+        return res.status(400).json({ message: "Cannot update request that is already " + existing.status });
+      }
+
+      const { startDate, endDate, startTime, endTime, isFullDay, reason } = req.body;
+
+      // Validate reason length
+      if (reason && reason.length > 500) {
+        return res.status(400).json({ message: "Reason cannot exceed 500 characters" });
+      }
+
+      // Check for conflicting shifts if dates changed
+      if (startDate || endDate) {
+        const conflictingShifts = await storage.checkShiftConflict(
+          userId,
+          startDate || existing.startDate,
+          endDate || existing.endDate
+        );
+        if (conflictingShifts.length > 0) {
+          return res.status(400).json({
+            message: "Cannot update: you have shifts scheduled during this period",
+            conflicts: conflictingShifts
+          });
+        }
+      }
+
+      const updated = await storage.updateTimeOffRequest(requestId, {
+        startDate: startDate || existing.startDate,
+        endDate: endDate || existing.endDate,
+        startTime: isFullDay ? null : (startTime || existing.startTime),
+        endTime: isFullDay ? null : (endTime || existing.endTime),
+        isFullDay: isFullDay ?? existing.isFullDay,
+        reason: reason !== undefined ? reason : existing.reason
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating time-off request:", error);
+      res.status(500).json({ message: "Failed to update time-off request" });
+    }
+  });
+
+  // Delete time-off request
+  app.delete("/api/time-off/:id", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const existing = await storage.getTimeOffRequest(requestId);
+
+      if (!existing) {
+        return res.status(404).json({ message: "Time-off request not found" });
+      }
+
+      // Only owner can delete their request
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this request" });
+      }
+
+      await storage.deleteTimeOffRequest(requestId);
+      res.json({ message: "Time-off request deleted" });
+    } catch (error) {
+      console.error("Error deleting time-off request:", error);
+      res.status(500).json({ message: "Failed to delete time-off request" });
+    }
+  });
+
+  // Manager: Get all time-off requests for company
+  app.get("/api/company/:companyId/time-off", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const companyId = parseInt(req.params.companyId);
+
+      // Verify user is authorized (business owner or manager)
+      const user = await storage.getUser(userId);
+      if (!user || user.companyId !== companyId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager or business owner access required" });
+      }
+
+      const requests = await storage.getTimeOffRequestsByCompany(companyId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching company time-off requests:", error);
+      res.status(500).json({ message: "Failed to fetch time-off requests" });
+    }
+  });
+
+  // Manager: Get company time-off requests for date range (for roster planner availability)
+  app.get("/api/company/:companyId/time-off/range", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const companyId = parseInt(req.params.companyId);
+      const { startDate, endDate } = req.query as { startDate: string; endDate: string };
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      // Verify user is authorized (business owner or manager)
+      const user = await storage.getUser(userId);
+      if (!user || user.companyId !== companyId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager or business owner access required" });
+      }
+
+      const requests = await storage.getTimeOffRequestsByCompanyAndRange(companyId, startDate, endDate);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching company time-off requests by range:", error);
+      res.status(500).json({ message: "Failed to fetch time-off requests" });
+    }
+  });
+
+  // Manager: Approve time-off request
+  app.post("/api/time-off/:id/approve", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const existing = await storage.getTimeOffRequest(requestId);
+
+      if (!existing) {
+        return res.status(404).json({ message: "Time-off request not found" });
+      }
+
+      // Verify user is authorized
+      const user = await storage.getUser(userId);
+      if (!user || (existing.companyId && user.companyId !== existing.companyId)) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager or business owner access required" });
+      }
+
+      const approved = await storage.approveTimeOffRequest(requestId, userId);
+      res.json(approved);
+    } catch (error) {
+      console.error("Error approving time-off request:", error);
+      res.status(500).json({ message: "Failed to approve time-off request" });
+    }
+  });
+
+  // Manager: Reject time-off request
+  app.post("/api/time-off/:id/reject", optionalJwtAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id || req.userId || (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const { reason } = req.body;
+
+      const existing = await storage.getTimeOffRequest(requestId);
+
+      if (!existing) {
+        return res.status(404).json({ message: "Time-off request not found" });
+      }
+
+      // Verify user is authorized
+      const user = await storage.getUser(userId);
+      if (!user || (existing.companyId && user.companyId !== existing.companyId)) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+        return res.status(403).json({ message: "Manager or business owner access required" });
+      }
+
+      const rejected = await storage.rejectTimeOffRequest(requestId, userId, reason || '');
+      res.json(rejected);
+    } catch (error) {
+      console.error("Error rejecting time-off request:", error);
+      res.status(500).json({ message: "Failed to reject time-off request" });
     }
   });
 

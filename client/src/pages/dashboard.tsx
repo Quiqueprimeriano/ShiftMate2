@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, History, TrendingUp, AlertTriangle, Plus, Play, Square, Edit, Check, X, Trash2, BarChart3, Calendar, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 import { usePersonalShifts, useIndividualRosterShifts, useWeeklyHours, useCreateShift, useUpdateShift, useDeleteShift } from "@/hooks/use-shifts";
-import { getWeekDates, getLast7Days, formatTime, calculateDuration, generateTimeOptions, formatDateRange } from "@/lib/time-utils";
+import { getWeekDates, getLast7Days, formatTime, calculateDuration, generateTimeOptions, formatDateRange, formatDateLocal } from "@/lib/time-utils";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -30,8 +30,8 @@ export default function Dashboard() {
   previousWeekEnd.setDate(previousWeekEnd.getDate() - 7);
   
   const previousWeek = {
-    start: previousWeekStart.toISOString().split('T')[0],
-    end: previousWeekEnd.toISOString().split('T')[0]
+    start: formatDateLocal(previousWeekStart),
+    end: formatDateLocal(previousWeekEnd)
   };
 
   // Use global timer hook
@@ -356,7 +356,7 @@ export default function Dashboard() {
     const endTimeStr = roundEndTimeToQuarter(endTime);
     
     const shiftType = determineShiftType(shiftStartTime);
-    const shiftDate = shiftStartTime.toISOString().split('T')[0];
+    const shiftDate = formatDateLocal(shiftStartTime);
     
     const shiftData = {
       date: shiftDate,

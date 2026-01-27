@@ -35,13 +35,15 @@ interface EarningsData {
 }
 
 export default function MyEarnings() {
-  // Date range for earnings - default to current month
+  // Date range for earnings - default "From" to the most recent Saturday
   const now = new Date();
-  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysSinceSaturday = dayOfWeek === 6 ? 0 : dayOfWeek + 1;
+  const mostRecentSaturday = new Date(now);
+  mostRecentSaturday.setDate(now.getDate() - daysSinceSaturday);
 
-  const [startDate, setStartDate] = useState(firstOfMonth.toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(lastOfMonth.toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(mostRecentSaturday.toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(now.toISOString().split('T')[0]);
 
   // Fetch rates (read-only)
   const { data: rates, isLoading: ratesLoading } = useQuery<Rates>({
@@ -102,40 +104,8 @@ export default function MyEarnings() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Rates Card - Read Only */}
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              Hourly Rates
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!hasRates && (
-              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg mb-4">
-                <Info className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-amber-800">Rates not configured</p>
-                  <p className="text-amber-700">Contact your manager to set up your hourly rates.</p>
-                </div>
-              </div>
-            )}
-            {rateTypes.map(({ key, label, description }) => (
-              <div key={key} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                <div>
-                  <p className="font-medium text-slate-900">{label}</p>
-                  <p className="text-xs text-slate-500">{description}</p>
-                </div>
-                <span className="font-semibold text-slate-900">
-                  {formatCurrency(rates?.[key] || 0, rates?.currency)}/hr
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Earnings Summary Card */}
-        <Card>
+        {/* Earnings Summary Card - First on mobile */}
+        <Card className="order-1">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-600" />
@@ -217,6 +187,38 @@ export default function MyEarnings() {
                 <p>Unable to load earnings data</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Rates Card - Read Only (second on mobile) */}
+        <Card className="order-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              Hourly Rates
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!hasRates && (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg mb-4">
+                <Info className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-800">Rates not configured</p>
+                  <p className="text-amber-700">Contact your manager to set up your hourly rates.</p>
+                </div>
+              </div>
+            )}
+            {rateTypes.map(({ key, label, description }) => (
+              <div key={key} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                <div>
+                  <p className="font-medium text-slate-900">{label}</p>
+                  <p className="text-xs text-slate-500">{description}</p>
+                </div>
+                <span className="font-semibold text-slate-900">
+                  {formatCurrency(rates?.[key] || 0, rates?.currency)}/hr
+                </span>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>

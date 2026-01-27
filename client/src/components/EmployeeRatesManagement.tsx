@@ -48,11 +48,14 @@ interface Employee {
 
 interface EmployeeRatesManagementProps {
   companyId: number;
+  initialEmployeeId?: number;
 }
 
-export function EmployeeRatesManagement({ companyId }: EmployeeRatesManagementProps) {
+export function EmployeeRatesManagement({ companyId, initialEmployeeId }: EmployeeRatesManagementProps) {
   const { toast } = useToast();
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(
+    initialEmployeeId ? initialEmployeeId.toString() : ""
+  );
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null);
   const [editingRates, setEditingRates] = useState<Partial<EmployeeRate>>({});
 

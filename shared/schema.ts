@@ -37,26 +37,39 @@ export const users = pgTable("shiftmate_users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const shifts = pgTable("shiftmate_shifts", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  companyId: integer("company_id").references(() => companies.id),
-  date: date("date").notNull(),
-  startTime: time("start_time").notNull(),
-  endTime: time("end_time").notNull(),
-  shiftType: text("shift_type").notNull(), // morning, evening, night, double, custom
-  notes: text("notes"),
-  location: text("location"), // shift location for roster planning
-  status: text("status").default("completed"), // completed, pending_approval, approved, rejected, scheduled
-  createdBy: integer("created_by").references(() => users.id), // manager who assigned/created the shift
-  approvedBy: integer("approved_by").references(() => users.id),
-  approvedAt: timestamp("approved_at"),
-  isRecurring: boolean("is_recurring").default(false),
-  recurringPattern: text("recurring_pattern"), // daily, weekly, custom
-  recurringEndDate: date("recurring_end_date"),
-  templateId: integer("template_id"), // for future shift templates feature
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const shifts = pgTable(
+  "shiftmate_shifts",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id),
+    companyId: integer("company_id").references(() => companies.id),
+    date: date("date").notNull(),
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time").notNull(),
+    shiftType: text("shift_type").notNull(), // morning, evening, night, double, custom
+    notes: text("notes"),
+    location: text("location"), // shift location for roster planning
+    status: text("status").default("completed"), // completed, pending_approval, approved, rejected, scheduled
+    createdBy: integer("created_by").references(() => users.id), // manager who assigned/created the shift
+    approvedBy: integer("approved_by").references(() => users.id),
+    approvedAt: timestamp("approved_at"),
+    isRecurring: boolean("is_recurring").default(false),
+    recurringPattern: text("recurring_pattern"), // daily, weekly, custom
+    recurringEndDate: date("recurring_end_date"),
+    templateId: integer("template_id"), // for future shift templates feature
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // Index for querying shifts by date (most common query pattern)
+    index("IDX_shifts_date").on(table.date),
+    // Index for querying shifts by user
+    index("IDX_shifts_user_id").on(table.userId),
+    // Composite index for company + date range queries (roster planning)
+    index("IDX_shifts_company_date").on(table.companyId, table.date),
+    // Index for status filtering (pending approvals, etc.)
+    index("IDX_shifts_status").on(table.status),
+  ]
+);
 
 export const notifications = pgTable("shiftmate_notifications", {
   id: serial("id").primaryKey(),
@@ -118,6 +131,43 @@ export const employeeRates = pgTable("shiftmate_employee_rates", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Time-off / Unavailability requests for employees
+export const timeOffRequests = pgTable("shiftmate_time_off_requests", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  companyId: integer("company_id").references(() => companies.id),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  startTime: time("start_time"), // null for full day
+  endTime: time("end_time"), // null for full day
+  isFullDay: boolean("is_full_day").default(true),
+  reason: text("reason"), // optional, max 500 chars
+  status: text("status").default("pending"), // pending, approved, rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_time_off_user").on(table.userId),
+  index("IDX_time_off_company").on(table.companyId),
+  index("IDX_time_off_dates").on(table.startDate, table.endDate),
+  index("IDX_time_off_status").on(table.status),
+]);
+
+// Employee invitations for users who don't have accounts yet
+export const employeeInvitations = pgTable("shiftmate_employee_invitations", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  role: text("role").notNull().default("employee"),
+  token: text("token").notNull().unique(),
+  invitedBy: integer("invited_by").notNull().references(() => users.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertCompanySchema = createInsertSchema(companies).omit({
   id: true,
   createdAt: true,
@@ -161,6 +211,19 @@ export const insertEmployeeRateSchema = createInsertSchema(employeeRates).omit({
   updatedAt: true,
 });
 
+export const insertEmployeeInvitationSchema = createInsertSchema(employeeInvitations).omit({
+  id: true,
+  createdAt: true,
+  acceptedAt: true,
+});
+
+export const insertTimeOffRequestSchema = createInsertSchema(timeOffRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  reviewedAt: true,
+});
+
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -177,3 +240,7 @@ export type InsertPublicHoliday = z.infer<typeof insertPublicHolidaySchema>;
 export type PublicHoliday = typeof publicHolidays.$inferSelect;
 export type InsertEmployeeRate = z.infer<typeof insertEmployeeRateSchema>;
 export type EmployeeRate = typeof employeeRates.$inferSelect;
+export type InsertEmployeeInvitation = z.infer<typeof insertEmployeeInvitationSchema>;
+export type EmployeeInvitation = typeof employeeInvitations.$inferSelect;
+export type InsertTimeOffRequest = z.infer<typeof insertTimeOffRequestSchema>;
+export type TimeOffRequest = typeof timeOffRequests.$inferSelect;
