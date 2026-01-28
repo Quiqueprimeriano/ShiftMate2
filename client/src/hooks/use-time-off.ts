@@ -9,6 +9,9 @@ interface CreateTimeOffRequest {
   endTime?: string;
   isFullDay: boolean;
   reason?: string;
+  isRecurring?: boolean;
+  recurringDays?: string; // comma-separated day numbers: 0=Sun,...,6=Sat
+  recurringEndDate?: string | null;
 }
 
 interface UpdateTimeOffRequest extends Partial<CreateTimeOffRequest> {

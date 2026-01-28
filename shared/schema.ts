@@ -146,6 +146,9 @@ export const timeOffRequests = pgTable("shiftmate_time_off_requests", {
   reviewedBy: integer("reviewed_by").references(() => users.id),
   reviewedAt: timestamp("reviewed_at"),
   rejectionReason: text("rejection_reason"),
+  isRecurring: boolean("is_recurring").default(false),
+  recurringDays: text("recurring_days"), // comma-separated day numbers: 0=Sun,1=Mon,...,6=Sat e.g. "2" for Tuesdays
+  recurringEndDate: date("recurring_end_date"), // null = indefinite
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [

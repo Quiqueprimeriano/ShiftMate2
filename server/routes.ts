@@ -19,7 +19,38 @@ import {
   calculateShiftDuration,
   calculateWeeknightHours
 } from "./billing-engine";
-import { rateTiers, publicHolidays, insertRateTierSchema, insertPublicHolidaySchema, insertEmployeeRateSchema } from "@shared/schema";
+import { rateTiers, publicHolidays, insertRateTierSchema, insertPublicHolidaySchema, insertEmployeeRateSchema, type TimeOffRequest } from "@shared/schema";
+
+// Expand recurring time-off entries into per-day virtual entries within a date range
+function expandRecurringTimeOff(requests: TimeOffRequest[], rangeStart: string, rangeEnd: string): TimeOffRequest[] {
+  const result: TimeOffRequest[] = [];
+  const start = new Date(rangeStart);
+  const end = new Date(rangeEnd);
+
+  for (const req of requests) {
+    if (!req.isRecurring || !req.recurringDays) {
+      result.push(req);
+      continue;
+    }
+
+    const days = req.recurringDays.split(',').map(Number);
+    const recurEnd = req.recurringEndDate ? new Date(req.recurringEndDate) : null;
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (recurEnd && d > recurEnd) break;
+      if (days.includes(d.getDay())) {
+        const dateStr = d.toISOString().split('T')[0];
+        result.push({
+          ...req,
+          startDate: dateStr,
+          endDate: dateStr,
+        });
+      }
+    }
+  }
+
+  return result;
+}
 
 // Extend the Request interface to include session
 interface AuthenticatedRequest extends Request {
@@ -2300,7 +2331,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startDate as string,
         endDate as string
       );
-      res.json(requests);
+
+      // Expand recurring entries into per-day virtual entries
+      const expanded = expandRecurringTimeOff(requests, startDate as string, endDate as string);
+      res.json(expanded);
     } catch (error) {
       console.error("Error fetching time-off requests:", error);
       res.status(500).json({ message: "Failed to fetch time-off requests" });
@@ -2315,7 +2349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      const { startDate, endDate, startTime, endTime, isFullDay, reason } = req.body;
+      const { startDate, endDate, startTime, endTime, isFullDay, reason, isRecurring, recurringDays, recurringEndDate } = req.body;
 
       // Validate required fields
       if (!startDate || !endDate) {
@@ -2327,17 +2361,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Reason cannot exceed 500 characters" });
       }
 
-      // Check for conflicting shifts (AC-003-7)
-      const conflictingShifts = await storage.checkShiftConflict(userId, startDate, endDate);
-      if (conflictingShifts.length > 0) {
-        return res.status(400).json({
-          message: "Cannot mark unavailability: you have shifts scheduled during this period",
-          conflicts: conflictingShifts.map(s => ({
-            date: s.date,
-            startTime: s.startTime,
-            endTime: s.endTime
-          }))
-        });
+      // Check for conflicting shifts (AC-003-7) - skip for recurring entries
+      if (!isRecurring) {
+        const conflictingShifts = await storage.checkShiftConflict(userId, startDate, endDate);
+        if (conflictingShifts.length > 0) {
+          return res.status(400).json({
+            message: "Cannot mark unavailability: you have shifts scheduled during this period",
+            conflicts: conflictingShifts.map(s => ({
+              date: s.date,
+              startTime: s.startTime,
+              endTime: s.endTime
+            }))
+          });
+        }
       }
 
       // Get user's company
@@ -2353,7 +2389,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endTime: isFullDay ? null : endTime,
         isFullDay: isFullDay ?? true,
         reason: reason || null,
-        status: 'confirmed'
+        status: 'confirmed',
+        isRecurring: isRecurring ?? false,
+        recurringDays: isRecurring ? recurringDays : null,
+        recurringEndDate: isRecurring ? (recurringEndDate || null) : null,
       });
 
       res.status(201).json(request);
@@ -2388,15 +2427,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Cannot update request that is already " + existing.status });
       }
 
-      const { startDate, endDate, startTime, endTime, isFullDay, reason } = req.body;
+      const { startDate, endDate, startTime, endTime, isFullDay, reason, isRecurring, recurringDays, recurringEndDate } = req.body;
 
       // Validate reason length
       if (reason && reason.length > 500) {
         return res.status(400).json({ message: "Reason cannot exceed 500 characters" });
       }
 
-      // Check for conflicting shifts if dates changed
-      if (startDate || endDate) {
+      // Check for conflicting shifts if dates changed (skip for recurring - dates are templates)
+      if ((startDate || endDate) && !isRecurring) {
         const conflictingShifts = await storage.checkShiftConflict(
           userId,
           startDate || existing.startDate,
@@ -2416,7 +2455,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startTime: isFullDay ? null : (startTime || existing.startTime),
         endTime: isFullDay ? null : (endTime || existing.endTime),
         isFullDay: isFullDay ?? existing.isFullDay,
-        reason: reason !== undefined ? reason : existing.reason
+        reason: reason !== undefined ? reason : existing.reason,
+        isRecurring: isRecurring ?? existing.isRecurring,
+        recurringDays: isRecurring ? (recurringDays ?? existing.recurringDays) : null,
+        recurringEndDate: isRecurring ? (recurringEndDate !== undefined ? recurringEndDate : existing.recurringEndDate) : null,
       });
 
       res.json(updated);
@@ -2506,7 +2548,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const requests = await storage.getTimeOffRequestsByCompanyAndRange(companyId, startDate, endDate);
-      res.json(requests);
+      const expanded = expandRecurringTimeOff(requests, startDate, endDate);
+      res.json(expanded);
     } catch (error) {
       console.error("Error fetching company time-off requests by range:", error);
       res.status(500).json({ message: "Failed to fetch time-off requests" });

@@ -892,10 +892,18 @@ export class DbStorage implements IStorage {
           and(
             eq(timeOffRequests.companyId, companyId),
             or(
-              // Request overlaps with date range
+              // Non-recurring: request overlaps with date range
               and(
                 lte(timeOffRequests.startDate, endDate),
                 gte(timeOffRequests.endDate, startDate)
+              ),
+              // Recurring: still active during query range
+              and(
+                eq(timeOffRequests.isRecurring, true),
+                or(
+                  isNull(timeOffRequests.recurringEndDate),
+                  gte(timeOffRequests.recurringEndDate, startDate)
+                )
               )
             )
           )
@@ -920,10 +928,18 @@ export class DbStorage implements IStorage {
           and(
             eq(timeOffRequests.userId, userId),
             or(
-              // Request overlaps with date range
+              // Non-recurring: request overlaps with date range
               and(
                 lte(timeOffRequests.startDate, endDate),
                 gte(timeOffRequests.endDate, startDate)
+              ),
+              // Recurring: still active during query range
+              and(
+                eq(timeOffRequests.isRecurring, true),
+                or(
+                  isNull(timeOffRequests.recurringEndDate),
+                  gte(timeOffRequests.recurringEndDate, startDate)
+                )
               )
             )
           )

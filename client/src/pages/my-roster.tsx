@@ -234,8 +234,8 @@ const WeeklyCalendarView = ({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Header with days */}
-      <div className="grid grid-cols-[3rem_repeat(7,1fr)] border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
-        <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200">
+      <div className="grid grid-cols-[2.5rem_repeat(7,1fr)] md:grid-cols-[3rem_repeat(7,1fr)] border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
+        <div className="p-1 text-[10px] md:text-xs text-slate-500 font-medium border-r border-slate-200">
           Time
         </div>
         {weekDates.map(date => {
@@ -246,16 +246,16 @@ const WeeklyCalendarView = ({
           return (
             <div
               key={dateStr}
-              className={`p-1 text-center border-r border-slate-200 last:border-r-0 ${
+              className={`p-0.5 md:p-1 text-center border-r border-slate-200 last:border-r-0 ${
                 hasTimeOff ? 'bg-purple-50' : isToday ? 'bg-blue-50' : ''
               }`}
             >
-              <div className={`text-xs font-medium uppercase ${
+              <div className={`text-[10px] md:text-xs font-medium uppercase ${
                 hasTimeOff ? 'text-purple-600' : isToday ? 'text-blue-600' : 'text-slate-500'
               }`}>
-                {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                {date.toLocaleDateString('en-US', { weekday: 'narrow' })}
               </div>
-              <div className={`text-lg font-bold ${
+              <div className={`text-sm md:text-lg font-bold ${
                 hasTimeOff ? 'text-purple-700' : isToday ? 'text-blue-700' : 'text-slate-900'
               }`}>
                 {date.getDate()}
@@ -268,13 +268,13 @@ const WeeklyCalendarView = ({
 
       {/* Time grid - using same grid as header for alignment */}
       <div className="overflow-y-auto max-h-[576px]">
-        <div className="grid grid-cols-[3rem_repeat(7,1fr)]">
+        <div className="grid grid-cols-[2.5rem_repeat(7,1fr)] md:grid-cols-[3rem_repeat(7,1fr)]">
           {/* Time labels column */}
           <div className="bg-slate-50">
             {hours.map(hour => (
               <div
                 key={hour}
-                className="h-8 p-1 text-xs text-slate-500 font-medium border-r border-b border-slate-100"
+                className="h-8 p-0.5 md:p-1 text-[10px] md:text-xs text-slate-500 font-medium border-r border-b border-slate-100"
               >
                 {formatHour(hour)}
               </div>
@@ -725,7 +725,10 @@ export default function MyRoster() {
     isFullDay: true,
     startTime: '09:00',
     endTime: '17:00',
-    reason: ''
+    reason: '',
+    isRecurring: false,
+    recurringDays: [] as number[], // 0=Sun,...,6=Sat
+    recurringEndDate: '' as string,
   });
 
   const { toast } = useToast();
@@ -818,7 +821,10 @@ export default function MyRoster() {
       isFullDay: true,
       startTime: '09:00',
       endTime: '17:00',
-      reason: ''
+      reason: '',
+      isRecurring: false,
+      recurringDays: [],
+      recurringEndDate: '',
     });
     setTimeOffDialogOpen(true);
   };
@@ -830,7 +836,10 @@ export default function MyRoster() {
       isFullDay: request.isFullDay ?? true,
       startTime: request.startTime || '09:00',
       endTime: request.endTime || '17:00',
-      reason: request.reason || ''
+      reason: request.reason || '',
+      isRecurring: request.isRecurring ?? false,
+      recurringDays: request.recurringDays ? request.recurringDays.split(',').map(Number) : [],
+      recurringEndDate: request.recurringEndDate || '',
     });
     setTimeOffDialogOpen(true);
   };
@@ -850,6 +859,16 @@ export default function MyRoster() {
       const startDate = sortedDates[0];
       const endDate = sortedDates[sortedDates.length - 1];
 
+      const recurringPayload = timeOffForm.isRecurring ? {
+        isRecurring: true,
+        recurringDays: timeOffForm.recurringDays.join(','),
+        recurringEndDate: timeOffForm.recurringEndDate || null,
+      } : {
+        isRecurring: false,
+        recurringDays: undefined,
+        recurringEndDate: undefined,
+      };
+
       if (editingTimeOff) {
         await updateTimeOff.mutateAsync({
           id: editingTimeOff.id,
@@ -858,7 +877,8 @@ export default function MyRoster() {
           isFullDay: timeOffForm.isFullDay,
           startTime: timeOffForm.isFullDay ? undefined : timeOffForm.startTime,
           endTime: timeOffForm.isFullDay ? undefined : timeOffForm.endTime,
-          reason: timeOffForm.reason || undefined
+          reason: timeOffForm.reason || undefined,
+          ...recurringPayload,
         });
         toast({
           title: "Success",
@@ -871,11 +891,12 @@ export default function MyRoster() {
           isFullDay: timeOffForm.isFullDay,
           startTime: timeOffForm.isFullDay ? undefined : timeOffForm.startTime,
           endTime: timeOffForm.isFullDay ? undefined : timeOffForm.endTime,
-          reason: timeOffForm.reason || undefined
+          reason: timeOffForm.reason || undefined,
+          ...recurringPayload,
         });
         toast({
           title: "Success",
-          description: "Time-off request created",
+          description: timeOffForm.isRecurring ? "Recurring unavailability created" : "Time-off request created",
         });
       }
 
@@ -1083,39 +1104,23 @@ export default function MyRoster() {
 
         {/* Roster View - Weekly or Monthly */}
         {viewMode === 'weekly' ? (
-          <>
-            {/* Desktop: Google Calendar style */}
-            <div className="hidden md:block">
-              <WeeklyCalendarView
-                weekDates={weekDates}
-                shiftsByDate={shiftsByDate}
-                timeOffByDate={timeOffByDate}
-                onShiftClick={setSelectedShift}
-                onTimeOffClick={openEditTimeOff}
-                onTimeSlotClick={(dateStr, hour) => {
-                  setSelectedDates([dateStr]);
-                  setTimeOffForm(prev => ({
-                    ...prev,
-                    isFullDay: false,
-                    startTime: `${hour.toString().padStart(2, '0')}:00`,
-                    endTime: `${(hour + 1).toString().padStart(2, '0')}:00`
-                  }));
-                  setTimeOffDialogOpen(true);
-                }}
-              />
-            </div>
-            {/* Mobile: Agenda style */}
-            <div className="md:hidden">
-              <MobileAgendaView
-                weekDates={weekDates}
-                shiftsByDate={shiftsByDate}
-                timeOffByDate={timeOffByDate}
-                onShiftClick={setSelectedShift}
-                onTimeOffClick={openEditTimeOff}
-                onDateLongPress={(dateStr) => openTimeOffDialog([dateStr])}
-              />
-            </div>
-          </>
+          <WeeklyCalendarView
+            weekDates={weekDates}
+            shiftsByDate={shiftsByDate}
+            timeOffByDate={timeOffByDate}
+            onShiftClick={setSelectedShift}
+            onTimeOffClick={openEditTimeOff}
+            onTimeSlotClick={(dateStr, hour) => {
+              setSelectedDates([dateStr]);
+              setTimeOffForm(prev => ({
+                ...prev,
+                isFullDay: false,
+                startTime: `${hour.toString().padStart(2, '0')}:00`,
+                endTime: `${(hour + 1).toString().padStart(2, '0')}:00`
+              }));
+              setTimeOffDialogOpen(true);
+            }}
+          />
         ) : (
           <MonthlyView
             monthDates={monthDates}
@@ -1373,6 +1378,76 @@ export default function MyRoster() {
                 </div>
               )}
 
+              {/* Recurring Toggle */}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="recurring">Recurring</Label>
+                <Switch
+                  id="recurring"
+                  checked={timeOffForm.isRecurring}
+                  onCheckedChange={(checked) =>
+                    setTimeOffForm(prev => ({ ...prev, isRecurring: checked }))
+                  }
+                />
+              </div>
+
+              {/* Day of Week Picker (when recurring) */}
+              {timeOffForm.isRecurring && (
+                <div className="space-y-2">
+                  <Label>Repeat on</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                      const isSelected = timeOffForm.recurringDays.includes(index);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => {
+                            setTimeOffForm(prev => ({
+                              ...prev,
+                              recurringDays: isSelected
+                                ? prev.recurringDays.filter(d => d !== index)
+                                : [...prev.recurringDays, index]
+                            }));
+                          }}
+                          className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {day.charAt(0)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {timeOffForm.recurringDays.length > 0 && (
+                    <p className="text-xs text-slate-500">
+                      Every {timeOffForm.recurringDays
+                        .sort((a, b) => a - b)
+                        .map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d])
+                        .join(', ')}
+                      {!timeOffForm.isFullDay && `, ${timeOffForm.startTime} - ${timeOffForm.endTime}`}
+                    </p>
+                  )}
+
+                  {/* Recurring End Date */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Ends on (optional)</Label>
+                    <Input
+                      type="date"
+                      value={timeOffForm.recurringEndDate}
+                      onChange={(e) =>
+                        setTimeOffForm(prev => ({ ...prev, recurringEndDate: e.target.value }))
+                      }
+                      placeholder="No end date"
+                    />
+                    <p className="text-xs text-slate-500">
+                      {timeOffForm.recurringEndDate ? `Until ${new Date(timeOffForm.recurringEndDate).toLocaleDateString()}` : 'Repeats indefinitely'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Reason (AC-003-3) */}
               <div className="space-y-2">
                 <Label htmlFor="reason">Reason (Optional)</Label>
@@ -1420,7 +1495,8 @@ export default function MyRoster() {
                 disabled={
                   createTimeOff.isPending ||
                   updateTimeOff.isPending ||
-                  selectedDates.length === 0
+                  selectedDates.length === 0 ||
+                  (timeOffForm.isRecurring && timeOffForm.recurringDays.length === 0)
                 }
               >
                 {createTimeOff.isPending || updateTimeOff.isPending
