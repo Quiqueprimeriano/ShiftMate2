@@ -568,29 +568,39 @@ export class DbStorage implements IStorage {
 
   // Rate Tier Methods
   async getRateTiersByCompany(companyId: number): Promise<any[]> {
-    try {
-      return await db
-        .select()
-        .from(rateTiers)
-        .where(eq(rateTiers.companyId, companyId))
-        .orderBy(rateTiers.shiftType, rateTiers.dayType, rateTiers.tierOrder);
-    } catch (error) {
-      console.error('Error fetching rate tiers:', error);
-      throw error;
-    }
+    return await db
+      .select()
+      .from(rateTiers)
+      .where(eq(rateTiers.companyId, companyId))
+      .orderBy(rateTiers.name);
+  }
+
+  async getRateTierById(id: number): Promise<any> {
+    const [result] = await db.select().from(rateTiers).where(eq(rateTiers.id, id));
+    return result;
   }
 
   async createRateTier(data: any): Promise<any> {
-    try {
-      const [result] = await db
-        .insert(rateTiers)
-        .values(data)
-        .returning();
-      return result;
-    } catch (error) {
-      console.error('Error creating rate tier:', error);
-      throw error;
-    }
+    const [result] = await db.insert(rateTiers).values(data).returning();
+    return result;
+  }
+
+  async updateRateTier(id: number, data: any): Promise<any> {
+    const [result] = await db.update(rateTiers).set({ ...data, updatedAt: new Date() }).where(eq(rateTiers.id, id)).returning();
+    return result;
+  }
+
+  async deleteRateTier(id: number): Promise<boolean> {
+    const result = await db.delete(rateTiers).where(eq(rateTiers.id, id));
+    return true;
+  }
+
+  async getEmployeesByRateTierId(rateTierId: number): Promise<any[]> {
+    return await db.select().from(employeeRates).where(eq(employeeRates.rateTierId, rateTierId));
+  }
+
+  async updateEmployeeRatesByTier(rateTierId: number, rates: { weekdayRate: number; weeknightRate: number; saturdayRate: number; sundayRate: number; publicHolidayRate: number }): Promise<void> {
+    await db.update(employeeRates).set({ ...rates, updatedAt: new Date() }).where(eq(employeeRates.rateTierId, rateTierId));
   }
 
   // Public Holiday Methods

@@ -176,39 +176,33 @@ export function calculateShiftDuration(
 }
 
 /**
- * Get applicable rate tiers for a shift
+ * Get applicable rate tiers for a company
  */
 export async function getRateTiers(
   companyId: number,
-  shiftType: string,
-  dayType: string,
-  shiftDate: string,
 ): Promise<
   Array<{
     id: number;
-    tierOrder: number;
-    hoursInTier: string | null;
-    ratePerHour: number;
+    name: string;
+    weekdayRate: number;
+    weeknightRate: number;
+    saturdayRate: number;
+    sundayRate: number;
+    publicHolidayRate: number;
   }>
 > {
   const tiers = await db
     .select({
       id: rateTiers.id,
-      tierOrder: rateTiers.tierOrder,
-      hoursInTier: rateTiers.hoursInTier,
-      ratePerHour: rateTiers.ratePerHour,
+      name: rateTiers.name,
+      weekdayRate: rateTiers.weekdayRate,
+      weeknightRate: rateTiers.weeknightRate,
+      saturdayRate: rateTiers.saturdayRate,
+      sundayRate: rateTiers.sundayRate,
+      publicHolidayRate: rateTiers.publicHolidayRate,
     })
     .from(rateTiers)
-    .where(
-      and(
-        eq(rateTiers.companyId, companyId),
-        eq(rateTiers.shiftType, shiftType),
-        eq(rateTiers.dayType, dayType),
-        or(isNull(rateTiers.validFrom), gte(rateTiers.validFrom, shiftDate)),
-        or(isNull(rateTiers.validTo), lte(rateTiers.validTo, shiftDate)),
-      ),
-    )
-    .orderBy(rateTiers.tierOrder);
+    .where(eq(rateTiers.companyId, companyId));
 
   return tiers;
 }

@@ -1400,6 +1400,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PUT /api/rate-tiers/:id - Update a rate tier
+  app.put("/api/rate-tiers/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) return res.status(401).json({ message: "User not found" });
+      const isBusinessOwner = user.userType === 'business' || user.userType === 'business_owner';
+      const isManagerOrOwner = user.role === 'manager' || user.role === 'owner';
+      if (!isBusinessOwner && !isManagerOrOwner) return res.status(403).json({ message: "Only managers can update rate tiers" });
+
+      const tierId = parseInt(req.params.id);
+      const { name, weekdayRate, weeknightRate, saturdayRate, sundayRate, publicHolidayRate } = req.body;
+      const updated = await storage.updateRateTier(tierId, { name, weekdayRate, weeknightRate, saturdayRate, sundayRate, publicHolidayRate });
+
+      // Propagate rates to all employees using this tier
+      await storage.updateEmployeeRatesByTier(tierId, { weekdayRate, weeknightRate, saturdayRate, sundayRate, publicHolidayRate });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating rate tier:", error);
+      res.status(500).json({ message: "Failed to update rate tier" });
+    }
+  });
+
+  // DELETE /api/rate-tiers/:id - Delete a rate tier
+  app.delete("/api/rate-tiers/:id", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) return res.status(401).json({ message: "User not found" });
+      const isBusinessOwner = user.userType === 'business' || user.userType === 'business_owner';
+      const isManagerOrOwner = user.role === 'manager' || user.role === 'owner';
+      if (!isBusinessOwner && !isManagerOrOwner) return res.status(403).json({ message: "Only managers can delete rate tiers" });
+
+      const tierId = parseInt(req.params.id);
+      const employees = await storage.getEmployeesByRateTierId(tierId);
+      if (employees.length > 0) {
+        return res.status(409).json({ message: `Cannot delete tier: ${employees.length} employee(s) are using it. Reassign them first.` });
+      }
+      await storage.deleteRateTier(tierId);
+      res.json({ message: "Rate tier deleted" });
+    } catch (error) {
+      console.error("Error deleting rate tier:", error);
+      res.status(500).json({ message: "Failed to delete rate tier" });
+    }
+  });
+
   app.get("/api/public-holidays", optionalJwtAuth, requireAuth, async (req: any, res) => {
     try {
       const holidays = await storage.getAllPublicHolidays();

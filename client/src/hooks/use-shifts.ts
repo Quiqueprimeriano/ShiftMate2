@@ -26,7 +26,7 @@ function createShiftHook(endpoint: string) {
       ? [endpoint, { startDate, endDate }]
       : [endpoint];
 
-    return useQuery({
+    return useQuery<Shift[]>({
       queryKey,
       queryFn: async () => {
         const url = startDate && endDate

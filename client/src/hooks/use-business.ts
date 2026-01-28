@@ -228,6 +228,54 @@ export function useClearRosterWeek() {
 }
 
 // Copy roster from a source week to a target week (AC-005-7)
+// Rate Tier hooks
+export function useRateTiers() {
+  return useQuery({
+    queryKey: ["/api/rate-tiers"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/rate-tiers");
+      return response.json();
+    },
+  });
+}
+
+export function useCreateRateTier() {
+  return useMutation({
+    mutationFn: async (data: { name: string; weekdayRate: number; weeknightRate: number; saturdayRate: number; sundayRate: number; publicHolidayRate: number }) => {
+      const response = await apiRequest("POST", "/api/rate-tiers", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rate-tiers"] });
+    },
+  });
+}
+
+export function useUpdateRateTier() {
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: number; name: string; weekdayRate: number; weeknightRate: number; saturdayRate: number; sundayRate: number; publicHolidayRate: number }) => {
+      const response = await apiRequest("PUT", `/api/rate-tiers/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rate-tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/employee-rates"] });
+    },
+  });
+}
+
+export function useDeleteRateTier() {
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/rate-tiers/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rate-tiers"] });
+    },
+  });
+}
+
 export function useCopyRosterWeek() {
   return useMutation({
     mutationFn: async ({ sourceWeekStart, targetWeekStart }: { sourceWeekStart: string; targetWeekStart: string }) => {

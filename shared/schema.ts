@@ -90,18 +90,17 @@ export const refreshTokens = pgTable("shiftmate_refresh_tokens", {
   revokedAt: timestamp("revoked_at"),
 });
 
-// Rate tiers for tiered billing system
+// Named rate tiers (e.g. "Junior", "Senior", "Casual")
 export const rateTiers = pgTable("shiftmate_rate_tiers", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companies.id),
-  shiftType: text("shift_type").notNull(), // 'Day', 'Night', 'Weekend', 'Holiday', 'Custom'
-  tierOrder: integer("tier_order").notNull(), // 1, 2, 3, etc.
-  hoursInTier: decimal("hours_in_tier", { precision: 5, scale: 2 }), // NULL for "remaining hours"
-  ratePerHour: integer("rate_per_hour").notNull(), // in cents (e.g. 5000 = $50.00)
-  dayType: text("day_type").notNull(), // 'weekday', 'saturday', 'sunday', 'holiday'
+  name: text("name").notNull(), // e.g. "Junior", "Senior", "Casual"
+  weekdayRate: integer("weekday_rate").notNull(), // in cents
+  weeknightRate: integer("weeknight_rate").notNull(), // in cents
+  saturdayRate: integer("saturday_rate").notNull(), // in cents
+  sundayRate: integer("sunday_rate").notNull(), // in cents
+  publicHolidayRate: integer("public_holiday_rate").notNull(), // in cents
   currency: text("currency").default("AUD"),
-  validFrom: date("valid_from"),
-  validTo: date("valid_to"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -124,6 +123,7 @@ export const employeeRates = pgTable("shiftmate_employee_rates", {
   saturdayRate: integer("saturday_rate").notNull(), // in cents
   sundayRate: integer("sunday_rate").notNull(), // in cents
   publicHolidayRate: integer("public_holiday_rate").notNull(), // in cents
+  rateTierId: integer("rate_tier_id").references(() => rateTiers.id), // null = custom manual rates
   currency: text("currency").default("AUD"),
   validFrom: date("valid_from"),
   validTo: date("valid_to"),

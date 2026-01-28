@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift, useCopyRosterWeek, useClearRosterWeek } from "@/hooks/use-business";
 import { useSendRosterEmail, useSendAllRosterEmails } from "@/hooks/use-email";
 import { useCompanyTimeOffByRange } from "@/hooks/use-time-off";
-import { Copy, CalendarOff, UserX, UserMinus, Trash2 } from "lucide-react";
+import { Copy, CalendarOff, UserX, UserMinus, Trash2, Download } from "lucide-react";
+import html2canvas from "html2canvas";
 import { TeamAvailability } from "@/components/TeamAvailability";
 import { useToast } from "@/hooks/use-toast";
 import { BillingManagement } from "@/components/BillingManagement";
@@ -130,6 +131,102 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
   const deleteRosterShiftMutation = useDeleteRosterShift();
   const copyRosterWeekMutation = useCopyRosterWeek();
   const clearRosterWeekMutation = useClearRosterWeek();
+  const rosterExportRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportRosterImage = async () => {
+    if (!rosterExportRef.current) return;
+    setIsExporting(true);
+    try {
+      // Build a clean export-only DOM
+      const exportDiv = document.createElement('div');
+      exportDiv.style.cssText = 'padding:24px;background:#fff;font-family:system-ui,-apple-system,sans-serif;width:900px';
+
+      // Header
+      exportDiv.innerHTML = `
+        <div style="text-align:center;padding-bottom:16px;margin-bottom:16px;border-bottom:2px solid #e5e7eb">
+          <h2 style="font-size:20px;font-weight:700;color:#111827;margin:0">Weekly Roster</h2>
+          <p style="font-size:13px;color:#6b7280;margin:6px 0 0">${weekStart} — ${weekEnd}</p>
+        </div>
+      `;
+
+      // Get data for the table
+      const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const exportDays = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+      const templates = [
+        { label: 'Morning', time: '8:00 - 11:00', startTime: '08:00', endTime: '11:00' },
+        { label: 'Afternoon', time: '12:30 - 5:00', startTime: '12:30', endTime: '17:00' },
+        { label: 'Night', time: '5:30 - 11:00', startTime: '17:30', endTime: '23:00' },
+      ];
+      const empList = (activeEmployeeArray || []).filter((emp: any) => emp.id !== businessUser?.id);
+      const trimT = (t: string) => t?.substring(0, 5) || '';
+      const COLORS_HEX = ['#bfdbfe','#a7f3d0','#fed7aa','#fbcfe8','#a5f3fc','#fde68a','#ddd6fe','#fecdd3','#d9f99d','#c7d2fe'];
+
+      // Build table
+      let tableHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">`;
+      // Header row
+      tableHTML += `<tr style="background:#f9fafb"><th style="padding:10px 8px;border:1px solid #e5e7eb;text-align:left;font-size:12px;color:#374151">Shift</th>`;
+      exportDays.forEach(day => {
+        const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+        tableHTML += `<th style="padding:10px 6px;border:1px solid #e5e7eb;text-align:center;font-size:12px;color:${isToday ? '#2563eb' : '#374151'};${isToday ? 'background:#eff6ff' : ''}">${format(day, 'EEE')}<br><span style="font-size:11px;color:${isToday ? '#3b82f6' : '#9ca3af'}">${format(day, 'MMM dd')}</span></th>`;
+      });
+      tableHTML += `</tr>`;
+
+      // Template rows
+      templates.forEach(tpl => {
+        tableHTML += `<tr><td style="padding:10px 8px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;color:#1f2937">${tpl.label}<br><span style="font-size:11px;font-weight:400;color:#9ca3af">${tpl.time}</span></td>`;
+        exportDays.forEach(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const cellShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((s: any) =>
+            s.date === dateStr && trimT(s.startTime) === tpl.startTime && trimT(s.endTime) === tpl.endTime
+          ) : [];
+          let cellHTML = '';
+          cellShifts.forEach((shift: any) => {
+            const emp = empList.find((e: any) => e.id === shift.userId);
+            if (!emp) return;
+            const idx = empList.findIndex((e: any) => e.id === emp.id);
+            const bgColor = COLORS_HEX[idx % COLORS_HEX.length];
+            const name = emp.name.split(' ')[0] + (emp.name.split(' ')[1] ? ' ' + emp.name.split(' ')[1][0] + '.' : '');
+            cellHTML += `<div style="background:${bgColor};border-radius:4px;padding:4px 8px;margin:2px 0;font-size:12px;font-weight:600;color:#1f2937">${name}</div>`;
+          });
+          if (!cellHTML) cellHTML = `<span style="color:#d1d5db;font-size:11px">—</span>`;
+          tableHTML += `<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;vertical-align:top">${cellHTML}</td>`;
+        });
+        tableHTML += `</tr>`;
+      });
+      tableHTML += `</table>`;
+
+      // Legend
+      let legendHTML = `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#6b7280">`;
+      empList.forEach((emp: any, idx: number) => {
+        const bgColor = COLORS_HEX[idx % COLORS_HEX.length];
+        legendHTML += `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:3px;background:${bgColor};display:inline-block"></span>${emp.name}</span>`;
+      });
+      legendHTML += `</div>`;
+
+      exportDiv.innerHTML += tableHTML + legendHTML;
+      document.body.appendChild(exportDiv);
+
+      const canvas = await html2canvas(exportDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      document.body.removeChild(exportDiv);
+
+      const link = document.createElement('a');
+      link.download = `roster-${weekStart}-to-${weekEnd}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.95);
+      link.click();
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({ title: "Error", description: "Failed to export roster image", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Time-off requests for availability indicators (AC-005-3)
   const { data: companyTimeOff = [] } = useCompanyTimeOffByRange(businessUser?.companyId, weekStart, weekEnd);
@@ -1196,6 +1293,18 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={handleExportRosterImage}
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <><Clock className="h-4 w-4 mr-2 animate-spin" />Exporting...</>
+                    ) : (
+                      <><Download className="h-4 w-4 mr-2" />Export JPG</>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={async () => {
                       if (!confirm('Are you sure you want to clear ALL roster shifts for this week? This cannot be undone.')) return;
                       try {
@@ -1242,6 +1351,7 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
               </div>
 
               {/* Shift Template Roster Grid */}
+              <div ref={rosterExportRef} className="bg-white p-2">
               {(() => {
                 const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
                 const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
@@ -1612,6 +1722,7 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                   </>
                 );
               })()}
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -4,6 +4,11 @@ export interface User {
   id: number;
   email: string;
   name: string;
+  userType: string;
+  companyId: number | null;
+  role: string | null;
+  hourlyRate: number | null;
+  isActive: boolean | null;
   createdAt: string;
 }
 
