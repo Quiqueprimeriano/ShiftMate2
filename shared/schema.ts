@@ -142,7 +142,7 @@ export const timeOffRequests = pgTable("shiftmate_time_off_requests", {
   endTime: time("end_time"), // null for full day
   isFullDay: boolean("is_full_day").default(true),
   reason: text("reason"), // optional, max 500 chars
-  status: text("status").default("pending"), // pending, approved, rejected
+  status: text("status").default("confirmed"), // confirmed (employee-set info, no approval needed)
   reviewedBy: integer("reviewed_by").references(() => users.id),
   reviewedAt: timestamp("reviewed_at"),
   rejectionReason: text("rejection_reason"),

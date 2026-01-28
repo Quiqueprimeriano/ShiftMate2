@@ -1,6 +1,7 @@
-import { Bell, Clock } from "lucide-react";
+import { Bell, Clock, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateRange, getWeekDates } from "@/lib/time-utils";
+import { useAuth } from "@/hooks/use-auth";
 
 interface HeaderProps {
   title: string;
@@ -10,6 +11,7 @@ interface HeaderProps {
 export function Header({ title, subtitle }: HeaderProps) {
   const currentWeek = getWeekDates(new Date());
   const weekRange = formatDateRange(currentWeek.start, currentWeek.end);
+  const { logout } = useAuth();
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 lg:px-8 lg:py-4">
@@ -31,6 +33,14 @@ export function Header({ title, subtitle }: HeaderProps) {
             <p className="text-sm font-medium text-slate-900">Current Week</p>
             <p className="text-xs text-slate-500">{weekRange}</p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden text-slate-500 hover:text-slate-900"
+            onClick={() => logout()}
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </header>

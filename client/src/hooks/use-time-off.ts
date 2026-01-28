@@ -52,6 +52,8 @@ export function useCreateTimeOffRequest() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-off"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-off/range"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company"] });
     },
   });
 }
@@ -67,6 +69,8 @@ export function useUpdateTimeOffRequest() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-off"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-off/range"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company"] });
     },
   });
 }
@@ -82,6 +86,8 @@ export function useDeleteTimeOffRequest() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-off"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-off/range"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company"] });
     },
   });
 }

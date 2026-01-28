@@ -549,10 +549,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shifts = await storage.getShiftsByCompany(user.companyId);
       }
 
-      // Filter to only show roster shifts (created by managers, not employee-uploaded)
-      // Roster shifts have createdBy set and createdBy !== userId (manager created for employee)
+      // Filter to only show roster shifts (status=scheduled)
       const rosterShifts = shifts.filter((shift: any) =>
-        shift.createdBy && shift.createdBy !== shift.userId
+        shift.status === 'scheduled'
       );
 
       res.json(rosterShifts);
@@ -625,23 +624,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Check for overlapping shifts for this employee
+        // Check for exact duplicate (same employee, same date, same times) — skip silently
         const existingShifts = await storage.getShiftsByUserAndDate(shiftData.userId, shiftData.date);
-        const newStartMins = parseTimeToMinutes(shiftData.startTime);
-        const newEndMins = parseTimeToMinutes(shiftData.endTime);
-        const newIsOvernight = newEndMins < newStartMins;
-
-        const hasOverlap = existingShifts.some(existing => {
-          const existingStartMins = parseTimeToMinutes(existing.startTime);
-          const existingEndMins = parseTimeToMinutes(existing.endTime);
-          const existingIsOvernight = existingEndMins < existingStartMins;
-          return checkOverlap(newStartMins, newEndMins, newIsOvernight, existingStartMins, existingEndMins, existingIsOvernight);
-        });
-
-        if (hasOverlap) {
-          return res.status(409).json({
-            message: `Shift overlaps with existing shift for employee ${employee.name} on ${shiftData.date}`
-          });
+        const trimT = (t: string) => t?.substring(0, 5) || '';
+        const exactDuplicate = existingShifts.find(s =>
+          trimT(s.startTime) === trimT(shiftData.startTime) &&
+          trimT(s.endTime) === trimT(shiftData.endTime) &&
+          s.status === 'scheduled'
+        );
+        if (exactDuplicate) {
+          // Already assigned — return existing shift as success instead of error
+          continue;
         }
 
         // Parse and validate with zod schema
@@ -744,6 +737,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Roster shift deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete roster shift" });
+    }
+  });
+
+  // DELETE /api/roster/clear-week - Clear all roster shifts for a week
+  app.delete("/api/roster/clear-week", optionalJwtAuth, requireAuth, async (req: any, res) => {
+    try {
+      if (!(await isManager(req.userId))) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+      const user = await storage.getUser(req.userId);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate required" });
+      }
+      const shifts = await storage.getShiftsByCompanyAndDateRange(user.companyId, startDate as string, endDate as string);
+      const rosterShifts = shifts.filter((s: any) => s.status === 'scheduled');
+      let deleted = 0;
+      for (const shift of rosterShifts) {
+        await storage.deleteShift(shift.id);
+        deleted++;
+      }
+      res.json({ message: `Cleared ${deleted} roster shifts`, deleted });
+    } catch (error) {
+      console.error("Error clearing roster week:", error);
+      res.status(500).json({ message: "Failed to clear roster week" });
     }
   });
 
@@ -2287,7 +2308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endTime: isFullDay ? null : endTime,
         isFullDay: isFullDay ?? true,
         reason: reason || null,
-        status: 'pending'
+        status: 'confirmed'
       });
 
       res.status(201).json(request);
@@ -2403,7 +2424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || user.companyId !== companyId) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager or business owner access required" });
       }
 
@@ -2435,7 +2456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || user.companyId !== companyId) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager or business owner access required" });
       }
 
@@ -2467,7 +2488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || (existing.companyId && user.companyId !== existing.companyId)) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager or business owner access required" });
       }
 
@@ -2501,7 +2522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || (existing.companyId && user.companyId !== existing.companyId)) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      if (user.userType !== 'business_owner' && user.role !== 'manager') {
+      if (user.userType !== 'business' && user.userType !== 'business_owner' && user.role !== 'manager') {
         return res.status(403).json({ message: "Manager or business owner access required" });
       }
 

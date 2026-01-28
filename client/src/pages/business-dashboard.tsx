@@ -13,10 +13,11 @@ import { Users, Clock, TrendingUp, DollarSign, Calendar as CalendarIcon, UserChe
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift, useCopyRosterWeek } from "@/hooks/use-business";
+import { useCompanyEmployees, useCompanyShifts, usePendingShifts, useApproveShift, useRosterShifts, useCreateRosterShift, useUpdateRosterShift, useDeleteRosterShift, useCopyRosterWeek, useClearRosterWeek } from "@/hooks/use-business";
 import { useSendRosterEmail, useSendAllRosterEmails } from "@/hooks/use-email";
 import { useCompanyTimeOffByRange } from "@/hooks/use-time-off";
-import { Copy, CalendarOff, UserX, UserMinus } from "lucide-react";
+import { Copy, CalendarOff, UserX, UserMinus, Trash2 } from "lucide-react";
+import { TeamAvailability } from "@/components/TeamAvailability";
 import { useToast } from "@/hooks/use-toast";
 import { BillingManagement } from "@/components/BillingManagement";
 import { EmployeeRatesManagement } from "@/components/EmployeeRatesManagement";
@@ -128,6 +129,7 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
   const updateRosterShiftMutation = useUpdateRosterShift();
   const deleteRosterShiftMutation = useDeleteRosterShift();
   const copyRosterWeekMutation = useCopyRosterWeek();
+  const clearRosterWeekMutation = useClearRosterWeek();
 
   // Time-off requests for availability indicators (AC-005-3)
   const { data: companyTimeOff = [] } = useCompanyTimeOffByRange(businessUser?.companyId, weekStart, weekEnd);
@@ -305,7 +307,7 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
       to.userId === employeeId &&
       to.startDate <= dateStr &&
       to.endDate >= dateStr &&
-      (to.status === 'approved' || to.status === 'pending')
+      (to.status === 'confirmed' || to.status === 'approved' || to.status === 'pending')
     );
 
     if (timeOffs.length === 0) return 'available';
@@ -350,14 +352,38 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
       );
       
       if (conflicts.length > 0) {
-        const conflictTimes = conflicts.map((shift: any) => 
+        const conflictTimes = conflicts.map((shift: any) =>
           `${shift.startTime} - ${shift.endTime}`
         ).join(', ');
-        
+
         const shouldContinue = confirm(
           `⚠️ Schedule Conflict Detected!\n\nThis employee already has shifts scheduled at:\n${conflictTimes}\n\nDo you want to proceed anyway?`
         );
-        
+
+        if (!shouldContinue) {
+          return;
+        }
+      }
+
+      // AC-006-5: Check if employee is unavailable on this date
+      const availability = getEmployeeAvailability(employeeId, date);
+      if (availability !== 'available') {
+        const statusLabel = availability === 'unavailable' ? 'UNAVAILABLE' : 'PARTIALLY AVAILABLE';
+        const timeOffs = companyTimeOff.filter((to: any) =>
+          to.userId === employeeId &&
+          to.startDate <= date &&
+          to.endDate >= date &&
+          (to.status === 'confirmed' || to.status === 'approved' || to.status === 'pending')
+        );
+        const reasons = timeOffs
+          .filter((to: any) => to.reason)
+          .map((to: any) => to.reason)
+          .join('; ');
+
+        const shouldContinue = confirm(
+          `⚠️ Availability Conflict!\n\nThis employee is ${statusLabel} on ${date}.${reasons ? `\nReason: ${reasons}` : ''}\n\nDo you want to assign this shift anyway?`
+        );
+
         if (!shouldContinue) {
           return;
         }
@@ -1168,6 +1194,27 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                     )}
                   </Button>
                   <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to clear ALL roster shifts for this week? This cannot be undone.')) return;
+                      try {
+                        const result = await clearRosterWeekMutation.mutateAsync({ startDate: weekStart, endDate: weekEnd });
+                        toast({ title: "Week Cleared", description: result.message });
+                      } catch (error: any) {
+                        toast({ title: "Error", description: error.message || "Failed to clear week", variant: "destructive" });
+                      }
+                    }}
+                    disabled={clearRosterWeekMutation.isPending}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                  >
+                    {clearRosterWeekMutation.isPending ? (
+                      <><Clock className="h-4 w-4 mr-2 animate-spin" />Clearing...</>
+                    ) : (
+                      <><Trash2 className="h-4 w-4 mr-2" />Clear Week</>
+                    )}
+                  </Button>
+                  <Button
                     variant="default"
                     size="sm"
                     onClick={() => {
@@ -1194,538 +1241,377 @@ export default function BusinessDashboard({ defaultTab = "overview" }: BusinessD
                 </div>
               </div>
 
-              {/* Calendar Grid */}
-              <div className="border rounded-lg overflow-hidden">
-                {/* Header Row - Days of the week */}
-                <div className="grid grid-cols-8 border-b bg-gray-50 sticky top-0 z-10">
-                  <div className="p-2 font-medium text-xs border-r bg-gray-50">Time</div>
-                  {(() => {
-                    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-                    return Array.from({ length: 7 }, (_, i) => {
-                      const day = addDays(weekStart, i);
-                      return (
-                        <div key={i} className="p-2 text-center font-medium text-xs border-r last:border-r-0 bg-gray-50">
-                          <div>{format(day, 'EEE')}</div>
-                          <div className="text-xs text-gray-500">{format(day, 'MMM dd')}</div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
+              {/* Shift Template Roster Grid */}
+              {(() => {
+                const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+                const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
 
-                {/* Hour Rows (24 hours) */}
-                <div className="max-h-[600px] overflow-y-auto">
-                  {Array.from({ length: 24 }, (_, hourIndex) => {
-                    const hour = hourIndex; // 0 (midnight) to 23
-                    const timeDisplay = hour === 0 ? '12 AM' : 
-                                      hour < 12 ? `${hour} AM` : 
-                                      hour === 12 ? '12 PM' : 
-                                      `${hour - 12} PM`;
-                    
-                    return (
-                      <div key={hour} className="grid grid-cols-8 border-b last:border-b-0 relative">
-                        {/* Time Column */}
-                        <div className="p-2 border-r bg-gray-50 text-xs font-medium text-gray-700 sticky left-0 z-10">
-                          {timeDisplay}
-                        </div>
-                        
-                        {/* Day Columns */}
-                        {(() => {
-                          const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-                          return Array.from({ length: 7 }, (_, dayIndex) => {
-                            const day = addDays(weekStart, dayIndex);
+                // Pre-fixed shift templates
+                const shiftTemplates = [
+                  { id: 'morning', label: 'Morning', time: '8:00 - 11:00 AM', startTime: '08:00', endTime: '11:00', shiftType: 'morning' },
+                  { id: 'afternoon', label: 'Afternoon', time: '12:30 - 5:00 PM', startTime: '12:30', endTime: '17:00', shiftType: 'afternoon' },
+                  { id: 'night', label: 'Night', time: '5:30 - 11:00 PM', startTime: '17:30', endTime: '23:00', shiftType: 'night' },
+                ];
+
+                // Employee colors palette (unique per employee)
+                const EMPLOYEE_COLORS = [
+                  { bg: 'bg-blue-200', border: 'border-blue-400', text: 'text-blue-900', dot: 'bg-blue-500' },
+                  { bg: 'bg-emerald-200', border: 'border-emerald-400', text: 'text-emerald-900', dot: 'bg-emerald-500' },
+                  { bg: 'bg-orange-200', border: 'border-orange-400', text: 'text-orange-900', dot: 'bg-orange-500' },
+                  { bg: 'bg-pink-200', border: 'border-pink-400', text: 'text-pink-900', dot: 'bg-pink-500' },
+                  { bg: 'bg-cyan-200', border: 'border-cyan-400', text: 'text-cyan-900', dot: 'bg-cyan-500' },
+                  { bg: 'bg-amber-200', border: 'border-amber-400', text: 'text-amber-900', dot: 'bg-amber-500' },
+                  { bg: 'bg-violet-200', border: 'border-violet-400', text: 'text-violet-900', dot: 'bg-violet-500' },
+                  { bg: 'bg-rose-200', border: 'border-rose-400', text: 'text-rose-900', dot: 'bg-rose-500' },
+                  { bg: 'bg-lime-200', border: 'border-lime-400', text: 'text-lime-900', dot: 'bg-lime-500' },
+                  { bg: 'bg-indigo-200', border: 'border-indigo-400', text: 'text-indigo-900', dot: 'bg-indigo-500' },
+                ];
+
+                // Assignable employees (exclude the owner)
+                const assignableEmployees = activeEmployeeArray.filter((emp: any) => emp.id !== businessUser?.id);
+
+                const trimTime = (t: string) => t?.substring(0, 5) || '';
+
+                // Helper to check if a shift matches any template
+                const isTemplateShift = (s: any) => shiftTemplates.some(
+                  tpl => trimTime(s.startTime) === tpl.startTime && trimTime(s.endTime) === tpl.endTime
+                );
+
+                const getEmployeeColor = (empId: number) => {
+                  const idx = assignableEmployees.findIndex((e: any) => e.id === empId);
+                  return EMPLOYEE_COLORS[idx % EMPLOYEE_COLORS.length];
+                };
+
+                // Check which employees are unavailable on a given date
+                const getUnavailableEmployeeIds = (dateStr: string): Set<number> => {
+                  const ids = new Set<number>();
+                  assignableEmployees.forEach((emp: any) => {
+                    if (getEmployeeAvailability(emp.id, dateStr) === 'unavailable') {
+                      ids.add(emp.id);
+                    }
+                  });
+                  return ids;
+                };
+
+                return (
+                  <>
+                    <div className="border rounded-lg overflow-x-auto">
+                      {/* Header - Days */}
+                      <div className="grid grid-cols-[100px_repeat(7,minmax(90px,1fr))] border-b bg-gray-50 sticky top-0 z-10 min-w-[730px]">
+                        <div className="p-2 font-medium text-xs border-r">Shift</div>
+                        {days.map((day, i) => {
+                          const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                          return (
+                            <div key={i} className={`p-2 text-center font-medium text-xs border-r last:border-r-0 ${isToday ? 'bg-blue-50' : ''}`}>
+                              <div className={isToday ? 'text-blue-600' : ''}>{format(day, 'EEE')}</div>
+                              <div className={`text-xs ${isToday ? 'text-blue-500' : 'text-gray-500'}`}>{format(day, 'MMM dd')}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Shift template rows */}
+                      {shiftTemplates.map((template) => (
+                        <div key={template.id} className="grid grid-cols-[100px_repeat(7,minmax(90px,1fr))] border-b last:border-b-0 min-w-[730px]">
+                          {/* Template label */}
+                          <div className="p-3 border-r bg-gray-50">
+                            <div className="text-sm font-semibold text-gray-800">{template.label}</div>
+                            <div className="text-xs text-gray-500">{template.time}</div>
+                          </div>
+
+                          {/* Day cells */}
+                          {days.map((day, dayIndex) => {
                             const dateStr = format(day, 'yyyy-MM-dd');
-                            
-                            // Create template shifts for each day
-                            const templateShifts = [
-                              {
-                                id: `template-morning-${dateStr}`,
-                                type: 'template',
-                                shiftType: 'morning',
-                                startTime: '08:00',
-                                endTime: '11:00',
-                                date: dateStr,
-                                name: 'Morning Shift'
-                              },
-                              {
-                                id: `template-afternoon-${dateStr}`,
-                                type: 'template',
-                                shiftType: 'afternoon',
-                                startTime: '12:30',
-                                endTime: '17:00',
-                                date: dateStr,
-                                name: 'Afternoon Shift'
-                              },
-                              {
-                                id: `template-night-${dateStr}`,
-                                type: 'template',
-                                shiftType: 'night',
-                                startTime: '17:30',
-                                endTime: '23:00',
-                                date: dateStr,
-                                name: 'Night Shift'
-                              }
-                            ];
+                            const unavailableIds = getUnavailableEmployeeIds(dateStr);
 
-                            // Find actual shifts that overlap with this hour
-                            const actualShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
-                              if (shift.date !== dateStr) return false;
-
-                              const shiftStart = parseInt(shift.startTime?.split(':')[0] || '0');
-                              const shiftEnd = parseInt(shift.endTime?.split(':')[0] || '0');
-
-                              // Handle overnight shifts (end time < start time means it crosses midnight)
-                              const isOvernightShift = shiftEnd < shiftStart || (shiftEnd === shiftStart && shift.endTime !== shift.startTime);
-
-                              if (isOvernightShift) {
-                                // Overnight shift: covers from shiftStart to 23 and from 0 to shiftEnd
-                                return hour >= shiftStart || hour < shiftEnd;
-                              }
-
-                              // Normal shift: simple range check
-                              return hour >= shiftStart && hour < shiftEnd;
-                            }) : [];
-
-                            // Find template shifts that overlap with this hour (and don't have actual shifts)
-                            const templateShiftsForHour = templateShifts.filter(template => {
-                              const templateStart = parseInt(template.startTime.split(':')[0]);
-                              const templateEnd = parseInt(template.endTime.split(':')[0]);
-
-                              // Check if this hour falls within template time
-                              if (hour < templateStart || hour >= templateEnd) return false;
-
-                              // Don't show template if there's already an actual shift covering this time
-                              const hasActualShift = actualShifts.some(actualShift => {
-                                const actualStart = parseInt(actualShift.startTime?.split(':')[0] || '0');
-                                const actualEnd = parseInt(actualShift.endTime?.split(':')[0] || '0');
-                                const actualIsOvernight = actualEnd < actualStart;
-
-                                // Check if template overlaps with actual shift
-                                if (actualIsOvernight) {
-                                  // Actual shift is overnight: overlaps if template starts before actual ends next day
-                                  // or template ends after actual starts
-                                  return templateStart < actualEnd || templateEnd > actualStart;
-                                }
-                                return (templateStart < actualEnd && templateEnd > actualStart);
-                              });
-
-                              return !hasActualShift;
-                            });
-
-                            const hourShifts = [...actualShifts, ...templateShiftsForHour];
+                            // Find shifts matching this template slot (compare HH:MM only, DB may return HH:MM:SS)
+                            const cellShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((s: any) =>
+                              s.date === dateStr &&
+                              trimTime(s.startTime) === template.startTime &&
+                              trimTime(s.endTime) === template.endTime
+                            ) : [];
 
                             return (
-                              <div 
-                                key={dayIndex} 
-                                className={`relative border-r last:border-r-0 min-h-[30px] transition-colors cursor-pointer group select-none ${
-                                  dragPreview && dragPreview.date === dateStr && 
-                                  hour >= dragPreview.startHour && hour <= dragPreview.endHour
-                                    ? 'bg-blue-200 border-blue-300'
-                                    : 'bg-white hover:bg-gray-50'
-                                }`}
-                                onClick={() => {
-                                  if (!isDragging) {
-                                    handleAddShiftAtTime(dateStr, `${hour.toString().padStart(2, '0')}:00`);
-                                  }
-                                }}
-                                onMouseDown={(e) => handleMouseDown(dateStr, hour, e)}
-                                onMouseEnter={() => handleMouseEnter(dateStr, hour)}
-                                data-testid={`calendar-cell-${dateStr}-${hour}`}
+                              <div
+                                key={dayIndex}
+                                className="relative border-r last:border-r-0 min-h-[80px] p-1.5 group min-w-0"
                               >
-                                {/* Shift blocks */}
-                                {hourShifts.map((shift: any) => {
-                                  const shiftStart = parseInt(shift.startTime?.split(':')[0] || '0');
-                                  const shiftStartMinutes = parseInt(shift.startTime?.split(':')[1] || '0');
-                                  const shiftEnd = parseInt(shift.endTime?.split(':')[0] || '0');
-                                  const shiftEndMinutes = parseInt(shift.endTime?.split(':')[1] || '0');
-                                  
-                                  // Only show the shift block on its starting hour
-                                  if (hour !== shiftStart) return null;
-                                  
-                                  // Calculate height based on duration
-                                  const durationInHours = (shiftEnd - shiftStart) + (shiftEndMinutes - shiftStartMinutes) / 60;
-                                  const blockHeight = Math.max(1, durationInHours) * 30; // 30px per hour
-                                  
-                                  // Handle template shifts vs actual shifts
-                                  if (shift.type === 'template') {
+                                {/* Unavailability background */}
+                                {unavailableIds.size > 0 && (
+                                  <div className="absolute inset-0 pointer-events-none">
+                                    <div className="absolute inset-0 bg-red-50 opacity-40" style={{ backgroundImage: 'repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(239,68,68,0.12) 4px, rgba(239,68,68,0.12) 8px)' }} />
+                                    <div className="absolute bottom-1 left-1 right-1 flex flex-wrap gap-0.5">
+                                      {assignableEmployees
+                                        .filter((emp: any) => unavailableIds.has(emp.id))
+                                        .map((emp: any) => {
+                                          const color = getEmployeeColor(emp.id);
+                                          return (
+                                            <span
+                                              key={emp.id}
+                                              className={`inline-flex items-center gap-0.5 px-1 py-0 rounded text-[9px] font-medium ${color.bg} ${color.text} opacity-70`}
+                                              title={`${emp.name} - Unavailable`}
+                                            >
+                                              <span className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
+                                              {emp.name.split(' ')[0]}
+                                            </span>
+                                          );
+                                        })
+                                      }
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Assigned employee chips */}
+                                <div className="space-y-0.5 min-w-0">
+                                  {cellShifts.map((shift: any) => {
+                                    const emp = assignableEmployees.find((e: any) => e.id === shift.userId);
+                                    if (!emp) return null;
+                                    const color = getEmployeeColor(emp.id);
+                                    const isUnavail = unavailableIds.has(emp.id);
+
                                     return (
                                       <div
                                         key={shift.id}
-                                        className="shift-block absolute left-1 right-1 rounded-md p-2 z-10 border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-                                        style={{ 
-                                          height: `${blockHeight}px`,
-                                          top: `${(shiftStartMinutes / 60) * 30}px`
-                                        }}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // Open modal to assign employee to this template
-                                          setSelectedDate(shift.date);
-                                          setSelectedEmployee(null);
-                                          setEditingShift({
-                                            shiftType: shift.shiftType,
-                                            startTime: shift.startTime,
-                                            endTime: shift.endTime,
-                                            date: shift.date,
-                                            notes: '',
-                                            location: '',
-                                            isTemplate: true  // Mark as template to simplify form
-                                          });
-                                          setIsShiftModalOpen(true);
-                                        }}
-                                        title={`Click to assign employee to ${shift.name}`}
-                                        data-testid={`template-shift-${shift.shiftType}-${dateStr}`}
+                                        className={`rounded px-1.5 py-1 text-[11px] font-semibold border cursor-pointer hover:shadow-md transition-shadow flex items-center min-w-0 max-w-full ${color.bg} ${color.border} ${color.text} ${isUnavail ? 'ring-2 ring-red-400' : ''}`}
+                                        onClick={() => handleEditShift(shift)}
+                                        title={isUnavail ? `${emp.name} is unavailable!` : emp.name}
                                       >
-                                        <div className="text-xs font-medium text-gray-700 text-center">
-                                          {shift.name}
-                                        </div>
-                                        <div className="text-xs text-gray-600 text-center">
-                                          {shift.startTime.slice(0, 5)} - {shift.endTime.slice(0, 5)}
-                                        </div>
-                                        <div className="text-xs text-gray-500 text-center mt-1">
-                                          Click to assign
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  // Handle actual shifts
-                                  const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
-                                  
-                                  // Check for conflicts with this shift
-                                  const shiftConflicts = checkForConflicts(
-                                    shift.userId,
-                                    shift.date,
-                                    shift.startTime,
-                                    shift.endTime,
-                                    shift.id
-                                  );
-                                  const hasConflict = shiftConflicts.length > 0;
-                                  
-                                  return (
-                                    <div
-                                      key={shift.id}
-                                      className={`shift-block absolute left-1 right-1 rounded-md p-2 z-20 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
-                                        hasConflict 
-                                          ? 'bg-red-100 border-2 border-red-400'
-                                          : 'bg-blue-100 border border-blue-200'
-                                      }`}
-                                      style={{ 
-                                        height: `${blockHeight}px`,
-                                        top: `${(shiftStartMinutes / 60) * 30}px`
-                                      }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditShift(shift);
-                                      }}
-                                      title={hasConflict ? `⚠️ Conflict detected with ${shiftConflicts.length} other shift(s)` : ''}
-                                    >
-                                      <div className={`text-xs font-medium truncate flex items-center gap-1 ${
-                                        hasConflict ? 'text-red-900' : 'text-blue-900'
-                                      }`}>
-                                        {hasConflict && <span title="Schedule conflict">⚠️</span>}
-                                        {employee?.name || 'Unknown'}
-                                      </div>
-                                      <div className={`text-xs ${hasConflict ? 'text-red-700' : 'text-blue-700'}`}>
-                                        {shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}
-                                      </div>
-                                      <div className={`text-xs capitalize truncate ${hasConflict ? 'text-red-600' : 'text-blue-600'}`}>
-                                        {shift.shiftType}
-                                      </div>
-                                      {shift.location && (
-                                        <div className="text-xs text-blue-500 truncate mt-1">
-                                          {shift.location}
-                                        </div>
-                                      )}
-                                      <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="h-4 w-4 p-0 text-blue-400 hover:text-blue-600"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditShift(shift);
-                                          }}
-                                        >
-                                          ✏️
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="h-4 w-4 p-0 text-blue-400 hover:text-red-600"
+                                        <span className="leading-tight">{emp.name.split(' ')[0]}{emp.name.split(' ')[1] ? ` ${emp.name.split(' ')[1][0]}.` : ''}</span>
+                                        <button
+                                          className="ml-1 opacity-0 group-hover:opacity-100 hover:text-red-600 flex-shrink-0"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleDeleteShift(shift.id);
                                           }}
                                         >
-                                          🗑️
-                                        </Button>
+                                          x
+                                        </button>
                                       </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Add employee button */}
+                                <div className="mt-1">
+                                  <select
+                                    className="w-full text-xs border border-dashed border-gray-300 rounded px-1 py-1 text-gray-400 bg-transparent hover:border-blue-400 hover:text-blue-500 cursor-pointer focus:outline-none focus:border-blue-500 focus:text-blue-600"
+                                    value=""
+                                    onChange={async (e) => {
+                                      const empId = parseInt(e.target.value);
+                                      if (!empId) return;
+
+                                      // Check availability
+                                      const avail = getEmployeeAvailability(empId, dateStr);
+                                      if (avail !== 'available') {
+                                        const emp = assignableEmployees.find((em: any) => em.id === empId);
+                                        const shouldContinue = confirm(
+                                          `${emp?.name} is ${avail === 'unavailable' ? 'UNAVAILABLE' : 'PARTIALLY AVAILABLE'} on ${dateStr}.\n\nAssign anyway?`
+                                        );
+                                        if (!shouldContinue) return;
+                                      }
+
+                                      try {
+                                        await createRosterShiftMutation.mutateAsync({
+                                          userId: empId,
+                                          date: dateStr,
+                                          startTime: template.startTime,
+                                          endTime: template.endTime,
+                                          shiftType: template.shiftType,
+                                          status: 'scheduled'
+                                        });
+                                      } catch (error: any) {
+                                        toast({
+                                          title: "Error",
+                                          description: error.message || "Failed to assign shift",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <option value="">+ Assign</option>
+                                    {assignableEmployees.map((emp: any) => {
+                                      const isAlreadyAssigned = cellShifts.some((s: any) => s.userId === emp.id);
+                                      const isUnavail = unavailableIds.has(emp.id);
+                                      return (
+                                        <option
+                                          key={emp.id}
+                                          value={emp.id}
+                                          disabled={isAlreadyAssigned}
+                                        >
+                                          {emp.name}{isAlreadyAssigned ? ' (assigned)' : ''}{isUnavail ? ' ⚠️' : ''}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+
+                      {/* Custom shifts row */}
+                      <div className="grid grid-cols-[100px_repeat(7,minmax(90px,1fr))] border-b last:border-b-0 min-w-[730px]">
+                        <div className="p-3 border-r bg-gray-50">
+                          <div className="text-sm font-semibold text-gray-800">Custom</div>
+                          <div className="text-xs text-gray-500">Any hours</div>
+                        </div>
+                        {days.map((day, dayIndex) => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const unavailableIds = getUnavailableEmployeeIds(dateStr);
+                          const customShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((s: any) =>
+                            s.date === dateStr && !isTemplateShift(s)
+                          ) : [];
+
+                          return (
+                            <div key={dayIndex} className="relative border-r last:border-r-0 min-h-[80px] p-1.5 group min-w-0">
+                              {/* Custom shift chips */}
+                              <div className="space-y-0.5 min-w-0">
+                                {customShifts.map((shift: any) => {
+                                  const emp = assignableEmployees.find((e: any) => e.id === shift.userId);
+                                  if (!emp) return null;
+                                  const color = getEmployeeColor(emp.id);
+                                  const isUnavail = unavailableIds.has(emp.id);
+                                  return (
+                                    <div
+                                      key={shift.id}
+                                      className={`rounded px-1.5 py-1 text-[11px] font-semibold border cursor-pointer hover:shadow-md transition-shadow flex items-center min-w-0 max-w-full ${color.bg} ${color.border} ${color.text} ${isUnavail ? 'ring-2 ring-red-400' : ''}`}
+                                      onClick={() => handleEditShift(shift)}
+                                      title={`${emp.name} ${trimTime(shift.startTime)}-${trimTime(shift.endTime)}`}
+                                    >
+                                      <span className="leading-tight">{emp.name.split(' ')[0]} {trimTime(shift.startTime)}-{trimTime(shift.endTime)}</span>
+                                      <button
+                                        className="ml-1 opacity-0 group-hover:opacity-100 hover:text-red-600 flex-shrink-0"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteShift(shift.id); }}
+                                      >x</button>
                                     </div>
                                   );
                                 })}
-                                
-                                {/* Drag preview overlay */}
-                                {dragPreview && dragPreview.date === dateStr && 
-                                 hour >= dragPreview.startHour && hour <= dragPreview.endHour && (
-                                  <div className="absolute inset-0 bg-blue-300 bg-opacity-40 border-2 border-blue-400 flex items-center justify-center">
-                                    {hour === dragPreview.startHour && (
-                                      <div className="text-xs font-medium text-blue-800 bg-white bg-opacity-90 px-2 py-1 rounded shadow">
-                                        {dragPreview.endHour - dragPreview.startHour + 1}h shift
-                                        <br />
-                                        {`${dragPreview.startHour.toString().padStart(2, '0')}:00 - ${(dragPreview.endHour + 1).toString().padStart(2, '0')}:00`}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Add shift indicator on hover (only when not dragging) */}
-                                {!isDragging && (
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 bg-opacity-50">
-                                    <span className="text-xs text-blue-600 font-medium">+ Add Shift</span>
-                                  </div>
-                                )}
                               </div>
-                            );
-                          });
-                        })()}
+                              {/* Add custom shift button */}
+                              <div className="mt-1">
+                                <button
+                                  className="w-full text-xs border border-dashed border-gray-300 rounded px-1 py-1 text-gray-400 bg-transparent hover:border-blue-400 hover:text-blue-500 cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedDate(dateStr);
+                                    setSelectedEmployee(null);
+                                    setEditingShift(null);
+                                    setIsShiftModalOpen(true);
+                                  }}
+                                >
+                                  + Custom
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    </div>
 
-              {/* Employee Hours Summary */}
-              <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Employee Panel with Availability (AC-005-2, AC-005-3, AC-005-4) */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    Team Availability & Hours
-                  </h4>
-                  <div className="space-y-2">
-                    {activeEmployeeArray.map((employee: any) => {
-                      // Calculate total hours for this employee this week
-                      const employeeShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) =>
-                        shift.userId === employee.id
-                      ) : [];
+                    {/* Employee color legend */}
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                      <span className="font-medium text-gray-500">Employees:</span>
+                      {assignableEmployees.map((emp: any) => {
+                        const color = getEmployeeColor(emp.id);
+                        return (
+                          <div key={emp.id} className="flex items-center gap-1">
+                            <div className={`w-3 h-3 rounded ${color.dot}`} />
+                            <span>{emp.name}</span>
+                          </div>
+                        );
+                      })}
+                      <span className="text-gray-400 ml-2">|</span>
+                      <div className="flex items-center gap-1 ml-1">
+                        <div className="w-4 h-3 rounded-sm opacity-40" style={{ backgroundImage: 'repeating-linear-gradient(135deg, transparent, transparent 2px, rgba(239,68,68,0.2) 2px, rgba(239,68,68,0.2) 4px)', backgroundColor: 'rgba(254,226,226,0.5)' }} />
+                        <span className="text-gray-400">= Unavailable</span>
+                      </div>
+                    </div>
 
-                      const totalHours = employeeShifts.reduce((sum: number, shift: any) => {
-                        if (!shift.startTime || !shift.endTime) return sum;
+                    {/* Weekly Hours Summary per Employee */}
+                    {(() => {
+                      const empHours = assignableEmployees.map((emp: any) => {
+                        const color = getEmployeeColor(emp.id);
+                        let totalMinutes = 0;
+                        const dailyMinutes: number[] = [];
 
-                        const [startHour, startMinute] = shift.startTime.split(':').map(Number);
-                        const [endHour, endMinute] = shift.endTime.split(':').map(Number);
+                        days.forEach((day) => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const empShifts = Array.isArray(rosterShifts) ? rosterShifts.filter((s: any) =>
+                            s.date === dateStr && s.userId === emp.id && (s.status === 'scheduled')
+                          ) : [];
+                          let dayMins = 0;
+                          empShifts.forEach((s: any) => {
+                            const [sh, sm] = s.startTime.split(':').map(Number);
+                            const [eh, em] = s.endTime.split(':').map(Number);
+                            let diff = (eh * 60 + em) - (sh * 60 + sm);
+                            if (diff < 0) diff += 24 * 60;
+                            dayMins += diff;
+                          });
+                          totalMinutes += dayMins;
+                          dailyMinutes.push(dayMins);
+                        });
 
-                        const startDecimal = startHour + startMinute / 60;
-                        const endDecimal = endHour + endMinute / 60;
-                        const duration = endDecimal - startDecimal;
-
-                        return sum + Math.max(0, duration);
-                      }, 0);
-
-                      // Check availability for each day of the week (AC-005-3)
-                      const weekStartDate = startOfWeek(currentDate, { weekStartsOn: 1 });
-                      const weekDays = Array.from({ length: 7 }, (_, i) => {
-                        const day = addDays(weekStartDate, i);
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        return getEmployeeAvailability(employee.id, dateStr);
+                        const totalHours = Math.round(totalMinutes / 60 * 10) / 10;
+                        return { emp, color, totalMinutes, totalHours, dailyMinutes };
                       });
 
-                      const unavailableDays = weekDays.filter(a => a === 'unavailable').length;
-                      const partialDays = weekDays.filter(a => a === 'partial').length;
-                      const availableDays = 7 - unavailableDays - partialDays;
-
-                      // Determine overall availability status
-                      const overallStatus = unavailableDays >= 5 ? 'unavailable'
-                        : unavailableDays > 0 || partialDays > 0 ? 'partial'
-                        : 'available';
-
-                      // Hours limit warning (AC-005-5)
-                      const isOvertime = totalHours > 40;
+                      const grandTotalMins = empHours.reduce((sum, e) => sum + e.totalMinutes, 0);
+                      const grandTotalHours = Math.round(grandTotalMins / 60 * 10) / 10;
 
                       return (
-                        <div
-                          key={employee.id}
-                          className={`flex items-center justify-between p-2 bg-white rounded border ${
-                            overallStatus === 'unavailable' ? 'border-red-200 bg-red-50' :
-                            overallStatus === 'partial' ? 'border-amber-200 bg-amber-50' :
-                            isOvertime ? 'border-orange-200' : ''
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            {/* Availability indicator (AC-005-3) */}
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                              overallStatus === 'unavailable' ? 'bg-red-100' :
-                              overallStatus === 'partial' ? 'bg-amber-100' :
-                              'bg-green-100'
-                            }`}>
-                              {overallStatus === 'unavailable' ? (
-                                <UserX className="h-3 w-3 text-red-600" />
-                              ) : overallStatus === 'partial' ? (
-                                <UserMinus className="h-3 w-3 text-amber-600" />
-                              ) : (
-                                <UserCheck className="h-3 w-3 text-green-600" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium flex items-center gap-1">
-                                {employee.name}
-                                {overallStatus !== 'available' && (
-                                  <span title={`${unavailableDays} day(s) unavailable`}>
-                                    <CalendarOff className="h-3 w-3 text-amber-500" />
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {availableDays}/7 days available
-                              </div>
-                            </div>
+                        <div className="mt-4 border rounded-lg overflow-hidden">
+                          <div className="bg-gray-50 px-3 py-2 border-b">
+                            <h4 className="text-sm font-semibold text-gray-700">Weekly Hours Summary</h4>
                           </div>
-                          <div className="text-right">
-                            <div className={`text-sm font-semibold ${isOvertime ? 'text-orange-600' : 'text-blue-600'}`}>
-                              {totalHours.toFixed(1)}h
-                              {isOvertime && <span className="ml-1" title="Overtime">⚠️</span>}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {employeeShifts.length} shifts
-                            </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b bg-gray-50">
+                                  <th className="text-left px-3 py-1.5 font-medium text-gray-600">Employee</th>
+                                  {days.map((day, i) => (
+                                    <th key={i} className="text-center px-2 py-1.5 font-medium text-gray-600">{format(day, 'EEE')}</th>
+                                  ))}
+                                  <th className="text-center px-3 py-1.5 font-semibold text-gray-800">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {empHours.map(({ emp, color, totalHours, dailyMinutes }) => (
+                                  <tr key={emp.id} className="border-b last:border-b-0 hover:bg-gray-50">
+                                    <td className="px-3 py-1.5 font-medium flex items-center gap-1.5">
+                                      <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                                      {emp.name}
+                                    </td>
+                                    {dailyMinutes.map((mins, i) => (
+                                      <td key={i} className={`text-center px-2 py-1.5 ${mins > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                        {mins > 0 ? `${Math.round(mins / 60 * 10) / 10}h` : '-'}
+                                      </td>
+                                    ))}
+                                    <td className="text-center px-3 py-1.5 font-bold text-gray-900">{totalHours}h</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="bg-gray-100 font-semibold">
+                                  <td className="px-3 py-1.5 text-gray-700">Total</td>
+                                  {days.map((day, i) => {
+                                    const dayTotal = empHours.reduce((sum, e) => sum + e.dailyMinutes[i], 0);
+                                    return (
+                                      <td key={i} className="text-center px-2 py-1.5 text-gray-700">
+                                        {dayTotal > 0 ? `${Math.round(dayTotal / 60 * 10) / 10}h` : '-'}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="text-center px-3 py-1.5 text-blue-700 font-bold">{grandTotalHours}h</td>
+                                </tr>
+                              </tfoot>
+                            </table>
                           </div>
                         </div>
                       );
-                    })}
-                    
-                    {/* Total Summary */}
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Total Week Hours</span>
-                        <span className="text-lg font-bold text-blue-600">
-                          {Array.isArray(rosterShifts) ? rosterShifts.reduce((sum: number, shift: any) => {
-                            if (!shift.startTime || !shift.endTime) return sum;
-                            
-                            const [startHour, startMinute] = shift.startTime.split(':').map(Number);
-                            const [endHour, endMinute] = shift.endTime.split(':').map(Number);
-                            
-                            const startDecimal = startHour + startMinute / 60;
-                            const endDecimal = endHour + endMinute / 60;
-                            const duration = endDecimal - startDecimal;
-                            
-                            return sum + Math.max(0, duration);
-                          }, 0).toFixed(1) : '0.0'}h
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Schedule Conflicts Panel */}
-                <div className="p-4 bg-red-50 rounded-lg">
-                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                    Schedule Conflicts
-                  </h4>
-                  <div className="space-y-2">
-                    {(() => {
-                      // Find all shifts with conflicts
-                      const shiftsWithConflicts = Array.isArray(rosterShifts) ? rosterShifts.filter((shift: any) => {
-                        const conflicts = checkForConflicts(
-                          shift.userId,
-                          shift.date,
-                          shift.startTime,
-                          shift.endTime,
-                          shift.id
-                        );
-                        return conflicts.length > 0;
-                      }) : [];
-
-                      if (shiftsWithConflicts.length === 0) {
-                        return (
-                          <div className="text-center py-4">
-                            <div className="text-green-600 text-sm">✅ No conflicts detected</div>
-                            <div className="text-xs text-gray-500 mt-1">All shifts are properly scheduled</div>
-                          </div>
-                        );
-                      }
-
-                      return shiftsWithConflicts.map((shift: any) => {
-                        const employee = employeeArray.find((emp: any) => emp.id === shift.userId);
-                        const conflicts = checkForConflicts(
-                          shift.userId,
-                          shift.date,
-                          shift.startTime,
-                          shift.endTime,
-                          shift.id
-                        );
-
-                        return (
-                          <div key={shift.id} className="p-2 bg-white rounded border border-red-200">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="text-xs font-medium text-red-900">
-                                  {employee?.name || 'Unknown Employee'}
-                                </div>
-                                <div className="text-xs text-red-700">
-                                  {format(parseISO(shift.date), 'EEE, MMM dd')} • {shift.startTime?.slice(0, 5)} - {shift.endTime?.slice(0, 5)}
-                                </div>
-                              </div>
-                              <div className="text-xs text-red-600">
-                                {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}
-                              </div>
-                            </div>
-                            <div className="mt-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-xs border-red-300 text-red-700 hover:bg-red-100"
-                                onClick={() => handleEditShift(shift)}
-                              >
-                                Resolve Conflict
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      });
                     })()}
-                  </div>
-                </div>
-
-                {/* Instructions */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="text-sm font-medium mb-3">How to Use Calendar</h4>
-                  <div className="text-xs text-gray-600 space-y-2">
-                    <div className="flex items-start space-x-2">
-                      <span className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center mt-0.5">
-                        <span className="text-blue-600 text-xs">+</span>
-                      </span>
-                      <div>
-                        <p className="font-medium">Click any time slot to create a shift</p>
-                        <p className="text-gray-500">Select employee and set shift details</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="w-4 h-4 bg-green-100 rounded flex items-center justify-center mt-0.5">
-                        <span className="text-green-600 text-xs">✏️</span>
-                      </span>
-                      <div>
-                        <p className="font-medium">Click shift blocks to edit</p>
-                        <p className="text-gray-500">Modify times, employee, or location</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="w-4 h-4 bg-red-100 rounded flex items-center justify-center mt-0.5">
-                        <span className="text-red-600 text-xs">🗑️</span>
-                      </span>
-                      <div>
-                        <p className="font-medium">Delete shifts with trash icon</p>
-                        <p className="text-gray-500">Removes shift from schedule</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-2 border-t border-gray-200">
-                      <p className="text-xs text-gray-500">
-                        <span className="font-medium">Time Range:</span> 7:00 AM - 11:00 PM daily
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>

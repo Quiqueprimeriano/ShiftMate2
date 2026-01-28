@@ -213,6 +213,20 @@ export function useDeleteRosterShift() {
   });
 }
 
+// Clear all roster shifts for a week
+export function useClearRosterWeek() {
+  return useMutation({
+    mutationFn: async ({ startDate, endDate }: { startDate: string; endDate: string }) => {
+      const response = await apiRequest("DELETE", `/api/roster/clear-week?startDate=${startDate}&endDate=${endDate}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/roster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
 // Copy roster from a source week to a target week (AC-005-7)
 export function useCopyRosterWeek() {
   return useMutation({

@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, User, X, LayoutDashboard, Calendar as CalendarIcon, Plus, FileText, List, DollarSign } from "lucide-react";
+import { Clock, User, X, LayoutDashboard, Calendar as CalendarIcon, CalendarDays, Plus, FileText, List, DollarSign } from "lucide-react";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -146,7 +146,7 @@ function BottomNav() {
     { path: "/", icon: LayoutDashboard, label: "Home" },
     { path: "/shifts", icon: List, label: "Shifts" },
     { path: "/add-shift", icon: Plus, label: "Add", isMain: true },
-    { path: "/calendar", icon: CalendarIcon, label: "Calendar" },
+    { path: "/my-roster", icon: CalendarDays, label: "Roster" },
     { path: "/my-earnings", icon: DollarSign, label: "Earnings" },
   ];
 

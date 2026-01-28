@@ -234,8 +234,8 @@ const WeeklyCalendarView = ({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Header with days */}
-      <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
-        <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200 w-16">
+      <div className="grid grid-cols-[3rem_repeat(7,1fr)] border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
+        <div className="p-1 text-xs text-slate-500 font-medium border-r border-slate-200">
           Time
         </div>
         {weekDates.map(date => {
@@ -266,37 +266,38 @@ const WeeklyCalendarView = ({
         })}
       </div>
 
-      {/* Time grid - column-based layout */}
-      <div className="flex overflow-y-auto max-h-[576px]">
-        {/* Time labels column */}
-        <div className="flex-shrink-0 w-16 bg-slate-50">
-          {hours.map(hour => (
-            <div
-              key={hour}
-              className="h-8 p-1 text-xs text-slate-500 font-medium border-r border-b border-slate-100"
-            >
-              {formatHour(hour)}
-            </div>
-          ))}
-        </div>
+      {/* Time grid - using same grid as header for alignment */}
+      <div className="overflow-y-auto max-h-[576px]">
+        <div className="grid grid-cols-[3rem_repeat(7,1fr)]">
+          {/* Time labels column */}
+          <div className="bg-slate-50">
+            {hours.map(hour => (
+              <div
+                key={hour}
+                className="h-8 p-1 text-xs text-slate-500 font-medium border-r border-b border-slate-100"
+              >
+                {formatHour(hour)}
+              </div>
+            ))}
+          </div>
 
-        {/* Day columns */}
-        {weekDates.map(date => {
-          const dateStr = formatDateLocal(date);
-          const dayShifts = shiftsByDate[dateStr] || [];
-          const dayTimeOff = timeOffByDate[dateStr] || [];
-          const isToday = dateStr === formatDateLocal(new Date());
-          const hasTimeOff = dayTimeOff.length > 0;
+          {/* Day columns */}
+          {weekDates.map(date => {
+            const dateStr = formatDateLocal(date);
+            const dayShifts = shiftsByDate[dateStr] || [];
+            const dayTimeOff = timeOffByDate[dateStr] || [];
+            const isToday = dateStr === formatDateLocal(new Date());
+            const hasTimeOff = dayTimeOff.length > 0;
 
-          return (
-            <div
-              key={dateStr}
-              className={`flex-1 relative border-r border-slate-200 last:border-r-0 ${
-                hasTimeOff
-                  ? 'bg-purple-50/50 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(147,51,234,0.05)_10px,rgba(147,51,234,0.05)_20px)]'
-                  : isToday ? 'bg-blue-50/30' : ''
-              }`}
-            >
+            return (
+              <div
+                key={dateStr}
+                className={`relative border-r border-slate-200 last:border-r-0 ${
+                  hasTimeOff
+                    ? 'bg-purple-50/50 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(147,51,234,0.05)_10px,rgba(147,51,234,0.05)_20px)]'
+                    : isToday ? 'bg-blue-50/30' : ''
+                }`}
+              >
               {/* Hour grid lines */}
               {hours.map(hour => (
                 <div
@@ -395,6 +396,7 @@ const WeeklyCalendarView = ({
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
@@ -484,7 +486,7 @@ const MobileAgendaView = ({
                       {hasTimeOff && (
                         <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-xs">
                           <CalendarOff className="h-3 w-3 mr-1" />
-                          {dayTimeOff[0].status === 'approved' ? 'Approved' : dayTimeOff[0].status === 'rejected' ? 'Rejected' : 'Pending'}
+                          Unavailable
                         </Badge>
                       )}
                       {dayShifts.length > 0 && !hasTimeOff && (
@@ -518,15 +520,9 @@ const MobileAgendaView = ({
                                 </span>
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs ${
-                                    request.status === 'approved'
-                                      ? 'bg-green-50 text-green-700 border-green-300'
-                                      : request.status === 'rejected'
-                                        ? 'bg-red-50 text-red-700 border-red-300'
-                                        : 'bg-amber-50 text-amber-700 border-amber-300'
-                                  }`}
+                                  className="text-xs bg-purple-50 text-purple-700 border-purple-300"
                                 >
-                                  {request.status === 'approved' ? 'Approved' : request.status === 'rejected' ? 'Rejected' : 'Pending'}
+                                  {request.isFullDay ? 'Full Day' : 'Partial'}
                                 </Badge>
                               </div>
                               <div className="text-sm text-purple-700 font-medium">
@@ -1395,40 +1391,10 @@ export default function MyRoster() {
                 </div>
               </div>
 
-              {/* Status indicator for existing requests */}
-              {editingTimeOff && (
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <div className="text-sm">
-                    <span className="text-slate-600">Status: </span>
-                    <Badge
-                      variant="outline"
-                      className={
-                        editingTimeOff.status === 'approved'
-                          ? 'bg-green-50 text-green-700 border-green-300'
-                          : editingTimeOff.status === 'rejected'
-                            ? 'bg-red-50 text-red-700 border-red-300'
-                            : 'bg-amber-50 text-amber-700 border-amber-300'
-                      }
-                    >
-                      {editingTimeOff.status === 'approved'
-                        ? 'Approved'
-                        : editingTimeOff.status === 'rejected'
-                          ? 'Rejected'
-                          : 'Pending'}
-                    </Badge>
-                  </div>
-                  {editingTimeOff.rejectionReason && (
-                    <div className="mt-2 text-sm text-red-600">
-                      <span className="font-medium">Rejection reason: </span>
-                      {editingTimeOff.rejectionReason}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             <DialogFooter className="flex-col sm:flex-row gap-2">
-              {editingTimeOff && editingTimeOff.status === 'pending' && (
+              {editingTimeOff && (
                 <Button
                   variant="destructive"
                   onClick={handleDeleteTimeOff}
@@ -1454,8 +1420,7 @@ export default function MyRoster() {
                 disabled={
                   createTimeOff.isPending ||
                   updateTimeOff.isPending ||
-                  selectedDates.length === 0 ||
-                  !!(editingTimeOff && editingTimeOff.status !== 'pending')
+                  selectedDates.length === 0
                 }
               >
                 {createTimeOff.isPending || updateTimeOff.isPending
